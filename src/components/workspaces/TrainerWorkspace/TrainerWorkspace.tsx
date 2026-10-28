@@ -36,7 +36,7 @@ export const TrainerWorkspace: React.FC = () => {
   const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
 
   return (
-    <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-hidden">
+    <section className="flex-1 min-h-[650px] lg:min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-hidden">
       <TrainerBanner />
       <TrainerToolbar />
 
