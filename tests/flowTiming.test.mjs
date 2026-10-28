@@ -14,7 +14,7 @@ test('flow deadlines follow note lengths and BPM', () => {
 
 test('metronome measure accents use real onset, not every fourth note', () => {
   const notes = [{ durMultiplier: 2 }, { durMultiplier: 2 }, { durMultiplier: 0.5 },
-    { durMultiplier: 0.5 }, { durMultiplier: 1 }, { durMultiplier: 4 }];
+    { durMultiplier: 0.5 }, { durMultiplier: 3 }, { durMultiplier: 4 }];
   assert.deepEqual(notes.map((_, i) => startsMeasure(notes, i)),
     [true, false, true, false, false, true]);
   assert.equal(startsMeasure(notes, -1), false);
