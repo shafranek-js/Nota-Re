@@ -110,7 +110,7 @@ export const LabWorkspace: React.FC = () => {
                   onClick={() => handleLoadHanon(h.type)}
                   className={`w-full text-left cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 ${h.borderCol} rounded-xl p-4 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <span className={`font-bold text-sm ${h.textCol}`}>{h.title}</span>
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
                       {h.badge}
