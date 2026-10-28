@@ -15,6 +15,7 @@ class AudioEngine {
   private ctx: AudioContext | null = null;
   private isAudioEnabled: boolean = true;
   private previewQueue: AudioClockQueue | null = null;
+  private previewUsesSoundFont = false;
   private activeMetronomeStops = new Set<() => void>();
   private piano = new SoundFontPiano();
   private liveVoices = new Map<string, LiveMidiVoice>();
@@ -95,7 +96,12 @@ class AudioEngine {
     }
 
     if (this.sustainChannels.has(channel)) this.piano.sustain(channel, 127);
-    if (this.piano.noteOn(context, channel, note, velocity)) {
+    // Preview samples occupy channel 15. During a demo, a physical note
+    // on that same channel uses its own oscillator voice rather than
+    // competing for the same SoundFont note-off state.
+    const previewCollision = channel === 15 &&
+      this.previewUsesSoundFont && this.previewQueue?.isPlaying;
+    if (!previewCollision && this.piano.noteOn(context, channel, note, velocity)) {
       this.liveVoices.set(key, { kind: 'soundfont', released: false });
       return;
     }
@@ -196,6 +202,7 @@ class AudioEngine {
   public clearPreviewTimeouts(): void {
     this.previewQueue?.stop();
     this.previewQueue = null;
+    this.previewUsesSoundFont = false;
   }
 
   private scheduleFallbackPreview(
@@ -241,8 +248,11 @@ class AudioEngine {
     if (!context) return;
     // Use one timbre for an entire preview even when the bank completes
     // loading halfway through it.
+    const hardwareChannel16Held = [...this.liveVoices.keys()]
+      .some(key => key.startsWith('15:'));
     const sampleReady = this.piano.getStatus().phase === 'ready' &&
-      this.piano.getStatus().output === 'soundfont';
+      this.piano.getStatus().output === 'soundfont' && !hardwareChannel16Held;
+    this.previewUsesSoundFont = sampleReady;
     const queue = new AudioClockQueue(
       () => context.currentTime,
       (tone, time) => {
