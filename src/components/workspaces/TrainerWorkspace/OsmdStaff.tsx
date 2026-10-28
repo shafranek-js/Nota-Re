@@ -19,6 +19,26 @@ const collectionNames: Record<string, string> = {
   both: 'Две руки (Буква «Г»)'
 };
 
+function positionCursorAtTicks(renderer: OpenSheetMusicDisplay, onsetTicks: number): void {
+  const cursor = renderer.cursor;
+  const targetTime = onsetTicks / 16; // OSMD timestamps are fractions of a whole note
+  cursor.reset();
+  let steps = 0;
+  while (!cursor.Iterator.EndReached &&
+         cursor.Iterator.currentTimeStamp.RealValue + 0.000001 < targetTime &&
+         steps < 512) {
+    cursor.next();
+    steps++;
+  }
+  cursor.show();
+}
+
+function currentOnsetTicks(): number {
+  const { activeExerciseNotes, activeNoteIndex } = useAppStore.getState();
+  return activeExerciseNotes.slice(0, activeNoteIndex)
+    .reduce((sum, note) => sum + note.durMultiplier * 4, 0);
+}
+
 interface OsmdStaffProps {
   onRequestLegacy: () => void;
 }
@@ -80,8 +100,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
         if (!cancelled) {
           setLoadState('ready');
           osmdRef.current = renderer;
-          renderer.cursor.reset();
-          renderer.cursor.show();
+          positionCursorAtTicks(renderer, currentOnsetTicks());
         }
       } catch (error) {
         if (!cancelled) {
@@ -156,18 +175,8 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
 
   useEffect(() => {
     if (loadState !== 'ready' || !osmdRef.current) return;
-    const cursor = osmdRef.current.cursor;
-    const targetTime = onsetTicks / 16; // OSMD timestamps are fractions of a whole note
     try {
-      cursor.reset();
-      let steps = 0;
-      while (!cursor.Iterator.EndReached &&
-             cursor.Iterator.currentTimeStamp.realValue + 0.000001 < targetTime &&
-             steps < 512) {
-        cursor.next();
-        steps++;
-      }
-      cursor.show();
+      positionCursorAtTicks(osmdRef.current, onsetTicks);
     } catch (error) {
       console.warn('OSMD cursor positioning failed', error);
     }
