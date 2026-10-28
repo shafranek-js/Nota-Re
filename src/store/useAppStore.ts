@@ -3,6 +3,7 @@ import { AppMode, ExerciseNote, FilterType, HanonType, SpeechType, TonalityKey }
 import { COURSE_CURRICULUM } from '../data/curriculum';
 import { audioEngine } from '../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../data/notes';
+import { noteDurationMs, startsMeasure, evaluateLessonCredit } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
@@ -23,6 +24,7 @@ export interface AppState {
   // Курс
   selectedLessonId: number;
   completedLessons: number[];
+  activeLessonId: number | null;
 
   // Настройки тренажёра
   currentAppMode: AppMode;
@@ -60,6 +62,7 @@ export interface AppState {
   noteShownTimestamp: number;
   // Assisted/imagined steps cannot be used as evidence for course certification.
   isExerciseAssisted: boolean;
+  isExerciseFlawless: boolean;
 
   // Методы управления
   initApp: () => () => void;
@@ -97,7 +100,59 @@ export interface AppState {
 }
 
 let photoTimerId: number | null = null;
-let flowIntervalId: number | null = null;
+let flowTimeoutId: number | null = null;
+let flowEpoch = 0;
+
+function stopFlowClock(): void {
+  ++flowEpoch;
+  if (flowTimeoutId !== null) window.clearTimeout(flowTimeoutId);
+  flowTimeoutId = null;
+}
+
+function armFlowClock(get: () => AppState): void {
+  stopFlowClock();
+  const state = get();
+  if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
+  const note = state.activeExerciseNotes[state.activeNoteIndex];
+  if (!note) return;
+  const epoch = flowEpoch;
+  audioEngine.playMetronomeClick(startsMeasure(state.activeExerciseNotes, state.activeNoteIndex));
+  flowTimeoutId = window.setTimeout(() => {
+    if (flowEpoch !== epoch) return;
+    flowTimeoutId = null;
+    get().advanceFlowStep();
+  }, noteDurationMs(note, state.bpm));
+}
+
+function finishExercise(
+  get: () => AppState,
+  set: (patch: Partial<AppState>) => void
+): void {
+  const state = get();
+  const lesson = COURSE_CURRICULUM.find(item => item.id === state.activeLessonId);
+  const result = evaluateLessonCredit({
+    clean: state.isExerciseFlawless,
+    assisted: state.isExerciseAssisted,
+    completedBefore: state.completedExercisesCount,
+    targetRepetitions: lesson?.normReps ?? Infinity,
+    totalAttempts: state.totalAttempts,
+    correctHits: state.correctHits,
+    reactionTimes: state.reactionTimes,
+    requiredAccuracy: lesson?.normAcc ?? 100,
+    maximumReactionMs: lesson?.normSpeed ?? 0,
+    lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId)
+  });
+
+  set({ completedExercisesCount: result.creditedRepetitions });
+  if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
+    const completedLessons = [...state.completedLessons, lesson.id];
+    saveCourseProgressToStorage(completedLessons);
+    set({ completedLessons });
+  }
+
+  stopFlowClock();
+  get().regenerateExercise();
+}
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
@@ -105,6 +160,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   selectedLessonId: 1,
   completedLessons: [],
+  activeLessonId: null,
 
   currentAppMode: 'reflex',
   currentFilter: 'treble',
@@ -137,6 +193,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeNoteIndex: 0,
   noteShownTimestamp: performance.now(),
   isExerciseAssisted: false,
+  isExerciseFlawless: true,
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
@@ -179,7 +236,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchWorkspace: (tab) => {
-    set({ currentWorkspace: tab });
+    // No hidden metronome deadlines or missed answers while reading the course.
+    if (tab !== 'trainer') stopFlowClock();
+    set(state => ({
+      currentWorkspace: tab,
+      isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
+      activeLessonId: tab === 'trainer' ? state.activeLessonId : null
+    }));
   },
 
   toggleSettingsDrawer: () => {
@@ -219,6 +282,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   startActiveLessonInTrainer: () => {
+    stopFlowClock();
     const { selectedLessonId } = get();
     const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
     
@@ -233,14 +297,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       showBassLandmarks: lesson.preset.bassLandmarks,
       isContinuousFlow: lesson.preset.flow,
       currentAppMode: lesson.preset.mode,
-      currentWorkspace: 'trainer'
+      currentWorkspace: 'trainer',
+      activeLessonId: lesson.id,
+      isTabletopMode: false
     });
 
+    // regenerateExercise arms one deadline when the preset requests flow;
+    // never flip an already explicitly assigned boolean.
     get().regenerateExercise();
-
-    if (lesson.preset.flow) {
-      get().toggleContinuousFlow();
-    }
   },
 
   goToNextLessonAndStart: () => {
@@ -254,114 +318,107 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setAppMode: (mode) => {
-    set({ currentAppMode: mode });
+    set({ currentAppMode: mode, activeLessonId: null });
     get().regenerateExercise();
   },
 
   setClefFilter: (filter) => {
-    set({ currentFilter: filter });
+    set({ currentFilter: filter, activeLessonId: null });
     get().regenerateExercise();
   },
 
   changeTonality: (tonality) => {
-    set({ currentTonality: tonality });
+    set({ currentTonality: tonality, activeLessonId: null });
     get().regenerateExercise();
   },
 
   setHanonType: (type) => {
-    set({ currentHanonType: type });
+    set({ currentHanonType: type, activeLessonId: null });
     get().regenerateExercise();
   },
 
   setSpeechSuppressor: (speech) => {
-    set({ speechSuppressor: speech });
+    set({ speechSuppressor: speech, activeLessonId: null });
   },
 
   cycleSpeechSuppressor: () => {
     const modes: SpeechType[] = ['count', 'tata', 'syllables', 'solfege'];
     const { speechSuppressor } = get();
     const nextIdx = (modes.indexOf(speechSuppressor) + 1) % modes.length;
-    set({ speechSuppressor: modes[nextIdx] });
+    set({ speechSuppressor: modes[nextIdx], activeLessonId: null });
   },
 
   toggleScoreDensity: () => {
     const nextCount = get().scoreNoteCount === 16 ? 8 : 16;
-    set({ scoreNoteCount: nextCount });
+    set({ scoreNoteCount: nextCount, activeLessonId: null });
     get().regenerateExercise();
   },
 
   setBpm: (bpm) => {
-    set({ bpm });
-    if (get().isContinuousFlow) {
-      if (flowIntervalId) clearInterval(flowIntervalId);
-      const intervalMs = (60 / bpm) * 1000;
-      flowIntervalId = window.setInterval(() => {
-        get().advanceFlowStep();
-      }, intervalMs);
-    }
+    set({ bpm, activeLessonId: null, noteShownTimestamp: performance.now() });
+    if (get().isContinuousFlow) armFlowClock(get);
   },
 
   toggleContinuousFlow: () => {
-    const nextState = !get().isContinuousFlow;
-    set({ isContinuousFlow: nextState });
-
-    if (flowIntervalId) {
-      clearInterval(flowIntervalId);
-      flowIntervalId = null;
-    }
-
-    if (nextState) {
-      const { bpm } = get();
-      const intervalMs = (60 / bpm) * 1000;
-      flowIntervalId = window.setInterval(() => {
-        get().advanceFlowStep();
-      }, intervalMs);
-    }
+    const enabled = !get().isContinuousFlow;
+    set({
+      isContinuousFlow: enabled,
+      activeLessonId: null,
+      noteShownTimestamp: performance.now()
+    });
+    if (enabled) armFlowClock(get);
+    else stopFlowClock();
   },
 
   advanceFlowStep: () => {
-    const { activeNoteIndex, activeExerciseNotes, bpm } = get();
-    const isStrongBeat = activeNoteIndex % 4 === 0;
-    audioEngine.playMetronomeClick(isStrongBeat);
-
+    const state = get();
+    if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
+    const { activeNoteIndex, activeExerciseNotes } = state;
     const target = activeExerciseNotes[activeNoteIndex];
-    if (target) {
-      target.status = 'missed';
-    }
+    if (!target) return;
+    stopFlowClock();
 
-    const nextIdx = activeNoteIndex + 1;
-    if (nextIdx >= activeExerciseNotes.length) {
-      set((s) => ({
-        completedExercisesCount: s.completedExercisesCount + 1,
-        activeNoteIndex: 0
-      }));
-      get().regenerateExercise();
-    } else {
-      activeExerciseNotes[nextIdx].status = 'current';
-      set({ 
-        activeNoteIndex: nextIdx,
-        noteShownTimestamp: performance.now()
-      });
-      if (get().currentAppMode === 'photo') {
-        const prevBar = Math.floor(activeNoteIndex / 4);
-        const newBar = Math.floor(nextIdx / 4);
-        if (newBar !== prevBar) {
-          get().triggerPhotoFlash();
-        }
-      }
+    // A note advances when its *musical duration* ends. Correct/wrong input
+    // marks the current slot but cannot accelerate the rhythmic grid.
+    const unanswered = target.status !== 'done' && target.status !== 'missed';
+    const nextIndex = activeNoteIndex + 1;
+    const nextNotes = activeExerciseNotes.map((note, index) =>
+      index === activeNoteIndex && unanswered ? { ...note, status: 'missed' as const }
+        : index === nextIndex ? { ...note, status: 'current' as const }
+        : note
+    );
+    set({
+      activeExerciseNotes: nextNotes,
+      totalAttempts: state.totalAttempts + (unanswered ? 1 : 0),
+      currentStreak: unanswered ? 0 : state.currentStreak,
+      completedExercisesCount: unanswered ? 0 : state.completedExercisesCount,
+      isExerciseFlawless: state.isExerciseFlawless && !unanswered,
+      lastKeyResult: null
+    });
+
+    if (nextIndex >= activeExerciseNotes.length) {
+      finishExercise(get, patch => set(patch));
+      return;
     }
+    set({ activeNoteIndex: nextIndex, noteShownTimestamp: performance.now() });
+    if (get().currentAppMode === 'photo' &&
+        Math.floor(activeExerciseNotes.slice(0, nextIndex).reduce((sum,n) => sum+n.durMultiplier,0) / 4) !==
+        Math.floor(activeExerciseNotes.slice(0, activeNoteIndex).reduce((sum,n) => sum+n.durMultiplier,0) / 4)) {
+      get().triggerPhotoFlash();
+    }
+    armFlowClock(get);
   },
 
   toggleBlindfoldKeys: () => {
-    set((s) => ({ isBlindfolded: !s.isBlindfolded }));
+    set((s) => ({ isBlindfolded: !s.isBlindfolded, activeLessonId: null }));
   },
 
   toggleTabletopMode: () => {
-    set((s) => ({ isTabletopMode: !s.isTabletopMode }));
+    set((s) => ({ isTabletopMode: !s.isTabletopMode, activeLessonId: null }));
   },
 
   toggleBassLandmarks: () => {
-    set((s) => ({ showBassLandmarks: !s.showBassLandmarks }));
+    set((s) => ({ showBassLandmarks: !s.showBassLandmarks, activeLessonId: null }));
   },
 
   toggleScaleHighlight: () => {
@@ -421,8 +478,10 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeNoteIndex: 0,
       noteShownTimestamp: performance.now(),
       isPhotoMasked: false,
-      isExerciseAssisted: false
+      isExerciseAssisted: false,
+      isExerciseFlawless: true
     });
+    armFlowClock(get);
 
     if (currentAppMode === 'photo') {
       get().triggerPhotoFlash();
@@ -438,16 +497,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     target.status = 'done';
     const nextIndex = activeNoteIndex + 1;
     if (nextIndex >= activeExerciseNotes.length) {
-      set({ isExerciseAssisted: true });
-      window.setTimeout(() => get().regenerateExercise(), 160);
+      set({ isExerciseAssisted: true, isExerciseFlawless: false, completedExercisesCount: 0 });
+      window.setTimeout(() => {
+        if (get().activeExerciseNotes === activeExerciseNotes) get().regenerateExercise();
+      }, 160);
       return;
     }
     activeExerciseNotes[nextIndex].status = 'current';
     set({
       activeNoteIndex: nextIndex,
       noteShownTimestamp: performance.now(),
-      isExerciseAssisted: true
+      isExerciseAssisted: true,
+      isExerciseFlawless: false,
+      completedExercisesCount: 0
     });
+    if (get().isContinuousFlow) armFlowClock(get);
     if (get().currentAppMode === 'photo' &&
         Math.floor(nextIndex / 4) !== Math.floor(activeNoteIndex / 4)) {
       get().triggerPhotoFlash();
@@ -459,8 +523,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeExerciseNotes, 
       activeNoteIndex, 
       noteShownTimestamp, 
-      selectedLessonId,
-      completedLessons,
       isContinuousFlow
     } = get();
 
@@ -472,15 +534,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     const played = MIDI_NOTE_MAP[noteName];
     if (played && !fromMidi) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
 
-    const isCorrect = noteName === target.noteName;
+    // The first strike consumes the current rhythmic slot. Repeated strikes
+    // are audible but may not generate extra attempts or move the cursor.
+    if (isContinuousFlow && target.status !== 'current') return;
+
     const rt = Math.round(performance.now() - noteShownTimestamp);
+    // A keypress delivered after its musical deadline must never count as
+    // correct merely because the JS timer callback was queued behind it.
+    const isLate = isContinuousFlow && rt >= noteDurationMs(target, get().bpm);
+    const isCorrect = noteName === target.noteName && !isLate;
 
     set((s) => {
       const newTotal = s.totalAttempts + 1;
       const newCorrect = isCorrect ? s.correctHits + 1 : s.correctHits;
       const newStreak = isCorrect ? s.currentStreak + 1 : 0;
       const newBestStreak = Math.max(s.bestStreak, newStreak);
-      const newReactionTimes = (isCorrect && rt > 40 && rt < 6000) 
+      const newReactionTimes = (isCorrect && Number.isFinite(rt) && rt >= 0) 
         ? [...s.reactionTimes, rt] 
         : s.reactionTimes;
 
@@ -491,7 +560,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         bestStreak: newBestStreak,
         reactionTimes: newReactionTimes,
         lastTriggeredNote: noteName,
-        lastKeyResult: { noteName, isCorrect }
+        lastKeyResult: { noteName, isCorrect },
+        isExerciseFlawless: s.isExerciseFlawless && isCorrect,
+        completedExercisesCount: !isCorrect ? 0 : s.completedExercisesCount
       };
     });
 
@@ -500,6 +571,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ lastKeyResult: null });
     }, 150);
 
+    if (isContinuousFlow) {
+      const status = isCorrect ? 'done' as const : 'missed' as const;
+      set({
+        activeExerciseNotes: activeExerciseNotes.map((note, index) =>
+          index === activeNoteIndex ? { ...note, status } : note)
+      });
+      // The existing deadline stays armed until the actual note boundary.
+      return;
+    }
+
     if (isCorrect) {
       target.status = 'done';
       const prevBar = Math.floor(activeNoteIndex / 4);
@@ -507,58 +588,15 @@ export const useAppStore = create<AppState>((set, get) => ({
       const newBar = Math.floor(nextIdx / 4);
 
       if (nextIdx >= activeExerciseNotes.length) {
-        // A partly assisted exercise is never included in the certificate
-        // count, even if its last note was answered correctly without help.
-        const nextCompletedEx = get().completedExercisesCount + (get().isExerciseAssisted ? 0 : 1);
-        if (!get().isExerciseAssisted) {
-          set({ completedExercisesCount: nextCompletedEx });
-        }
-
-        // Проверка сдачи норматива урока курса
-        const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId);
-        if (lesson) {
-          const { totalAttempts, correctHits, reactionTimes } = get();
-          const acc = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
-          const avgSpeed = reactionTimes.length > 0
-            ? Math.round(reactionTimes.slice(-15).reduce((a, b) => a + b, 0) / Math.min(15, reactionTimes.length))
-            : 500;
-
-          if (!get().isExerciseAssisted &&
-              totalAttempts > 0 && reactionTimes.length > 0 &&
-              nextCompletedEx >= lesson.normReps && acc >= lesson.normAcc && avgSpeed <= lesson.normSpeed) {
-            if (!completedLessons.includes(lesson.id)) {
-              const updated = [...completedLessons, lesson.id];
-              saveCourseProgressToStorage(updated);
-              set({ completedLessons: updated });
-            }
-          }
-        }
-
-        window.setTimeout(() => get().regenerateExercise(), 160);
+        finishExercise(get, patch => set(patch));
       } else {
         activeExerciseNotes[nextIdx].status = 'current';
         set({
           activeNoteIndex: nextIdx,
           noteShownTimestamp: performance.now()
         });
-
         if (get().currentAppMode === 'photo' && newBar !== prevBar) {
           get().triggerPhotoFlash();
-        }
-      }
-    } else {
-      if (isContinuousFlow) {
-        target.status = 'missed';
-        const nextIdx = activeNoteIndex + 1;
-        if (nextIdx >= activeExerciseNotes.length) {
-          set((s) => ({ completedExercisesCount: s.completedExercisesCount + 1 }));
-          window.setTimeout(() => get().regenerateExercise(), 160);
-        } else {
-          activeExerciseNotes[nextIdx].status = 'current';
-          set({
-            activeNoteIndex: nextIdx,
-            noteShownTimestamp: performance.now()
-          });
         }
       }
     }

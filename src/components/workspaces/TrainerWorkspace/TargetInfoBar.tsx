@@ -36,7 +36,7 @@ export const TargetInfoBar: React.FC = () => {
           </span>
         )}
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ЦЕЛЬ: <strong className="text-sky-400 font-mono">{target?.noteName || '—'}</strong>
+          ЦЕЛЬ: <strong data-testid="active-target-note" className="text-sky-400 font-mono">{target?.noteName || '—'}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
           ИНТЕРВАЛ: <strong className="text-indigo-400 font-mono">{intervalInfo.name}</strong>
