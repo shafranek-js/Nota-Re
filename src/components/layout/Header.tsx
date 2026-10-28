@@ -24,11 +24,11 @@ export const Header: React.FC = () => {
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
-  const accuracy = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
+  const accuracy = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : null;
   const recentSpeeds = reactionTimes.slice(-15);
-  const avgSpeed = recentSpeeds.length > 0 
-    ? Math.round(recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length) 
-    : 0;
+  const avgSpeed = recentSpeeds.length > 0
+    ? Math.round(recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length)
+    : null;
 
   const modeLabels: Record<string, string> = {
     reflex: 'Рефлекс',
@@ -107,7 +107,7 @@ export const Header: React.FC = () => {
         <div className="hidden xl:flex items-center gap-2.5 bg-slate-950/90 border border-slate-800 px-3 py-1 rounded-lg text-xs">
           <div className="flex items-center gap-1" title="Точность попаданий в текущей сессии">
             <span className="text-slate-500">Точность:</span>
-            <span className="font-mono font-bold text-emerald-400">{accuracy}%</span>
+            <span className="font-mono font-bold text-emerald-400">{accuracy === null ? '—' : `${accuracy}%`}</span>
             <span className="text-[10px] text-slate-500">({totalAttempts})</span>
           </div>
           <div className="w-px h-3.5 bg-slate-800"></div>
@@ -119,7 +119,7 @@ export const Header: React.FC = () => {
           <div className="w-px h-3.5 bg-slate-800"></div>
           <div className="flex items-center gap-1" title="Средняя скорость реакции (порог автоматизма < 550 мс)">
             <span className="text-slate-500">Отклик:</span>
-            <span className="font-mono font-bold text-amber-400">{avgSpeed} ms</span>
+            <span className="font-mono font-bold text-amber-400">{avgSpeed === null ? '—' : `${avgSpeed} ms`}</span>
           </div>
           <div className="w-px h-3.5 bg-slate-800"></div>
           <div className="flex items-center gap-1" title="Сыграно однотипных номеров в серии">
