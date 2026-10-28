@@ -12,13 +12,13 @@ export interface TrainerPreferences {
   currentTonality: TonalityKey;
   currentHanonType: HanonType;
   speechSuppressor: SpeechType;
-  scoreNoteCount: 8 | 16;
+  scoreNoteCount: number;
   bpm: number;
   isBlindfolded: boolean;
   isTabletopMode: boolean;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
-  photoExposureMs: 1100 | 1800 | 2400;
+  photoExposureMs: number;
   audioEnabled: boolean;
 }
 
