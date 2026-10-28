@@ -13,6 +13,22 @@ export function noteDurationMs(note: FlowNote, bpm: number): number {
   return Math.max(1, Math.round(60000 * note.durMultiplier / bpm));
 }
 
+/**
+ * Absolute clock deadlines do not drift when a JavaScript wake-up is late.
+ * Callers should carry the previous deadline forward to the next note onset.
+ */
+export function nextAudioDeadline(startAudioTime: number, note: FlowNote, bpm: number): number {
+  if (!Number.isFinite(startAudioTime) || startAudioTime < 0) throw new Error('Invalid audio time');
+  return startAudioTime + noteDurationMs(note, bpm) / 1000;
+}
+
+export function remainingAudioMs(nowAudioTime: number, deadlineAudioTime: number): number {
+  if (!Number.isFinite(nowAudioTime) || !Number.isFinite(deadlineAudioTime)) {
+    throw new Error('Invalid audio clock');
+  }
+  return Math.max(0, Math.round((deadlineAudioTime - nowAudioTime) * 1000));
+}
+
 /** True when this note starts on a measure boundary of 4 quarter beats. */
 export function startsMeasure(notes: readonly FlowNote[], index: number): boolean {
   if (index < 0 || index >= notes.length) return false;
