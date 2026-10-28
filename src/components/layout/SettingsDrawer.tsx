@@ -3,6 +3,7 @@ import { useAppStore } from '../../store/useAppStore';
 import { FilterType, HanonType, SpeechType } from '../../types/music';
 import { X } from 'lucide-react';
 import { audioEngine } from '../../core/audio/AudioEngine';
+import { HardwareMidiCheck } from './HardwareMidiCheck';
 
 export const SettingsDrawer: React.FC = () => {
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
@@ -217,6 +218,7 @@ export const SettingsDrawer: React.FC = () => {
                 и хвосты затухания не входят в число отслеживаемых голосов.
                 Сырые MIDI-ноты и идентификаторы устройств не сохраняются.
               </p>
+              <HardwareMidiCheck />
               <button
                 type="button"
                 onClick={() => audioEngine.resetMidiAudioDiagnostics()}
