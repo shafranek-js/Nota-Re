@@ -121,6 +121,16 @@ export class SoundFontPiano {
     return this.loading;
   }
 
+  private async waitForChannels(synth: WorkletSynthesizer, count: number): Promise<void> {
+    const expires = performance.now() + 3000;
+    while (synth.midiChannels.length < count) {
+      if (performance.now() > expires) {
+        throw new Error('SoundFont worklet did not initialize its MIDI channels.');
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 15));
+    }
+  }
+
   private async activate(data: ArrayBuffer, context: AudioContext, generation: number): Promise<void> {
     if (this.generation !== generation) return;
     await context.audioWorklet.addModule(workletUrl());
@@ -131,6 +141,7 @@ export class SoundFontPiano {
     try {
       await next.soundBankManager.addSoundBank(data, 'main');
       await next.isReady;
+      await this.waitForChannels(next, 16);
       if (this.generation !== generation) { next.destroy(); return; }
       // Keep acoustic piano selected on melodic channels. GM channel 10
       // (zero-based 9) remains percussion by standard convention.
@@ -140,6 +151,8 @@ export class SoundFontPiano {
       // Keep reference/demo playback on its own virtual channel; it must
       // never steal or silence the physical MIDI controller's 16 channels.
       next.addNewChannel();
+      await this.waitForChannels(next, 17);
+      if (this.generation !== generation) { next.destroy(); return; }
       next.programChange(16, 0);
       const previous = this.synth;
       this.stopAll();
