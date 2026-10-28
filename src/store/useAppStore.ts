@@ -355,13 +355,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setBpm: (bpm) => {
-    set({ bpm, activeLessonId: null });
+    set({ bpm, activeLessonId: null, noteShownTimestamp: performance.now() });
     if (get().isContinuousFlow) armFlowClock(get);
   },
 
   toggleContinuousFlow: () => {
     const enabled = !get().isContinuousFlow;
-    set({ isContinuousFlow: enabled, activeLessonId: null });
+    set({
+      isContinuousFlow: enabled,
+      activeLessonId: null,
+      noteShownTimestamp: performance.now()
+    });
     if (enabled) armFlowClock(get);
     else stopFlowClock();
   },
@@ -519,8 +523,6 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeExerciseNotes, 
       activeNoteIndex, 
       noteShownTimestamp, 
-      selectedLessonId,
-      completedLessons,
       isContinuousFlow
     } = get();
 
@@ -593,8 +595,6 @@ export const useAppStore = create<AppState>((set, get) => ({
           activeNoteIndex: nextIdx,
           noteShownTimestamp: performance.now()
         });
-        if (isContinuousFlow) armFlowClock(get);
-
         if (get().currentAppMode === 'photo' && newBar !== prevBar) {
           get().triggerPhotoFlash();
         }
