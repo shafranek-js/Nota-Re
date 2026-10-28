@@ -117,6 +117,8 @@ export class AudioClockQueue {
     this.tickTimer = setInterval(() => this.pump(), 25);
   }
 
+  get isPlaying(): boolean { return this.tickTimer !== null; }
+
   pump(): void {
     const current = this.now();
     while (this.position < this.events.length &&
