@@ -1,0 +1,2691 @@
+<!DOCTYPE html>
+<html lang="ru" class="dark">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>NotaRe Academy & Studio v3.0 — Интерактивный курс и тренажёр чтения с листа</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@500;600;700&display=swap" rel="stylesheet">
+  <style>
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Inter', sans-serif;
+      background-color: #060a12;
+      color: #f1f5f9;
+      user-select: none;
+      overflow: hidden;
+      height: 100vh;
+      width: 100vw;
+    }
+    .font-mono { font-family: 'JetBrains Mono', monospace; }
+
+    /* Полноширинная адаптивная клавиатура */
+    .piano-white-key {
+      transition: background-color 0.06s ease, transform 0.06s ease, box-shadow 0.06s ease;
+      box-shadow: inset 0 -5px 0 #cbd5e1, 0 2px 4px rgba(0,0,0,0.45);
+    }
+    .piano-white-key:active, .piano-white-key.key-active {
+      background-color: #6ee7b7 !important;
+      transform: translateY(2px);
+      box-shadow: inset 0 -2px 0 #059669;
+    }
+    .piano-white-key.key-error {
+      background-color: #fda4af !important;
+      transform: translateY(2px);
+    }
+    .piano-white-key.key-scale-hint {
+      background-color: #e0f2fe;
+    }
+    .piano-black-key {
+      transition: background-color 0.06s ease, transform 0.06s ease;
+      background: linear-gradient(180deg, #1e293b 0%, #090d16 100%);
+      box-shadow: inset 0 -4px 0 #020617, 0 4px 8px rgba(0,0,0,0.75);
+    }
+    .piano-black-key:active, .piano-black-key.key-active {
+      background: #10b981 !important;
+      transform: translateY(2px);
+    }
+    .piano-black-key.key-error {
+      background: #f43f5e !important;
+      transform: translateY(2px);
+    }
+    .piano-black-key.key-scale-hint {
+      border: 2px solid #38bdf8;
+    }
+
+    /* Тактильная ширма: скрывает подписи белых клавиш и выделяет группы из 2 и 3 чёрных клавиш */
+    .blind-mode .piano-white-key span {
+      opacity: 0 !important;
+    }
+    .blind-mode .piano-white-key {
+      background-color: #0f172a !important;
+      border-color: #1e293b !important;
+      box-shadow: inset 0 -4px 0 #020617 !important;
+    }
+    .blind-mode .piano-black-key {
+      background: #1e293b !important;
+      border: 2px solid #f59e0b !important;
+      box-shadow: 0 0 14px rgba(245, 158, 11, 0.4) !important;
+    }
+    .blind-mode .piano-black-key span {
+      opacity: 0 !important;
+    }
+
+    .custom-scroll::-webkit-scrollbar { width: 6px; height: 6px; }
+    .custom-scroll::-webkit-scrollbar-track { background: #090d16; }
+    .custom-scroll::-webkit-scrollbar-thumb { background: #334155; border-radius: 3px; }
+  </style>
+</head>
+<body class="h-screen w-screen overflow-hidden flex flex-col bg-[#060a12] text-slate-100">
+
+  <!-- ==================== 1. ШАПКА НА ВСЮ ШИРИНУ ЭКРАНА (w-full) ==================== -->
+  <header class="h-12 shrink-0 w-full bg-slate-900/95 border-b border-slate-800/90 px-3.5 flex items-center justify-between gap-2 z-30">
+    <!-- Логотип и общий прогресс курса -->
+    <div class="flex items-center gap-2.5 shrink-0">
+      <div class="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-md shadow-emerald-950/60">
+        <svg class="w-4 h-4 text-slate-950" fill="none" stroke="currentColor" stroke-width="2.5" viewBox="0 0 24 24">
+          <path stroke-linecap="round" stroke-linejoin="round" d="M9 19V6l12-3v13M9 19c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zm12-3c0 1.105-1.343 2-3 2s-3-.895-3-2 1.343-2 3-2 3 .895 3 2zM9 10l12-3"/>
+        </svg>
+      </div>
+      <div>
+        <div class="flex items-center gap-2">
+          <span class="font-bold text-sm tracking-tight text-white">NotaRe Academy</span>
+          <span id="course-progress-pill" class="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">Курс: 0 / 12 уроков</span>
+        </div>
+        <p id="header-ActiveModeSummary" class="text-[10px] text-slate-400 hidden sm:block">Урок 1 • Рефлекс • 200 упр. (C4-G4)</p>
+      </div>
+    </div>
+
+    <!-- Центральный переключатель 5 рабочих пространств -->
+    <nav class="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+      <button onclick="switchWorkspaceTab('course')" id="ws-tab-course" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950 shadow">
+        <span>🎓</span> Курс (12 уроков)
+      </button>
+      <button onclick="switchWorkspaceTab('trainer')" id="ws-tab-trainer" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <span>🎹</span> Тренажёр-Студия
+      </button>
+      <button onclick="switchWorkspaceTab('precheck')" id="ws-tab-precheck" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <span>🧭</span> Доигровой анализ & Круг
+      </button>
+      <button onclick="switchWorkspaceTab('lab')" id="ws-tab-lab" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <span>💪</span> Лаборатория <span class="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">Ганон & Ритм</span>
+      </button>
+      <button onclick="switchWorkspaceTab('theory')" id="ws-tab-theory" class="px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white">
+        <span>📚</span> Библиотека (60+ книг)
+      </button>
+    </nav>
+
+    <!-- Правый блок: Телеметрия + MIDI + Звук + Настройки -->
+    <div class="flex items-center gap-2 shrink-0">
+      <div class="hidden xl:flex items-center gap-2.5 bg-slate-950/90 border border-slate-800 px-3 py-1 rounded-lg text-xs">
+        <div class="flex items-center gap-1" title="Точность попаданий в текущей сессии">
+          <span class="text-slate-500">Точность:</span>
+          <span id="kpi-accuracy" class="font-mono font-bold text-emerald-400">100%</span>
+          <span id="kpi-accuracy-sub" class="text-[10px] text-slate-500">(0)</span>
+        </div>
+        <div class="w-px h-3.5 bg-slate-800"></div>
+        <div class="flex items-center gap-1" title="Непрерывная серия верных нот">
+          <span class="text-slate-500">Серия:</span>
+          <span id="kpi-streak" class="font-mono font-bold text-sky-400">0</span>
+          <span id="kpi-best-streak" class="text-[10px] text-slate-500">рек: 0</span>
+        </div>
+        <div class="w-px h-3.5 bg-slate-800"></div>
+        <div class="flex items-center gap-1" title="Средняя скорость реакции (порог автоматизма < 550 мс)">
+          <span class="text-slate-500">Отклик:</span>
+          <span id="kpi-speed" class="font-mono font-bold text-amber-400">0 ms</span>
+        </div>
+        <div class="w-px h-3.5 bg-slate-800"></div>
+        <div class="flex items-center gap-1" title="Сыграно однотипных номеров в серии">
+          <span class="text-slate-500">Номеров:</span>
+          <span id="kpi-reps" class="font-mono font-bold text-purple-400">0 / 15</span>
+        </div>
+      </div>
+
+      <div id="midi-badge" class="hidden 2xl:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400">
+        <span id="midi-dot" class="w-2 h-2 rounded-full bg-slate-600"></span>
+        <span id="midi-label">MIDI: 0</span>
+      </div>
+
+      <button id="audio-toggle-btn" onclick="toggleAudioMaster()" class="px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-medium hover:bg-emerald-500/25 transition">
+        🔊 Звук
+      </button>
+
+      <button onclick="toggleSettingsDrawer()" class="px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5">
+        <span>⚙️</span>
+      </button>
+    </div>
+  </header>
+
+  <!-- ==================== ОСНОВНОЙ КОНТЕЙНЕР (100% ШИРИНЫ И ВЫСОТЫ) ==================== -->
+  <main class="flex-1 min-h-0 w-full relative overflow-hidden flex flex-col">
+
+    <!-- ==================== ВКЛАДКА 0: ПОЛНЫЙ ИНТЕРАКТИВНЫЙ КУРС (12 УРОКОВ / 4 МОДУЛЯ) ==================== -->
+    <section id="workspace-course" class="flex-1 min-h-0 w-full p-3.5 overflow-hidden flex flex-col gap-3">
+      <!-- Верхняя панель прогресса курса по 4 модулям -->
+      <div class="shrink-0 w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-3.5 flex flex-wrap items-center justify-between gap-4">
+        <div class="flex items-center gap-3">
+          <div class="w-10 h-10 rounded-xl bg-emerald-500/15 border border-emerald-500/30 flex items-center justify-center text-lg font-bold text-emerald-400 font-mono" id="course-pct-circle">
+            0%
+          </div>
+          <div>
+            <div class="flex items-center gap-2">
+              <h1 class="text-sm sm:text-base font-bold text-white">Полный курс чтения с листа для взрослых по системе «НОТА РЕ»</h1>
+              <span class="text-[10px] font-mono px-2 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30">12 ступеней • 4 модуля</span>
+            </div>
+            <p class="text-xs text-slate-400">От подавления внутреннего проговаривания нот и ритмослогов до двуручной игры буквой «Г», приёма фотографирования и аппарата Ганона</p>
+          </div>
+        </div>
+
+        <!-- Индикаторы 4 модулей -->
+        <div class="flex flex-wrap items-center gap-2 text-xs">
+          <div class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-emerald-400"></span>
+            <span class="text-slate-300">Модуль I: Рефлекс (Ур. 1–3)</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-amber-400"></span>
+            <span class="text-slate-300">Модуль II: Ритм и Бас (Ур. 4–6)</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-sky-400"></span>
+            <span class="text-slate-300">Модуль III: Интервалы и Слепая игра (Ур. 7–9)</span>
+          </div>
+          <div class="px-3 py-1.5 rounded-xl bg-slate-950 border border-slate-800 flex items-center gap-2">
+            <span class="w-2 h-2 rounded-full bg-rose-400"></span>
+            <span class="text-slate-300">Модуль IV: Опережение, 2 руки и Ганон (Ур. 10–12)</span>
+          </div>
+        </div>
+      </div>
+
+      <!-- Основная двухколоночная сетка курса на всю ширину экрана (Слева: карта 12 уроков, Справа: конспект + чек-лист + запуск) -->
+      <div class="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5 overflow-hidden">
+
+        <!-- Левая колонка (5/12): Интерактивная дорожная карта 12 уроков -->
+        <div class="lg:col-span-5 h-full min-h-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-3 flex flex-col overflow-hidden">
+          <div class="shrink-0 flex items-center justify-between pb-2.5 mb-2 border-b border-slate-800 px-1">
+            <span class="text-xs font-bold uppercase font-mono text-slate-400">Карта учебного маршрута (12 уроков)</span>
+            <button onclick="resetCourseProgress()" class="text-[11px] text-slate-500 hover:text-rose-400 transition">Сбросить прогресс курса</button>
+          </div>
+          <div id="course-lessons-list" class="flex-1 min-h-0 overflow-y-auto custom-scroll space-y-2 pr-1">
+            <!-- Заполняется динамически из массива COURSE_CURRICULUM -->
+          </div>
+        </div>
+
+        <!-- Правая колонка (7/12): Детальный разбор выбранного урока, теория, чек-лист и запуск норматива -->
+        <div class="lg:col-span-7 h-full min-h-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between overflow-y-auto custom-scroll">
+          <div class="space-y-4">
+            <!-- Шапка урока -->
+            <div class="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-3">
+              <div>
+                <div class="flex items-center gap-2 mb-1">
+                  <span id="lesson-detail-module" class="text-[11px] font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">Модуль I • Неделя 1</span>
+                  <span id="lesson-detail-timecode" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-950 text-slate-400 border border-slate-800">Видео 1: 01:33–04:19</span>
+                  <span id="lesson-detail-status" class="text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300">Не пройден</span>
+                </div>
+                <h2 id="lesson-detail-title" class="text-lg sm:text-xl font-bold text-white">Урок 1: Доигровой протокол и 5 нот первой октавы</h2>
+              </div>
+
+              <button onclick="toggleCurrentLessonCompletedManual()" id="lesson-manual-complete-btn" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 border border-slate-700 text-xs font-medium text-slate-300 transition">
+                ✓ Отметить пройденным вручную
+              </button>
+            </div>
+
+            <!-- Теоретический конспект урока -->
+            <div class="bg-slate-950/90 border border-slate-800/90 rounded-xl p-4 space-y-2">
+              <div class="text-xs font-bold uppercase font-mono text-sky-400 flex items-center gap-1.5">
+                <span>🧠</span> Методический разбор урока (по видео Евгении «НОТА РЕ»)
+              </div>
+              <p id="lesson-detail-theory" class="text-xs sm:text-sm text-slate-300 leading-relaxed"></p>
+              <div class="pt-2 flex flex-wrap items-center gap-2 text-xs">
+                <span class="text-slate-500">Базовые пособия урока:</span>
+                <span id="lesson-detail-books" class="font-mono text-amber-300 bg-amber-500/10 border border-amber-500/30 px-2 py-0.5 rounded"></span>
+              </div>
+            </div>
+
+            <!-- Пошаговый алгоритм / практикум урока -->
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5">
+                <div class="text-xs font-bold uppercase font-mono text-emerald-400 mb-2">📋 Чек-лист перед началом практики</div>
+                <div id="lesson-detail-steps" class="space-y-1.5 text-xs text-slate-300"></div>
+              </div>
+
+              <!-- Норматив для автоматического зачёта урока -->
+              <div class="bg-slate-950/90 border border-slate-800 rounded-xl p-3.5 flex flex-col justify-between">
+                <div>
+                  <div class="text-xs font-bold uppercase font-mono text-purple-400 mb-2">🎯 Норматив для сдачи зачёта в тренажёре</div>
+                  <p class="text-xs text-slate-400 mb-3">
+                    Тренажёр автоматически настроит нужный режим, диапазон и темп. Сыграйте серию упражнений без сброса точности:
+                  </p>
+                  <div class="grid grid-cols-3 gap-2 text-center">
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div class="text-[10px] text-slate-500 uppercase">Серия номеров</div>
+                      <div id="lesson-norm-reps" class="text-sm font-bold font-mono text-purple-400 mt-0.5">10 ном.</div>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div class="text-[10px] text-slate-500 uppercase">Мин. точность</div>
+                      <div id="lesson-norm-acc" class="text-sm font-bold font-mono text-emerald-400 mt-0.5">≥ 92%</div>
+                    </div>
+                    <div class="p-2 rounded-lg bg-slate-900 border border-slate-800">
+                      <div class="text-[10px] text-slate-500 uppercase">Целевой отклик</div>
+                      <div id="lesson-norm-speed" class="text-sm font-bold font-mono text-amber-400 mt-0.5">&lt; 700 мс</div>
+                    </div>
+                  </div>
+                </div>
+                <div id="lesson-preset-summary" class="mt-3 pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-400">
+                  Режим: Рефлекс • Тональность: C-dur • Поток: Вкл
+                </div>
+              </div>
+            </div>
+          </div>
+
+          <!-- Нижняя панель запуска урока -->
+          <div class="pt-3 mt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-3">
+            <div class="flex items-center gap-2">
+              <button onclick="selectPrevCourseLesson()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition">
+                ← Предыдущий урок
+              </button>
+              <button onclick="selectNextCourseLesson()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-xs font-medium text-slate-300 transition">
+                Следующий урок →
+              </button>
+            </div>
+
+            <button onclick="startActiveCourseLessonInTrainer()" class="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs sm:text-sm shadow-lg shadow-emerald-950/60 transition flex items-center gap-2">
+              <span>▶ Запустить практику урока в тренажёре</span>
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 1: ТРЕНАЖЁР (ПОЛНОШИРИННЫЙ ХОЛСТ) ==================== -->
+    <section id="workspace-trainer" class="hidden flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-hidden">
+
+      <!-- ПОЛОСА АКТИВНОГО УРОКА КУРСА ВНУТРИ ТРЕНАЖЁРА (Живой контроль норматива) -->
+      <div id="trainer-course-banner" class="shrink-0 w-full bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2">
+        <div class="flex items-center gap-2.5 text-xs">
+          <span class="px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[11px]" id="trainer-lesson-badge">УРОК 1 / 12</span>
+          <strong id="trainer-lesson-title" class="text-white truncate max-w-md">Доигровой протокол и 5 нот первой октавы</strong>
+          <span class="hidden lg:inline text-slate-400" id="trainer-lesson-goal-desc">• Цель: 10 однотипных номеров без проговаривания нот</span>
+        </div>
+
+        <div class="flex items-center gap-3 text-xs">
+          <div class="flex items-center gap-2 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
+            <span class="text-slate-400">Зачёт серии:</span>
+            <strong id="trainer-norm-progress" class="text-purple-400">0 / 10 ном.</strong>
+            <span class="text-slate-700">|</span>
+            <span id="trainer-norm-status" class="text-amber-400">В процессе...</span>
+          </div>
+          <button onclick="switchWorkspaceTab('course')" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 text-[11px] font-medium transition">
+            🎓 К карте курса
+          </button>
+          <button onclick="goToNextLessonAndStart()" id="trainer-next-lesson-btn" class="hidden px-3 py-1 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 font-bold text-[11px] shadow transition">
+            🎉 Зачёт сдан! Следующий урок →
+          </button>
+        </div>
+      </div>
+
+      <!-- ВЕРХНЯЯ ПАНЕЛЬ ИНСТРУМЕНТОВ НА ВСЮ ШИРИНУ: 8 РЕЖИМОВ + СБОРНИКИ + ПОТОК -->
+      <div class="shrink-0 w-full bg-slate-900/90 border border-slate-800/90 rounded-xl px-2.5 py-1.5 flex flex-wrap items-center justify-between gap-1.5">
+        <!-- 8 Методических режимов -->
+        <div class="flex flex-wrap items-center gap-1">
+          <button onclick="setAppMode('reflex')" id="tab-reflex" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition bg-emerald-500 text-slate-950 shadow">
+            ⚡ 1. Рефлекс
+          </button>
+          <button onclick="setAppMode('rhythm')" id="tab-rhythm" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-slate-300 hover:bg-slate-800">
+            🎵 2. Ритмослоги
+          </button>
+          <button onclick="setAppMode('lookahead')" id="tab-lookahead" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-slate-300 hover:bg-slate-800">
+            👁️ 3. Бегунок (+1)
+          </button>
+          <button onclick="setAppMode('photo')" id="tab-photo" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-cyan-300 hover:bg-slate-800">
+            📸 4. Фото-память
+          </button>
+          <button onclick="setAppMode('intervals')" id="tab-intervals" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-indigo-300 hover:bg-slate-800">
+            📐 5. Интервалы
+          </button>
+          <button onclick="setAppMode('gpattern')" id="tab-gpattern" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-amber-300 hover:bg-slate-800">
+            ↰ 6. Буква «Г»
+          </button>
+          <button onclick="setAppMode('blind')" id="tab-blind" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-purple-300 hover:bg-slate-800">
+            🖐️ 7. Вслепую
+          </button>
+          <button onclick="setAppMode('hanon')" id="tab-hanon" class="mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-rose-300 hover:bg-slate-800">
+            💪 8. Ганон & Штрихи
+          </button>
+        </div>
+
+        <!-- Быстрый выбор сборника на широкой панели -->
+        <div class="hidden 2xl:flex items-center gap-1 bg-slate-950 p-1 rounded-lg border border-slate-800">
+          <button onclick="setClefFilter('treble')" id="quick-filter-treble" class="px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition">
+            200 упр. (C4-G4)
+          </button>
+          <button onclick="setClefFilter('treble_oct2')" id="quick-filter-treble_oct2" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent transition">
+            2-я окт. (C4-D5)
+          </button>
+          <button onclick="setClefFilter('bass')" id="quick-filter-bass" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent transition">
+            Литовко: Бас
+          </button>
+          <button onclick="setClefFilter('both')" id="quick-filter-both" class="px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent transition">
+            2 руки
+          </button>
+        </div>
+
+        <!-- Управление плотностью, тональностью, темпом и потоком -->
+        <div class="flex flex-wrap items-center gap-1.5">
+          <select id="quick-tonality-select" onchange="changeTonality(this.value)" class="bg-slate-950 border border-slate-800 rounded-lg px-2 py-1 text-[11px] font-mono text-sky-300 cursor-pointer">
+            <option value="C">♮ C-dur / a-moll (0 зн.)</option>
+            <option value="G">♯ G-dur / e-moll (Фа♯)</option>
+            <option value="F">♭ F-dur / d-moll (Си♭)</option>
+            <option value="D">♯♯ D-dur / h-moll (Фа♯, До♯)</option>
+          </select>
+
+          <button onclick="toggleScoreDensity()" id="density-btn" class="px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-300 hover:border-slate-700 transition">
+            📏 16 нот
+          </button>
+
+          <div class="flex items-center gap-1 bg-slate-950 px-2 py-1 rounded-lg border border-slate-800">
+            <span id="metronome-led" class="w-2 h-2 rounded-full bg-slate-700 transition-transform"></span>
+            <span id="bpm-val" class="font-mono text-xs font-bold text-amber-400 w-6 text-right">60</span>
+            <input id="bpm-slider" type="range" min="40" max="130" value="60" oninput="changeTempo(this.value)" class="w-14 accent-emerald-500 cursor-pointer">
+          </div>
+
+          <button onclick="toggleContinuousFlow()" id="flow-btn" class="px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-medium transition">
+            ⏭ Поток: Пауза
+          </button>
+
+          <button onclick="previewSingingSolfege()" class="px-2 py-1 rounded-lg bg-indigo-500/15 hover:bg-indigo-500/25 border border-indigo-500/30 text-indigo-300 text-[11px] font-medium transition">
+            🎤 Петь
+          </button>
+
+          <button onclick="regenerateExercise()" class="px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-semibold text-white transition">
+            🔄 Новый
+          </button>
+        </div>
+      </div>
+
+      <!-- ЦЕНТРАЛЬНАЯ ЗОНА: ПАНОРАМНЫЙ НОТНЫЙ СТАН НА ВСЮ ШИРИНУ ЭКРАНА (flex-1 w-full) -->
+      <div class="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col justify-between p-2.5 overflow-hidden shadow-inner">
+
+        <!-- Верхняя инфо-полоса нотного стана -->
+        <div class="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 z-10 border-b border-slate-800/60 pb-1.5">
+          <div class="flex flex-wrap items-center gap-2.5 text-xs">
+            <span class="flex items-center gap-1.5 font-mono text-slate-300 bg-slate-950/90 px-2.5 py-0.5 rounded-md border border-slate-800">
+              <span class="w-2 h-2 rounded-full bg-sky-400 animate-pulse"></span>
+              Такт: <strong id="bar-progress" class="text-white">1 / 4</strong>
+            </span>
+            <span class="text-slate-400">Сборник: <strong id="active-collection-label" class="text-sky-400">200 упр. (C4–G4)</strong></span>
+            <span class="hidden md:inline text-slate-600">•</span>
+            <span class="hidden md:inline text-slate-400">Фокус: <strong id="active-focus-pill" class="text-emerald-400">Прямой рефлекс «Вижу знак → нажимаю клавишу»</strong></span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button onclick="toggleBassLandmarks()" id="bass-landmarks-btn" class="px-2 py-0.5 rounded-md bg-slate-950/90 border border-slate-800 hover:border-purple-500/40 text-[11px] font-mono text-purple-300 transition">
+              𝄢 Маяки баса: ВЫКЛ
+            </button>
+            <button onclick="triggerPhotoFlashPreview()" id="photo-flash-btn" class="hidden px-2.5 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/40 text-[11px] font-mono text-cyan-300 transition">
+              📸 Вспышка такта (1.8с)
+            </button>
+            <button onclick="playRhythmAudioDemo()" class="px-2 py-0.5 rounded-md bg-slate-950/90 border border-slate-800 hover:border-amber-500/40 text-[11px] font-mono text-amber-300 transition">
+              🥁 Ритм-образец
+            </button>
+            <button onclick="cycleSpeechSuppressor()" class="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950/90 border border-slate-800 hover:border-amber-500/40 text-[11px] transition">
+              <span class="text-amber-400">🗣 Речь:</span>
+              <span id="speech-guide-banner" class="font-mono font-bold text-amber-300">Счёт вслух (1-2-3-4)</span>
+            </button>
+          </div>
+        </div>
+
+        <!-- SVG Панорамный Гранд-Стан во всю ширину экрана (viewBox 1720x305) -->
+        <div class="flex-1 min-h-0 w-full flex items-center justify-center relative my-0.5">
+          <svg id="grand-staff-svg" viewBox="0 0 1720 305" preserveAspectRatio="none" class="w-full h-full max-h-[370px] select-none">
+            <defs>
+              <linearGradient id="curtainGrad" x1="0" y1="0" x2="1" y2="0">
+                <stop offset="0%" stop-color="#060a12" stop-opacity="0.97"/>
+                <stop offset="92%" stop-color="#0f172a" stop-opacity="0.94"/>
+                <stop offset="100%" stop-color="#0ea5e9" stop-opacity="0.45"/>
+              </linearGradient>
+              <linearGradient id="photoMaskGrad" x1="0" y1="0" x2="0" y2="1">
+                <stop offset="0%" stop-color="#082f49" stop-opacity="0.96"/>
+                <stop offset="100%" stop-color="#020617" stop-opacity="0.98"/>
+              </linearGradient>
+            </defs>
+
+            <rect x="20" y="34" width="1680" height="84" rx="6" fill="#0f172a" opacity="0.35"/>
+            <rect x="20" y="164" width="1680" height="84" rx="6" fill="#0f172a" opacity="0.35"/>
+
+            <!-- 5 линеек скрипичного ключа -->
+            <g stroke="#334155" stroke-width="1.6">
+              <line x1="25" y1="40" x2="1695" y2="40"/>
+              <line x1="25" y1="58" x2="1695" y2="58"/>
+              <line x1="25" y1="76" x2="1695" y2="76"/>
+              <line x1="25" y1="94" x2="1695" y2="94"/>
+              <line x1="25" y1="112" x2="1695" y2="112"/>
+            </g>
+
+            <!-- 5 линеек басового ключа -->
+            <g stroke="#334155" stroke-width="1.6">
+              <line x1="25" y1="170" x2="1695" y2="170"/>
+              <line x1="25" y1="188" x2="1695" y2="188"/>
+              <line x1="25" y1="206" x2="1695" y2="206"/>
+              <line x1="25" y1="224" x2="1695" y2="224"/>
+              <line x1="25" y1="242" x2="1695" y2="242"/>
+            </g>
+
+            <line x1="25" y1="40" x2="25" y2="242" stroke="#94a3b8" stroke-width="3.5"/>
+            <text x="34" y="102" fill="#38bdf8" font-size="72" font-family="serif">𝄞</text>
+            <text x="34" y="226" fill="#a855f7" font-size="60" font-family="serif">𝄢</text>
+
+            <g id="key-signature-layer"></g>
+
+            <g id="bass-landmarks-layer" class="hidden">
+              <line x1="25" y1="188" x2="1695" y2="188" stroke="#a855f7" stroke-width="2.2" stroke-dasharray="6 4" opacity="0.6"/>
+              <text x="1685" y="184" text-anchor="end" fill="#c084fc" font-size="11" font-family="JetBrains Mono" font-weight="bold">Маяк Фа (F3 — 4-я лин.)</text>
+              <line x1="25" y1="242" x2="1695" y2="242" stroke="#818cf8" stroke-width="2.2" stroke-dasharray="6 4" opacity="0.5"/>
+              <text x="1685" y="238" text-anchor="end" fill="#818cf8" font-size="11" font-family="JetBrains Mono" font-weight="bold">Маяк Соль (G2 — 1-я лин.)</text>
+            </g>
+
+            <g fill="#64748b" font-family="serif" font-weight="bold" font-size="24" text-anchor="middle">
+              <text x="112" y="68">4</text>
+              <text x="112" y="102">4</text>
+              <text x="112" y="198">4</text>
+              <text x="112" y="232">4</text>
+            </g>
+
+            <line x1="1695" y1="40" x2="1695" y2="242" stroke="#94a3b8" stroke-width="4"/>
+            <line x1="1688" y1="40" x2="1688" y2="242" stroke="#64748b" stroke-width="1.5"/>
+
+            <g id="staff-notes-layer"></g>
+
+            <g id="svg-curtain-group" class="hidden">
+              <rect id="svg-curtain-rect" x="125" y="15" width="0" height="270" rx="6" fill="url(#curtainGrad)" stroke="#38bdf8" stroke-width="2"/>
+              <text id="svg-curtain-label" x="135" y="34" fill="#38bdf8" font-size="12" font-family="JetBrains Mono" font-weight="bold">БЕГУНОК: СМОТРИТЕ ВПЕРЁД ➔</text>
+            </g>
+
+            <g id="svg-photo-mask-group" class="hidden">
+              <rect id="svg-photo-mask-rect" x="130" y="18" width="360" height="260" rx="8" fill="url(#photoMaskGrad)" stroke="#22d3ee" stroke-width="2" stroke-dasharray="6 3"/>
+              <text id="svg-photo-mask-title" x="310" y="138" text-anchor="middle" fill="#22d3ee" font-size="14" font-family="JetBrains Mono" font-weight="bold">📸 ТАКТ СФОТОГРАФИРОВАН</text>
+              <text id="svg-photo-mask-sub" x="310" y="160" text-anchor="middle" fill="#94a3b8" font-size="11" font-family="Inter">Играйте по зрительной памяти и смотрите в следующий такт!</text>
+            </g>
+          </svg>
+        </div>
+
+        <!-- Нижняя телеметрия нотного стана на всю ширину -->
+        <div class="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/60 text-xs">
+          <div class="flex flex-wrap items-center gap-2">
+            <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              ЦЕЛЬ: <strong id="target-note-pill" class="text-sky-400 font-mono">C4</strong>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              ИНТЕРВАЛ: <strong id="current-interval-badge" class="text-indigo-400 font-mono">Прима (старт)</strong>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              РИТМОСЛОГ: <strong id="current-syllable-badge" class="text-amber-400 font-mono">ТА</strong>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              ПАЛЕЦ / ШТРИХ: <strong id="current-finger-badge" class="text-rose-400 font-mono">1 • legato</strong>
+            </span>
+            <span class="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
+              ОТВЕТ: <strong id="last-key-badge" class="text-slate-300 font-mono">—</strong>
+            </span>
+          </div>
+
+          <div id="method-coach-tip" class="text-slate-400 text-xs truncate max-w-2xl">
+            💡 <strong class="text-emerald-400">Методика (11:39):</strong> Вижу знак на линейке ➔ палец сразу жмёт клавишу. Запретите себе называть ноту в уме!
+          </div>
+        </div>
+      </div>
+
+      <!-- НИЖНЯЯ ЗОНА: ПОЛНОШИРИННАЯ КЛАВИАТУРА ФОРТЕПИАНО (100% ШИРИНЫ, 3 ОКТАВЫ C3-B5) -->
+      <div class="shrink-0 w-full bg-slate-900/95 border border-slate-800/90 rounded-2xl p-2 flex flex-col gap-1.5 shadow-xl">
+        <div class="w-full flex flex-wrap items-center justify-between gap-2 px-1">
+          <div class="flex items-center gap-3">
+            <span class="text-xs font-bold text-slate-200 flex items-center gap-1.5">
+              <span>🎹</span> Полноразмерная дека (3 октавы: C3 – B5)
+            </span>
+            <span class="text-[11px] font-mono text-slate-400 hidden lg:inline">
+              Вслепую: <strong>группы из 2 и 3 чёрных клавиш</strong> • ПК: <kbd class="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Z–M</kbd> (Бас), <kbd class="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Q–P</kbd> (1–2 окт.), <kbd class="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Пробел</kbd> (Ритм/Шаг)
+            </span>
+          </div>
+
+          <div class="flex items-center gap-1.5">
+            <button onclick="toggleScaleHighlight()" id="scale-hint-btn" class="px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-sky-300 transition">
+              🎼 Звукоряд тональности
+            </button>
+            <button onclick="toggleBlindfoldKeys()" id="blindfold-btn" class="px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 transition">
+              🙈 Тактильная ширма (18:20)
+            </button>
+            <button onclick="toggleTabletopMode()" id="tabletop-btn" class="px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 transition">
+              🪑 Режим «Стол» (22:05)
+            </button>
+          </div>
+        </div>
+
+        <div class="w-full overflow-hidden">
+          <div id="piano-Wrapper" class="relative w-full h-30 sm:h-34 flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner" style="height: 132px;">
+            <div id="piano-keys-stage" class="relative w-full h-full flex"></div>
+
+            <div id="tabletop-overlay" class="hidden absolute inset-0 bg-slate-950/95 backdrop-blur-md rounded-xl flex flex-col items-center justify-center p-3 text-center z-30 border border-amber-500/40">
+              <p class="text-sm font-bold text-amber-300 mb-0.5">🪑 Тренировка за столом: Внутреннее видение клавиатуры (таймкод 22:05)</p>
+              <p class="text-xs text-slate-300 max-w-2xl mb-2">
+                Положите руки на стол. Глядя только в нотный стан, отстукивайте пальцами по столу и чётко визуализируйте в воображении рельеф чёрных и белых клавиш.
+              </p>
+              <div class="flex items-center gap-3">
+                <button onclick="triggerTabletopVisualizerStep()" class="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition">
+                  👆 Представил клавишу и нажал на столе (Пробел)
+                </button>
+                <button onclick="toggleTabletopMode()" class="px-3 py-1.5 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium transition">
+                  Вернуть клавиатуру
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+    </section>
+
+    <!-- ==================== ВКЛАДКА 2: ДОИГРОВОЙ АНАЛИЗ И КВАРТО-КВИНТОВЫЙ КРУГ ==================== -->
+    <section id="workspace-precheck" class="hidden flex-1 min-h-0 w-full p-4 overflow-y-auto custom-scroll">
+      <div class="w-full grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        <div class="xl:col-span-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">Видео 1 (VCwxNO_LGj4) • Таймкод 01:33 – 03:30</span>
+              <span class="text-xs text-slate-400">Обязательный доигровой протокол</span>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">🧭 5-шаговый алгоритм подготовки к чтению новой пьесы</h2>
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+              Профессиональное чтение с листа начинается за 30 секунд до первого звука. Пройдите 5 шагов визуального сканирования:
+            </p>
+
+            <div class="space-y-2.5 text-xs">
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 font-mono font-bold flex items-center justify-center shrink-0">01</span>
+                <div>
+                  <div class="font-bold text-white">Название и композитор (01:43)</div>
+                  <p class="text-slate-400 mt-0.5">Определяет жанр, характер прикосновения и стиль («Марш» — четкий пульс и *staccato*, «Баркарола» — певучее *legato*).</p>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 font-mono font-bold flex items-center justify-center shrink-0">02</span>
+                <div>
+                  <div class="font-bold text-white">Тональность и Кварто-квинтовый круг (02:02 – 02:18)</div>
+                  <p class="text-slate-400 mt-0.5">Считываем ключевые знаки (диезы или бемоли) и последнюю ноту в басу. Руки заранее получают «карту черных клавиш».</p>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 font-mono font-bold flex items-center justify-center shrink-0">03</span>
+                <div>
+                  <div class="font-bold text-white">Размер композиции и пульс (02:43)</div>
+                  <p class="text-slate-400 mt-0.5">Устанавливаем метрическую сетку (2/4, 3/4, 4/4) и просчитываем один пустой такт вслух до начала игры.</p>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 font-mono font-bold flex items-center justify-center shrink-0">04</span>
+                <div>
+                  <div class="font-bold text-white">Проверка ключей в обеих строчках (03:00)</div>
+                  <p class="text-slate-400 mt-0.5">Убеждаемся, в каких ключах написана пьеса (скрипичный + басовый или два одноименных ключа), и находим стартовые ноты.</p>
+                </div>
+              </div>
+
+              <div class="p-3 rounded-xl bg-slate-950 border border-slate-800 flex items-start gap-3">
+                <span class="w-6 h-6 rounded-lg bg-sky-500/20 text-sky-400 font-mono font-bold flex items-center justify-center shrink-0">05</span>
+                <div>
+                  <div class="font-bold text-white">Анализ ритма и выбор темпа по самому сложному такту (03:18)</div>
+                  <p class="text-slate-400 mt-0.5">Находим такт с самыми мелкими длительностями (шестнадцатые, пунктиры) и задаем темп пьесы по этому такту.</p>
+                </div>
+              </div>
+            </div>
+          </div>
+        </div>
+
+        <div class="xl:col-span-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
+          <div>
+            <div class="flex items-center justify-between mb-2">
+              <span class="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">Тренажёр тональностей • nota-re.ru</span>
+              <span class="text-xs text-slate-400">Кварто-квинтовый круг</span>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">🎡 Выбор тональности и ключевых знаков для практики</h2>
+            <p class="text-xs text-slate-300 mb-4 leading-relaxed">
+              Выберите тональность из кварто-квинтового круга ниже — тренажёр автоматически выставит ключевые знаки на нотном стане и активирует соответствующие чёрные клавиши:
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div onclick="applyTonalityAndStart('C')" class="cursor-pointer p-4 rounded-xl bg-slate-950 border border-emerald-500/50 hover:border-emerald-400 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-sm text-emerald-400">До мажор / ля минор</span>
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300">0 знаков</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Чистая диатоника по белым клавишам. Базовый фундамент для постановки пятипальцевой позиции.</p>
+                <span class="text-[11px] font-semibold text-sky-400">▶ Запустить на стане →</span>
+              </div>
+
+              <div onclick="applyTonalityAndStart('G')" class="cursor-pointer p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-sky-500/50 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-sm text-sky-400">Соль мажор / ми минор</span>
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">1 диез: Фа♯</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Шаг по квинте вправо. Автоматическая замена всех нот Фа на чёрную клавишу Фа-диез (таймкод 17:07).</p>
+                <span class="text-[11px] font-semibold text-sky-400">▶ Запустить на стане →</span>
+              </div>
+
+              <div onclick="applyTonalityAndStart('F')" class="cursor-pointer p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-amber-500/50 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-sm text-amber-400">Фа мажор / ре минор</span>
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">1 бемоль: Си♭</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Шаг по кварте влево. Тактильное нащупывание третьей чёрной клавиши (Си-бемоль) 4-м пальцем.</p>
+                <span class="text-[11px] font-semibold text-sky-400">▶ Запустить на стане →</span>
+              </div>
+
+              <div onclick="applyTonalityAndStart('D')" class="cursor-pointer p-4 rounded-xl bg-slate-950 border border-slate-800 hover:border-purple-500/50 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-bold text-sm text-purple-400">Ре мажор / си минор</span>
+                  <span class="font-mono text-xs px-2 py-0.5 rounded bg-purple-500/20 text-purple-300">2 диеза: Фа♯, До♯</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Два ключевых диеза. Одновременная работа с обеими группами из 2 и 3 чёрных клавиш.</p>
+                <span class="text-[11px] font-semibold text-sky-400">▶ Запустить на стане →</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
+            <span>Порядок диезов: <strong class="font-mono text-sky-400">Фа - До - Соль - Ре - Ля - Ми - Си</strong> • Бемолей: <strong class="font-mono text-amber-400">Си - Ми - Ля - Ре - Соль - До - Фа</strong></span>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 3: ЛАБОРАТОРИЯ (ГАНОН И РИТМОСЛОГИ НА ВСЮ ШИРИНУ) ==================== -->
+    <section id="workspace-lab" class="hidden flex-1 min-h-0 w-full p-4 overflow-y-auto custom-scroll">
+      <div class="w-full grid grid-cols-1 xl:grid-cols-12 gap-4">
+
+        <div class="xl:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold">Таймкоды 02:27 – 03:35 и 35:45</span>
+              <span class="text-xs text-slate-400">Развитие пианистического аппарата взрослого</span>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">💪 Лаборатория Ганона и Независимости Рук</h2>
+            <p class="text-xs text-slate-300 leading-relaxed mb-4">
+              Взрослому начинающему мало узнать ноту глазами — нужно мгновенно отправить моторный импульс в кончик нужного пальца. Секвенции Ганона прицельно включают слабые <strong>4-й и 5-й пальцы</strong> и приучают глаз считывать <strong>блоки из 4 нот одним движением</strong>.
+            </p>
+
+            <div class="grid grid-cols-1 md:grid-cols-2 gap-3">
+              <div onclick="loadHanonFromLab('hanon1')" class="cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-rose-500/50 rounded-xl p-4 transition">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-sm text-rose-300 group-hover:text-rose-200">1. Ганон №1 (Прямой и обратный ход)</span>
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">1-2-3-4-5</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Терцовый скачок между 1 и 2 пальцами вверх (`C-E-F-G-A-G-F-E`) и между 5 и 4 пальцами вниз.</p>
+                <span class="text-[11px] font-semibold text-emerald-400">▶ Запустить на полном стане →</span>
+              </div>
+
+              <div onclick="loadHanonFromLab('hanon2')" class="cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-rose-500/50 rounded-xl p-4 transition">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-sm text-rose-300 group-hover:text-rose-200">2. Ганон №2 (Упор на 4 и 5 пальцы)</span>
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">Слабые пальцы</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Интенсивная проработка внешних пальцев кисти (`1-2-5-4-3-4-3-2`). Убирает зажатость мизинца.</p>
+                <span class="text-[11px] font-semibold text-emerald-400">▶ Запустить на полном стане →</span>
+              </div>
+
+              <div onclick="loadHanonFromLab('groups4')" class="cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-sky-500/50 rounded-xl p-4 transition">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-sm text-sky-300 group-hover:text-sky-200">3. Чтение блоками по 4 ноты (12:02)</span>
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-sky-500/20 text-sky-300">Этюды Черни</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Глаз схватывает графическую фигуру из 4 нот целиком, а рука исполняет её единым импульсом.</p>
+                <span class="text-[11px] font-semibold text-emerald-400">▶ Запустить на полном стане →</span>
+              </div>
+
+              <div onclick="loadHanonFromLab('coord')" class="cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-4 transition">
+                <div class="flex items-center justify-between mb-1.5">
+                  <span class="font-bold text-sm text-amber-300 group-hover:text-amber-200">4. Штрихи: Стаккато + Легато (05:32)</span>
+                  <span class="text-[11px] font-mono px-2 py-0.5 rounded bg-amber-500/20 text-amber-300">2 руки</span>
+                </div>
+                <p class="text-xs text-slate-400 mb-2">Левая рука играет четвертями на стаккато, правая — восьмыми на легато.</p>
+                <span class="text-[11px] font-semibold text-emerald-400">▶ Запустить на полном стане →</span>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <span class="text-xs text-slate-400">Послушайте разницу артикуляции (левая рука — стаккато, правая — легато):</span>
+            <button onclick="playArticulationDemo()" class="px-3.5 py-2 rounded-xl bg-rose-500/20 hover:bg-rose-500/30 border border-rose-500/40 text-rose-200 text-xs font-semibold transition">
+              🔊 Прослушать демо штрихов (Легато + Стаккато)
+            </button>
+          </div>
+        </div>
+
+        <div class="xl:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
+          <div>
+            <div class="flex items-center justify-between gap-2 mb-2">
+              <span class="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">Таймкод 27:33 – 33:30</span>
+              <span class="text-xs text-slate-400">Ю. Фролова • Е. Олёрская • О. Берак</span>
+            </div>
+            <h2 class="text-lg font-bold text-white mb-1">🎵 Система ритмослогов вместо счёта</h2>
+            <p class="text-xs text-slate-300 leading-relaxed mb-4">
+              Математический счёт «раз-и-два-и» парализует внимание при чтении с листа. Ритмослоги позволяют мгновенно узнавать ритмическую фигуру целиком.
+            </p>
+
+            <div class="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
+              <div onclick="playSyllablePatternDemo('ta')" class="cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-mono font-bold text-base text-amber-400">ТА — ТА — ТА — ТА</span>
+                  <span class="text-xs text-slate-500">♩ ♩ ♩ ♩</span>
+                </div>
+                <p class="text-xs text-slate-400">Четвертные доли. Базовый шаг метрического пульса.</p>
+              </div>
+
+              <div onclick="playSyllablePatternDemo('titi')" class="cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-mono font-bold text-base text-amber-400">ТИ-ТИ — ТА</span>
+                  <span class="text-xs text-slate-500">♫ ♩ ♫ ♩</span>
+                </div>
+                <p class="text-xs text-slate-400">Восьмые длительности. Две ровные ноты на один удар пульса.</p>
+              </div>
+
+              <div onclick="playSyllablePatternDemo('tiritiri')" class="cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-mono font-bold text-base text-amber-400">ТИ-РИ-ТИ-РИ — ТА</span>
+                  <span class="text-xs text-slate-500">♬ ♩</span>
+                </div>
+                <p class="text-xs text-slate-400">Группы шестнадцатых. Слитный речевой блок на одну долю.</p>
+              </div>
+
+              <div onclick="playSyllablePatternDemo('taa')" class="cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition">
+                <div class="flex items-center justify-between mb-1">
+                  <span class="font-mono font-bold text-base text-amber-400">ТА-А — ТА — ТА</span>
+                  <span class="text-xs text-slate-500">𝅗𝅥 ♩ ♩</span>
+                </div>
+                <p class="text-xs text-slate-400">Половинная нота. Плавное голосовое удержание двух долей.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+            <button onclick="setAppMode('rhythm'); switchWorkspaceTab('trainer');" class="px-4 py-2 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs transition">
+              🎵 Перейти к чтению с ритмослогами →
+            </button>
+            <button onclick="playRhythmAudioDemo()" class="px-3.5 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-200 text-xs font-medium transition">
+              🥁 Прослушать ритм упражнения
+            </button>
+          </div>
+        </div>
+
+      </div>
+    </section>
+
+    <!-- ==================== ВКЛАДКА 4: БИБЛИОТЕКА И СБОРНИКИ (60+ КНИГ) ==================== -->
+    <section id="workspace-theory" class="hidden flex-1 min-h-0 w-full p-4 overflow-y-auto custom-scroll">
+      <div class="w-full grid grid-cols-1 md:grid-cols-4 gap-3.5 mb-4">
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs font-mono text-emerald-400 mb-1">ПРИНЦИП 1 • 07:39 – 09:55</div>
+          <h3 class="font-bold text-sm text-white mb-1">Серийная однотипность</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Обычные сборники ДМШ каждую пьесу меняют размер и штрихи. Чтобы знание перешло в рефлекс, взрослому нужно сыграть <strong>10–30 однотипных номеров подряд</strong> в одной позиции.
+          </p>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs font-mono text-sky-400 mb-1">ПРИНЦИП 2 • 11:39 – 15:40</div>
+          <h3 class="font-bold text-sm text-white mb-1">Блокировка субвокализации</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Мысленное называние нот («до, ре, ми») тормозит руки. Занимайте речевой аппарат счётом вслух или слогами «ТА-ТА», формируя прямую дугу: <strong>вижу знак → палец жмёт клавишу</strong>.
+          </p>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs font-mono text-indigo-400 mb-1">ПРИНЦИП 3 • 12:57 – 17:45</div>
+          <h3 class="font-bold text-sm text-white mb-1">Интервалы и Фото-память</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Секунды и кварты пишутся асимметрично (линия–промежуток), терции и квинты — симметрично (линия–линия). Приём «фотографирования» тренирует схватывание целого такта.
+          </p>
+        </div>
+        <div class="bg-slate-900/90 border border-slate-800 rounded-2xl p-4">
+          <div class="text-xs font-mono text-amber-400 mb-1">ПРИНЦИП 4 • 20:28 – 24:50</div>
+          <h3 class="font-bold text-sm text-white mb-1">Приоритет ритма и Буква «Г»</h3>
+          <p class="text-xs text-slate-400 leading-relaxed">
+            Лучше нажать соседнюю клавишу, но сохранить ровный пульс. В двух руках взгляд сначала фиксирует бас (слева внизу), поднимается к мелодии и скользит вправо.
+          </p>
+        </div>
+      </div>
+
+      <div class="w-full bg-slate-900/90 border border-slate-800 rounded-2xl p-5">
+        <h3 class="font-bold text-base text-white mb-3">📚 Каталог пособий и сборников системы «НОТА РЕ» по модулям курса</h3>
+        <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3 text-xs">
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="font-bold text-emerald-400 mb-1">Модуль I: Градированные тренажёры читки</div>
+            <ul class="space-y-1 text-slate-300">
+              <li>• <strong>Paul Harris</strong> — <em>«Improve Your Sight-Reading!»</em> (Grades 1–8)</li>
+              <li>• <strong>200 лёгких упражнений</strong> (5 пальцев в одной позиции)</li>
+              <li>• <strong>300 прогрессивных упражнений</strong> (скрипичный + басовый ключ)</li>
+              <li>• <strong>Д. Бастьен</strong> — пособия по чтению в тональностях</li>
+              <li>• <strong>Очень лёгкие пьесы с самого нуля</strong> (4 книги, №24 на Boosty)</li>
+            </ul>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="font-bold text-amber-400 mb-1">Модуль II: Ритм, пульсация и сольфеджио</div>
+            <ul class="space-y-1 text-slate-300">
+              <li>• <strong>Ю. Фролова</strong> — Сольфеджио с аудио (система ритмослогов)</li>
+              <li>• <strong>Г. Фридкин / Калмыков-Фридкин</strong> — «Чтение с листа на уроках сольфеджио»</li>
+              <li>• <strong>Е. Олёрская</strong> — «Его Величество Ритм»</li>
+              <li>• <strong>О. Берак</strong> — «Школа ритма» (двуручная координация)</li>
+              <li>• <strong>Н. Якубовская</strong> — «Сольфеджио 1–8 классы»</li>
+            </ul>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="font-bold text-sky-400 mb-1">Модуль III: Басовый ключ, интервалы и формулы</div>
+            <ul class="space-y-1 text-slate-300">
+              <li>• <strong>М. Литовко</strong> — «Семь нот. Упражнения для басового ключа»</li>
+              <li>• <strong>Н. Ушакова</strong> — «Школа беглого чтения нот с листа» (по интервалам)</li>
+              <li>• <strong>О. Королькова</strong> — «Ключ к прочтению нотного текста»</li>
+              <li>• <strong>Rev Kadora</strong> — «Ключ к прочтению нотного текста»</li>
+              <li>• <strong>Ф. Брянская, Т. Камаева</strong> — Игровые курсы читки и анализа</li>
+            </ul>
+          </div>
+          <div class="bg-slate-950 border border-slate-800 rounded-xl p-3.5">
+            <div class="font-bold text-rose-400 mb-1">Модуль IV: Координация, аппарат и этюды</div>
+            <ul class="space-y-1 text-slate-300">
+              <li>• <strong>Ш. Л. Ганон</strong> — «Пианист-виртуоз» (слабые 4 и 5 пальцы)</li>
+              <li>• <strong>К. Черни</strong> — Соч. 599 «Первоначальный учитель», 50 этюдов</li>
+              <li>• <strong>Чернышков</strong> — Этюды (чтение блоками по 4 ноты)</li>
+              <li>• <strong>Б. Поливода, Б. Милич</strong> — Хрестоматии 1–2 класса</li>
+              <li>• <strong>Песни и танцы народов мира</strong> (Выпуски 1–3)</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </section>
+
+    <!-- ==================== ВЫДВИЖНАЯ ПАНЕЛЬ НАСТРОЕК (DRAWER) ==================== -->
+    <div id="settings-backdrop" onclick="toggleSettingsDrawer()" class="hidden fixed inset-0 bg-black/60 backdrop-blur-xs z-40"></div>
+    <aside id="settings-drawer" class="fixed top-0 right-0 h-full w-80 sm:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 transform translate-x-full transition-transform duration-200 flex flex-col justify-between p-5">
+      <div class="space-y-4 overflow-y-auto custom-scroll pr-1">
+        <div class="flex items-center justify-between border-b border-slate-800 pb-3">
+          <div>
+            <h3 class="font-bold text-base text-white">⚙️ Настройки тренажёра</h3>
+            <p class="text-xs text-slate-400">Ручная калибровка параметров</p>
+          </div>
+          <button onclick="toggleSettingsDrawer()" class="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs">✕</button>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase font-mono text-slate-400 mb-2">1. Сборник и диапазон нот</label>
+          <div class="grid grid-cols-1 gap-1.5">
+            <button onclick="setClefFilter('treble')" id="filter-treble" class="text-left px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40">
+              <strong>200 упражнений (C4–G4):</strong> 5 пальцев в одной позиции
+            </button>
+            <button onclick="setClefFilter('treble_oct2')" id="filter-treble_oct2" class="text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-400 border border-slate-800 hover:border-slate-700">
+              <strong>Вторая октава (C4–D5):</strong> Выход за 5 пальцев и переносы
+            </button>
+            <button onclick="setClefFilter('bass')" id="filter-bass" class="text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-400 border border-slate-800 hover:border-slate-700">
+              <strong>М. Литовко + 300 упр. (C3–B3):</strong> Прокачка басового ключа
+            </button>
+            <button onclick="setClefFilter('both')" id="filter-both" class="text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-400 border border-slate-800 hover:border-slate-700">
+              <strong>Две руки («Буква Г»):</strong> Бас на 1-ю долю + мелодия
+            </button>
+          </div>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">2. Глушитель называния нот (15:05)</label>
+          <select id="speech-suppressor-select" onchange="updateSpeechSuppressor()" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+            <option value="count">Счёт вслух: «1 - 2 - 3 - 4» (отключает называние нот)</option>
+            <option value="tata">Нейтральный слог: «ТА - ТА - ТА - ТА»</option>
+            <option value="syllables">Ритмослоги Фроловой: «ТА, ТИ-ТИ, ТИ-РИ-ТИ-РИ»</option>
+            <option value="solfege">Пение высоты голосом (предслышание по Фридкину)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">3. Окно экспозиции «Фотографирование» (17:45)</label>
+          <select id="photo-exposure-select" onchange="changePhotoExposure(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+            <option value="2400">Начальный: 2.4 секунды на схватывание такта</option>
+            <option value="1800" selected>Стандартный: 1.8 секунды на схватывание такта</option>
+            <option value="1100">Продвинутый: 1.1 секунды (мгновенный снимок)</option>
+          </select>
+        </div>
+
+        <div>
+          <label class="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">4. Профиль упражнений Ганона (02:31)</label>
+          <select id="hanon-pattern-select" onchange="changeHanonPattern(this.value)" class="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200">
+            <option value="hanon1">Ганон №1: Терция 1–2 палец (C-E-F-G-A-G-F-E)</option>
+            <option value="hanon2">Ганон №2: Упор на 4 и 5 пальцы (C-D-G-F-E-F-E-D)</option>
+            <option value="groups4">Чтение блоками по 4 ноты (Визуальные паттерны)</option>
+            <option value="coord">Координация: Стаккато в басу + Легато в мелодии</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+        <button onclick="resetSessionStats()" class="px-3 py-2 rounded-xl bg-slate-800 hover:bg-rose-950/60 hover:text-rose-300 text-slate-400 text-xs font-medium transition">
+          Сбросить статистику
+        </button>
+        <button onclick="toggleSettingsDrawer()" class="px-4 py-2 rounded-xl bg-emerald-500 text-slate-950 font-bold text-xs">
+          Готово
+        </button>
+      </div>
+    </aside>
+
+  </main>
+
+  <!-- ==================== JAVASCRIPT ЯДРО ==================== -->
+  <script>
+    // ==================== ПРОГРАММА КУРСА (12 УРОКОВ / 4 МОДУЛЯ) ====================
+    const COURSE_CURRICULUM = [
+      {
+        id: 1,
+        module: 'Модуль I • Неделя 1',
+        moduleColor: 'emerald',
+        timecode: 'Видео 1: 01:33–04:19',
+        title: 'Урок 1: Доигровой протокол и 5 нот первой октавы (До–Соль)',
+        theory: 'Чтение с листа никогда не начинается со спонтанного нажатия клавиш. Сначала выполняем 5-шаговый анализ: характер пьесы, ключевые знаки, размер, ключи и самый мелкий ритм. На первом этапе пальцы правой руки (1-2-3-4-5) ставятся на 5 белых клавиш C4–G4 и не меняют позицию.',
+        books: 'Paul Harris Stage 1 • 200 лёгких упражнений • Гайд Nota Re',
+        steps: [
+          'Поставьте пальцы 1–5 на клавиши До–Ре–Ми–Фа–Соль первой октавы.',
+          'Найдите глазами первую ноту До на добавочной линейке и Соль на 2-й линейке.',
+          'Не глядя на руки, сыграйте серию из 10 предсказуемых номеров подряд.'
+        ],
+        normReps: 10,
+        normAcc: 90,
+        normSpeed: 800,
+        preset: { mode: 'reflex', filter: 'treble', tonality: 'C', bpm: 56, flow: false, speech: 'count', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 2,
+        module: 'Модуль I • Неделя 2',
+        moduleColor: 'emerald',
+        timecode: 'Видео 2: 11:39–15:40',
+        title: 'Урок 2: Блокировка субвокализации и прямая дуга «Глаз → Палец»',
+        theory: 'Мысленное называние нот («до, ре, ми») тормозит скорость чтения в 3 раза. Чтобы отключить внутренний голос, речевой аппарат нужно принудительно занять вслух счётом «1-2-3-4» или нейтральным слогом «ТА-ТА». Тогда сигнал от графического знака на стане идёт напрямую в кончик пальца.',
+        books: 'Ф. Брянская • 200 лёгких упражнений (номера 20–50)',
+        steps: [
+          'Включите глушитель речи «Счёт вслух (1-2-3-4)» и считайте вслух.',
+          'Запретите себе произносить в уме имена нот «До», «Ми», «Соль».',
+          'Доведите скорость реакции до порога быстрее 550 мс на 15 номерах подряд.'
+        ],
+        normReps: 15,
+        normAcc: 92,
+        normSpeed: 550,
+        preset: { mode: 'reflex', filter: 'treble', tonality: 'C', bpm: 64, flow: false, speech: 'tata', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 3,
+        module: 'Модуль I • Неделя 3',
+        moduleColor: 'emerald',
+        timecode: 'Видео 2: 07:39–10:04',
+        title: 'Урок 3: Серийная монотонность и закон непрерывного потока (24:20)',
+        theory: 'Детские хрестоматии вредят начинающему взрослому постоянной сменой задач. Навык уходит в подсознание только после 20 однотипных номеров подряд. Одновременно вводится главное правило читки (24:20): сначала верный ритм, потом ноты! Останавливаться ради исправления ошибки запрещено.',
+        books: 'Paul Harris Improve Your Sight-Reading Grade 1 • 300 упражнений',
+        steps: [
+          'Тренажёр автоматически включит режим «Поток: Автоход» под метроном.',
+          'Если промахнулись по ноте — не останавливайтесь, ловите следующую долю такта!',
+          'Выдержите 20 однотипных номеров в непрерывном потоке.'
+        ],
+        normReps: 20,
+        normAcc: 90,
+        normSpeed: 600,
+        preset: { mode: 'reflex', filter: 'treble', tonality: 'C', bpm: 60, flow: true, speech: 'count', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 4,
+        module: 'Модуль II • Неделя 4',
+        moduleColor: 'amber',
+        timecode: 'Видео 2: 23:25–33:30',
+        title: 'Урок 4: Система ритмослогов Ю. Фроловой и Е. Олёрской',
+        theory: 'Счёт «раз-и-два-и» отнимает до 80% оперативной памяти взрослого. Переходим на фонетические ритмослоги: четверть — «ТА», две восьмые — «ТИ-ТИ», четыре шестнадцатые — «ТИ-РИ-ТИ-РИ», половинная — «ТА-А». Ритмическая фигура считывается как единое слово.',
+        books: 'Ю. Фролова (Сольфеджио с аудио) • Е. Олёрская «Его Величество Ритм» • О. Берак',
+        steps: [
+          'Прослушайте ритм текущего упражнения кнопкой «🥁 Ритм-образец».',
+          'Во время игры вслух произносите слоги под нотами (ТА, ТИ-ТИ, ТИ-РИ-ТИ-РИ).',
+          'Пройдите 15 номеров в режиме «2. Ритмослоги».'
+        ],
+        normReps: 15,
+        normAcc: 92,
+        normSpeed: 600,
+        preset: { mode: 'rhythm', filter: 'treble', tonality: 'C', bpm: 60, flow: false, speech: 'syllables', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 5,
+        module: 'Модуль II • Неделя 5',
+        moduleColor: 'amber',
+        timecode: 'Видео 1: 09:05 & Видео 2: 18:40',
+        title: 'Урок 5: Изолированная прокачка басового ключа по маякам М. Литовко',
+        theory: 'Басовый ключ отстаёт у 90% любителей, потому что левая рука обычно играет примитивные басы, которые легко угадать по слуху. Мы отключаем правую руку и тренируем басовый ключ отдельно, опираясь на ноты-маяки: Фа малой октавы (4-я линейка между точками ключа) и Соль большой октавы (1-я линейка).',
+        books: 'М. Литовко «Семь нот. Упражнения для басового ключа» • 300 упражнений',
+        steps: [
+          'На нотном стане автоматически включены фиолетовые пунктирные «Маяки баса».',
+          'Поставьте левую руку на клавиши C3–G3 (на ПК клавиши Z, X, C, V, B).',
+          'Сыграйте 15 номеров в басовом ключе без перевода нот через скрипичный ключ.'
+        ],
+        normReps: 15,
+        normAcc: 92,
+        normSpeed: 600,
+        preset: { mode: 'reflex', filter: 'bass', tonality: 'C', bpm: 58, flow: false, speech: 'count', blind: false, bassLandmarks: true }
+      },
+      {
+        id: 6,
+        module: 'Модуль II • Неделя 6',
+        moduleColor: 'amber',
+        timecode: 'Видео 1: 12:00 & Видео 2: 15:49',
+        title: 'Урок 6: Сольфеджирование и слуховое предслышание по Г. Фридкину',
+        theory: 'Когда пианист поёт мелодию по нотам, развивается предслышание: внутренний слух заранее подсказывает пальцам, куда пойдёт мелодия (вверх, вниз или скачком в тонику). Сочетание пения по Фридкину с игрой соединяет глаз, ухо и палец в единую систему.',
+        books: 'Г. Фридкин «Чтение с листа на уроках сольфеджио» • Н. Якубовская',
+        steps: [
+          'Перед началом каждого номера нажмите «🎤 Петь» и пропойте контур мелодии.',
+          'Сыграйте упражнение, продолжая интонировать высоту звука голосом.',
+          'Выполните серию из 12 номеров с точностью не ниже 94%.'
+        ],
+        normReps: 12,
+        normAcc: 94,
+        normSpeed: 600,
+        preset: { mode: 'reflex', filter: 'treble', tonality: 'C', bpm: 60, flow: false, speech: 'solfege', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 7,
+        module: 'Модуль III • Неделя 7',
+        moduleColor: 'sky',
+        timecode: 'Видео 1: 15:51–16:20',
+        title: 'Урок 7: Интервальный декодинг «Линии против промежутков» (Н. Ушакова)',
+        theory: 'Опытный пианист не считает каждую ноту по отдельности — он считывает графическую дистанцию (интервал). Секунда и кварта всегда пишутся асимметрично (линия → окошко, играем соседним пальцем). Терция и квинта всегда симметричны (линия → линия или окошко → окошко, играем через палец!).',
+        books: 'Н. Ушакова «Школа беглого чтения нот с листа» • О. Королькова',
+        steps: [
+          'Смотрите на цветные дуги между нотами: зелёный пунктир — соседний палец, синяя дуга — через палец.',
+          'Ориентируйтесь только по относительной дистанции от предыдущей ноты.',
+          'Пройдите 15 интервальных упражнений подряд.'
+        ],
+        normReps: 15,
+        normAcc: 93,
+        normSpeed: 550,
+        preset: { mode: 'intervals', filter: 'treble', tonality: 'C', bpm: 62, flow: false, speech: 'count', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 8,
+        module: 'Модуль III • Неделя 8',
+        moduleColor: 'sky',
+        timecode: 'Видео 1: 02:18 & Видео 2: 17:07',
+        title: 'Урок 8: Выход во вторую октаву и тональности Кварто-квинтового круга',
+        theory: 'После автоматизации первой октавы расширяем диапазон до Ре второй октавы (C4–D5) и подключаем ключевые знаки по кварто-квинтовому кругу: Соль мажор (Фа♯), Фа мажор (Си♭) и Ре мажор (Фа♯, До♯). Рука заранее настраивается на нужные чёрные клавиши до начала игры.',
+        books: 'Д. Бастьен • Ноты для чтения 2 октава (nota-re.ru) • Rev Kadora',
+        steps: [
+          'Тренажёр включит тональность Соль мажор (1 диез Фа♯ при ключе) и диапазон 2-й октавы.',
+          'Помните: каждая нота Фа теперь автоматически берётся на чёрной клавише Фа-диез!',
+          'Сыграйте 15 номеров во 2-й октаве со знаком при ключе.'
+        ],
+        normReps: 15,
+        normAcc: 92,
+        normSpeed: 580,
+        preset: { mode: 'reflex', filter: 'treble_oct2', tonality: 'G', bpm: 60, flow: false, speech: 'count', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 9,
+        module: 'Модуль III • Неделя 9',
+        moduleColor: 'sky',
+        timecode: 'Видео 1: 18:20 & Видео 2: 17:30, 22:05',
+        title: 'Урок 9: Слепая топография по чёрным клавишам и практика «Стол»',
+        theory: 'Любой взгляд на клавиатуру приводит к потере строчки в нотах. Ориентироваться вслепую позволяют возвышающиеся островки из 2 и 3 чёрных клавиш (слева от двух чёрных — До, слева от трёх — Фа). Дополнительно используется упражнение «Стол» — мысленная игра по поверхности стола.',
+        books: 'Приём «Слепой игры» с ширмой • Т. Камаева • Ф. Брянская',
+        steps: [
+          'На клавиатуре автоматически включена «Тактильная ширма» (белые клавиши скрыты, выделены группы из 2 и 3 чёрных).',
+          'Также попробуйте кнопку «🪑 Режим Стол» для тренировки мысленного образа клавиш.',
+          'Пройдите 20 номеров вслепую с точностью ≥ 94%.'
+        ],
+        normReps: 20,
+        normAcc: 94,
+        normSpeed: 550,
+        preset: { mode: 'blind', filter: 'treble', tonality: 'C', bpm: 60, flow: false, speech: 'count', blind: true, bassLandmarks: false }
+      },
+      {
+        id: 10,
+        module: 'Модуль IV • Неделя 10',
+        moduleColor: 'rose',
+        timecode: 'Видео 1: 14:56, 17:45',
+        title: 'Урок 10: Опережающий взгляд с бегунком (+1) и «Фотографирование»',
+        theory: 'Глаза обязаны идти впереди рук минимум на 1 ноту или целый такт. В режиме «Бегунок» шторка закрывает ноту в момент её нажатия, выталкивая взгляд вправо. В режиме «Фото-память» такт показывается на 1.8 секунды и скрывается — вы играете его по памяти, уже разглядывая следующий такт.',
+        books: 'Ф. Брянская • Т. Камаева • Paul Harris Sight-Reading',
+        steps: [
+          'Сначала сыграйте 7 номеров с бегунком, затем переключитесь на «📸 4. Фото-память».',
+          'Схватывайте 4 ноты такта одним взглядом до закрытия шторки.',
+          'Сдайте норматив из 15 номеров с опережающим чтением.'
+        ],
+        normReps: 15,
+        normAcc: 90,
+        normSpeed: 550,
+        preset: { mode: 'lookahead', filter: 'treble', tonality: 'C', bpm: 62, flow: false, speech: 'count', blind: false, bassLandmarks: false }
+      },
+      {
+        id: 11,
+        module: 'Модуль IV • Неделя 11',
+        moduleColor: 'rose',
+        timecode: 'Видео 1: 09:16, 12:57 & Видео 2: 20:28',
+        title: 'Урок 11: Игра двумя руками и траектория взгляда буквой «Г»',
+        theory: 'При соединении двух рук взгляд не может смотреть на два стана одновременно. Он движется по траектории буквы «Г» (снизу вверх и вправо): на 1-й доле фиксируется бас в левой руке, затем глаза поднимаются к мелодии в правой руке и скользят вдоль неё к следующему такту.',
+        books: '300 прогрессивных упражнений • О. Королькова • Песни и танцы народов мира',
+        steps: [
+          'Следуйте за жёлтыми пунктирными векторами «Г ➔» на нотном стане.',
+          'На 1-ю долю такта берите бас левой рукой (C3–G3), на 2–4 доли — мелодию правой рукой (C4–G4).',
+          'Пройдите 15 двуручных номеров подряд.'
+        ],
+        normReps: 15,
+        normAcc: 92,
+        normSpeed: 580,
+        preset: { mode: 'gpattern', filter: 'both', tonality: 'C', bpm: 58, flow: false, speech: 'count', blind: false, bassLandmarks: true }
+      },
+      {
+        id: 12,
+        module: 'Модуль IV • Неделя 12 (Финал)',
+        moduleColor: 'rose',
+        timecode: 'Видео 2: 02:27, 05:14, 12:02, 35:45',
+        title: 'Урок 12: Аппарат Ганона, блоки по 4 ноты и независимость штрихов',
+        theory: 'Финальный экзамен курса соединяет зрение с подготовленным пианистическим аппаратом: укрепление слабых 4-го и 5-го пальцев по Ш. Л. Ганону, чтение секвенций блоками по 4 ноты (К. Черни) и полная штриховая независимость рук (левая рука играет staccato четвертями, правая — legato восьмыми).',
+        books: 'Ш. Л. Ганон «Пианист-виртуоз» • К. Черни Соч. 599 • Этюды Чернышкова',
+        steps: [
+          'Обратите внимание на розовые номера 4 и 5 пальцев над нотами — посылайте в них чёткий импульс.',
+          'В профиле координации совмещайте отрывистый бас (staccato) со связной мелодией (legato).',
+          'Сыграйте финальную серию из 20 номеров со скоростью реакции < 500 мс!'
+        ],
+        normReps: 20,
+        normAcc: 94,
+        normSpeed: 500,
+        preset: { mode: 'hanon', filter: 'treble', tonality: 'C', bpm: 68, flow: true, speech: 'count', blind: false, bassLandmarks: false }
+      }
+    ];
+
+    // Полная 3-октавная карта клавиш (C3 - B5)
+    const MIDI_NOTE_MAP = {
+      'C3':  { midi: 48, freq: 130.81, clef: 'bass',   y: 215, stepIdx: 0,  label: 'До (C3)',   pcKey: 'z', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'C#3': { midi: 49, freq: 138.59, clef: 'bass',   y: 215, stepIdx: 0,  label: 'До♯ (C#3)', pcKey: 's', isBlack: true,  whiteIdx: 0,  accidental: 'sharp', finger: 4 },
+      'D3':  { midi: 50, freq: 146.83, clef: 'bass',   y: 206, stepIdx: 1,  label: 'Ре (D3)',   pcKey: 'x', isBlack: false, ledger: false, accidental: null, finger: 4 },
+      'D#3': { midi: 51, freq: 155.56, clef: 'bass',   y: 206, stepIdx: 1,  label: 'Ре♯ (D#3)', pcKey: 'd', isBlack: true,  whiteIdx: 1,  accidental: 'sharp', finger: 3 },
+      'E3':  { midi: 52, freq: 164.81, clef: 'bass',   y: 197, stepIdx: 2,  label: 'Ми (E3)',   pcKey: 'c', isBlack: false, ledger: false, accidental: null, finger: 3 },
+      'F3':  { midi: 53, freq: 174.61, clef: 'bass',   y: 188, stepIdx: 3,  label: 'Фа (F3)',   pcKey: 'v', isBlack: false, ledger: false, accidental: null, finger: 2 },
+      'F#3': { midi: 54, freq: 185.00, clef: 'bass',   y: 188, stepIdx: 3,  label: 'Фа♯ (F#3)', pcKey: 'g', isBlack: true,  whiteIdx: 3,  accidental: 'sharp', finger: 2 },
+      'G3':  { midi: 55, freq: 196.00, clef: 'bass',   y: 179, stepIdx: 4,  label: 'Соль (G3)', pcKey: 'b', isBlack: false, ledger: false, accidental: null, finger: 1 },
+      'G#3': { midi: 56, freq: 207.65, clef: 'bass',   y: 179, stepIdx: 4,  label: 'Соль♯',     pcKey: 'h', isBlack: true,  whiteIdx: 4,  accidental: 'sharp', finger: 2 },
+      'A3':  { midi: 57, freq: 220.00, clef: 'bass',   y: 170, stepIdx: 5,  label: 'Ля (A3)',   pcKey: 'n', isBlack: false, ledger: false, accidental: null, finger: 2 },
+      'A#3': { midi: 58, freq: 233.08, clef: 'bass',   y: 161, stepIdx: 6,  label: 'Си♭ (Bb3)', pcKey: 'j', isBlack: true,  whiteIdx: 5,  accidental: 'flat',  finger: 2 },
+      'B3':  { midi: 59, freq: 246.94, clef: 'bass',   y: 161, stepIdx: 6,  label: 'Си (B3)',   pcKey: 'm', isBlack: false, ledger: false, accidental: null, finger: 1 },
+
+      'C4':  { midi: 60, freq: 261.63, clef: 'treble', y: 130, stepIdx: 7,  label: 'До (C4)',   pcKey: 'q', isBlack: false, ledger: 130,   accidental: null, finger: 1 },
+      'C#4': { midi: 61, freq: 277.18, clef: 'treble', y: 130, stepIdx: 7,  label: 'До♯ (C#4)', pcKey: '2', isBlack: true,  whiteIdx: 7,  ledger: 130,   accidental: 'sharp', finger: 2 },
+      'D4':  { midi: 62, freq: 293.66, clef: 'treble', y: 121, stepIdx: 8,  label: 'Ре (D4)',   pcKey: 'w', isBlack: false, ledger: false, accidental: null, finger: 2 },
+      'D#4': { midi: 63, freq: 311.13, clef: 'treble', y: 121, stepIdx: 8,  label: 'Ре♯ (D#4)', pcKey: '3', isBlack: true,  whiteIdx: 8,  accidental: 'sharp', finger: 3 },
+      'E4':  { midi: 64, freq: 329.63, clef: 'treble', y: 112, stepIdx: 9,  label: 'Ми (E4)',   pcKey: 'e', isBlack: false, ledger: false, accidental: null, finger: 3 },
+      'F4':  { midi: 65, freq: 349.23, clef: 'treble', y: 103, stepIdx: 10, label: 'Фа (F4)',   pcKey: 'r', isBlack: false, ledger: false, accidental: null, finger: 4 },
+      'F#4': { midi: 66, freq: 369.99, clef: 'treble', y: 103, stepIdx: 10, label: 'Фа♯ (F#4)', pcKey: '5', isBlack: true,  whiteIdx: 10, accidental: 'sharp', finger: 4 },
+      'G4':  { midi: 67, freq: 392.00, clef: 'treble', y: 94,  stepIdx: 11, label: 'Соль (G4)', pcKey: 't', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'G#4': { midi: 68, freq: 415.30, clef: 'treble', y: 94,  stepIdx: 11, label: 'Соль♯',     pcKey: '6', isBlack: true,  whiteIdx: 11, accidental: 'sharp', finger: 3 },
+      'A4':  { midi: 69, freq: 440.00, clef: 'treble', y: 85,  stepIdx: 12, label: 'Ля (A4)',   pcKey: 'y', isBlack: false, ledger: false, accidental: null, finger: 4 },
+      'A#4': { midi: 70, freq: 466.16, clef: 'treble', y: 76,  stepIdx: 13, label: 'Си♭ (Bb4)', pcKey: '7', isBlack: true,  whiteIdx: 12, accidental: 'flat',  finger: 4 },
+      'B4':  { midi: 71, freq: 493.88, clef: 'treble', y: 76,  stepIdx: 13, label: 'Си (B4)',   pcKey: 'u', isBlack: false, ledger: false, accidental: null, finger: 5 },
+
+      'C5':  { midi: 72, freq: 523.25, clef: 'treble', y: 67,  stepIdx: 14, label: 'До (C5)',   pcKey: 'i', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'C#5': { midi: 73, freq: 554.37, clef: 'treble', y: 67,  stepIdx: 14, label: 'До♯ (C#5)', pcKey: '9', isBlack: true,  whiteIdx: 14, accidental: 'sharp', finger: 4 },
+      'D5':  { midi: 74, freq: 587.33, clef: 'treble', y: 58,  stepIdx: 15, label: 'Ре (D5)',   pcKey: 'o', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'D#5': { midi: 75, freq: 622.25, clef: 'treble', y: 58,  stepIdx: 15, label: 'Ре♯ (D#5)', pcKey: '0', isBlack: true,  whiteIdx: 15, accidental: 'sharp', finger: 4 },
+      'E5':  { midi: 76, freq: 659.25, clef: 'treble', y: 49,  stepIdx: 16, label: 'Ми (E5)',   pcKey: 'p', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'F5':  { midi: 77, freq: 698.46, clef: 'treble', y: 40,  stepIdx: 17, label: 'Фа (F5)',   pcKey: '[', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'F#5': { midi: 78, freq: 739.99, clef: 'treble', y: 40,  stepIdx: 17, label: 'Фа♯ (F#5)', pcKey: '=', isBlack: true,  whiteIdx: 17, accidental: 'sharp', finger: 4 },
+      'G5':  { midi: 79, freq: 783.99, clef: 'treble', y: 31,  stepIdx: 18, label: 'Соль (G5)', pcKey: ']', isBlack: false, ledger: false, accidental: null, finger: 5 },
+      'G#5': { midi: 80, freq: 830.61, clef: 'treble', y: 31,  stepIdx: 18, label: 'Соль♯',     pcKey: '',  isBlack: true,  whiteIdx: 18, accidental: 'sharp', finger: 4 },
+      'A5':  { midi: 81, freq: 880.00, clef: 'treble', y: 22,  stepIdx: 19, label: 'Ля (A5)',   pcKey: '',  isBlack: false, ledger: 22,    accidental: null, finger: 5 },
+      'A#5': { midi: 82, freq: 932.33, clef: 'treble', y: 22,  stepIdx: 19, label: 'Си♭ (Bb5)', pcKey: '',  isBlack: true,  whiteIdx: 19, accidental: 'flat',  finger: 4 },
+      'B5':  { midi: 83, freq: 987.77, clef: 'treble', y: 13,  stepIdx: 20, label: 'Си (B5)',   pcKey: '',  isBlack: false, ledger: 22,    accidental: null, finger: 5 }
+    };
+
+    const WHITE_KEYS_ORDER = [
+      'C3','D3','E3','F3','G3','A3','B3',
+      'C4','D4','E4','F4','G4','A4','B4',
+      'C5','D5','E5','F5','G5','A5','B5'
+    ];
+    const BLACK_KEYS_ORDER = [
+      'C#3','D#3','F#3','G#3','A#3',
+      'C#4','D#4','F#4','G#4','A#4',
+      'C#5','D#5','F#5','G#5','A#5'
+    ];
+
+    const TONALITY_CONFIG = {
+      'C': { name: 'C-dur / a-moll', signs: [], scaleNotes: ['C','D','E','F','G','A','B'] },
+      'G': { name: 'G-dur / e-moll (1♯)', signs: [{ type: '♯', trebleY: 45, bassY: 193 }], scaleNotes: ['C','D','E','F#','G','A','B'] },
+      'F': { name: 'F-dur / d-moll (1♭)', signs: [{ type: '♭', trebleY: 80, bassY: 228 }], scaleNotes: ['C','D','E','F','G','A','A#'] },
+      'D': { name: 'D-dur / h-moll (2♯)', signs: [{ type: '♯', trebleY: 45, bassY: 193 }, { type: '♯', trebleY: 71, bassY: 219 }], scaleNotes: ['C#','D','E','F#','G','A','B'] }
+    };
+
+    // Глобальное состояние
+    let currentWorkspace = 'course';
+    let selectedLessonId = 1;
+    let completedLessons = [];
+
+    let currentAppMode = 'reflex';
+    let currentFilter = 'treble';
+    let currentTonality = 'C';
+    let currentHanonType = 'hanon1';
+    let scoreNoteCount = 16;
+    let photoExposureMs = 1800;
+    let isPhotoMasked = false;
+    let photoTimer = null;
+
+    let activeExerciseNotes = [];
+    let activeNoteIndex = 0;
+
+    let audioCtx = null;
+    let audioEnabled = true;
+    let isContinuousFlow = false;
+    let bpm = 60;
+    let flowInterval = null;
+    let previewTimeouts = [];
+
+    let isBlindfolded = false;
+    let isTabletopMode = false;
+    let showBassLandmarks = false;
+    let showScaleHighlight = false;
+
+    // Телеметрия
+    let totalAttempts = 0;
+    let correctHits = 0;
+    let currentStreak = 0;
+    let bestStreak = 0;
+    let completedExercisesCount = 0;
+    let noteShownTimestamp = performance.now();
+    let reactionTimes = [];
+
+    // ==================== УПРАВЛЕНИЕ ПРОГРЕССОМ КУРСА ====================
+    function loadCourseProgressFromStorage() {
+      try {
+        const saved = localStorage.getItem('notare_course_completed_v3');
+        if (saved) completedLessons = JSON.parse(saved);
+      } catch (e) {
+        completedLessons = [];
+      }
+    }
+
+    function saveCourseProgressToStorage() {
+      try {
+        localStorage.setItem('notare_course_completed_v3', JSON.stringify(completedLessons));
+      } catch (e) {}
+    }
+
+    function renderCourseCurriculumUI() {
+      const listEl = document.getElementById('course-lessons-list');
+      if (!listEl) return;
+      listEl.innerHTML = '';
+
+      const doneCount = completedLessons.length;
+      const pct = Math.round((doneCount / COURSE_CURRICULUM.length) * 100);
+      document.getElementById('course-progress-pill').textContent = `Курс: ${doneCount} / 12 уроков (${pct}%)`;
+      document.getElementById('course-pct-circle').textContent = `${pct}%`;
+
+      COURSE_CURRICULUM.forEach(lesson => {
+        const isSelected = lesson.id === selectedLessonId;
+        const isDone = completedLessons.includes(lesson.id);
+
+        const item = document.createElement('div');
+        item.onclick = () => selectCourseLesson(lesson.id);
+        item.className = `cursor-pointer p-3 rounded-xl border transition flex items-center justify-between gap-3 ${
+          isSelected
+            ? 'bg-slate-800/95 border-emerald-500/60 shadow-md'
+            : 'bg-slate-950/80 border-slate-800/90 hover:border-slate-700'
+        }`;
+
+        const badgeColor = isDone
+          ? 'bg-emerald-500 text-slate-950 font-bold'
+          : (isSelected ? 'bg-sky-500/20 text-sky-300 border border-sky-500/40' : 'bg-slate-900 text-slate-400 border border-slate-800');
+
+        item.innerHTML = `
+          <div class="flex items-center gap-3 min-w-0">
+            <div class="w-7 h-7 rounded-lg font-mono text-xs flex items-center justify-center shrink-0 ${badgeColor}">
+              ${isDone ? '✓' : lesson.id}
+            </div>
+            <div class="min-w-0">
+              <div class="flex items-center gap-1.5">
+                <span class="text-[10px] font-mono text-slate-400">${lesson.module}</span>
+                <span class="text-[10px] font-mono text-slate-600">• ${lesson.timecode}</span>
+              </div>
+              <div class="text-xs font-bold ${isSelected ? 'text-white' : 'text-slate-200'} truncate">${lesson.title}</div>
+            </div>
+          </div>
+          <span class="text-[10px] font-mono px-2 py-0.5 rounded shrink-0 ${
+            isDone ? 'bg-emerald-500/15 text-emerald-300' : 'bg-slate-900 text-slate-500'
+          }">${isDone ? 'Сдан' : `${lesson.normReps} ном.`}</span>
+        `;
+        listEl.appendChild(item);
+      });
+
+      renderSelectedLessonDetail();
+      updateTrainerCourseBanner();
+    }
+
+    function selectCourseLesson(id) {
+      selectedLessonId = id;
+      renderCourseCurriculumUI();
+    }
+
+    function selectPrevCourseLesson() {
+      if (selectedLessonId > 1) selectCourseLesson(selectedLessonId - 1);
+    }
+
+    function selectNextCourseLesson() {
+      if (selectedLessonId < COURSE_CURRICULUM.length) selectCourseLesson(selectedLessonId + 1);
+    }
+
+    function renderSelectedLessonDetail() {
+      const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
+      const isDone = completedLessons.includes(lesson.id);
+
+      document.getElementById('lesson-detail-module').textContent = lesson.module;
+      document.getElementById('lesson-detail-timecode').textContent = lesson.timecode;
+      const statusEl = document.getElementById('lesson-detail-status');
+      statusEl.textContent = isDone ? '✓ Зачёт сдан' : 'В работе';
+      statusEl.className = isDone
+        ? 'text-[11px] font-mono px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+        : 'text-[11px] font-mono px-2 py-0.5 rounded bg-slate-800 text-slate-300';
+
+      document.getElementById('lesson-detail-title').textContent = lesson.title;
+      document.getElementById('lesson-detail-theory').textContent = lesson.theory;
+      document.getElementById('lesson-detail-books').textContent = lesson.books;
+
+      const stepsContainer = document.getElementById('lesson-detail-steps');
+      stepsContainer.innerHTML = '';
+      lesson.steps.forEach((st, i) => {
+        const row = document.createElement('div');
+        row.className = 'flex items-start gap-2';
+        row.innerHTML = `<span class="font-mono text-emerald-400 font-bold">${i + 1}.</span><span>${st}</span>`;
+        stepsContainer.appendChild(row);
+      });
+
+      document.getElementById('lesson-norm-reps').textContent = `${lesson.normReps} ном.`;
+      document.getElementById('lesson-norm-acc').textContent = `≥ ${lesson.normAcc}%`;
+      document.getElementById('lesson-norm-speed').textContent = `< ${lesson.normSpeed} мс`;
+
+      document.getElementById('lesson-preset-summary').textContent =
+        `Автонастройка: Режим «${lesson.preset.mode}» • Диапазон «${lesson.preset.filter}» • Тональность ${lesson.preset.tonality}-dur • Темп ${lesson.preset.bpm} BPM`;
+
+      const manualBtn = document.getElementById('lesson-manual-complete-btn');
+      manualBtn.textContent = isDone ? '✓ Урок пройден (отменить)' : '✓ Отметить пройденным вручную';
+    }
+
+    function toggleCurrentLessonCompletedManual() {
+      const idx = completedLessons.indexOf(selectedLessonId);
+      if (idx >= 0) {
+        completedLessons.splice(idx, 1);
+      } else {
+        completedLessons.push(selectedLessonId);
+      }
+      saveCourseProgressToStorage();
+      renderCourseCurriculumUI();
+    }
+
+    function resetCourseProgress() {
+      completedLessons = [];
+      saveCourseProgressToStorage();
+      renderCourseCurriculumUI();
+    }
+
+    function startActiveCourseLessonInTrainer() {
+      const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
+      resetSessionStats();
+
+      // Применяем пресет урока
+      currentTonality = lesson.preset.tonality;
+      document.getElementById('quick-tonality-select').value = currentTonality;
+      applyScaleHighlightOnKeys();
+
+      currentFilter = lesson.preset.filter;
+      syncFilterButtonsUI(currentFilter);
+
+      changeTempo(lesson.preset.bpm);
+      document.getElementById('bpm-slider').value = lesson.preset.bpm;
+
+      document.getElementById('speech-suppressor-select').value = lesson.preset.speech;
+      updateSpeechSuppressor();
+
+      if (lesson.preset.blind !== isBlindfolded) toggleBlindfoldKeys();
+      if (lesson.preset.bassLandmarks !== showBassLandmarks) toggleBassLandmarks();
+      if (lesson.preset.flow !== isContinuousFlow) toggleContinuousFlow();
+
+      setAppMode(lesson.preset.mode);
+      updateTrainerCourseBanner();
+      switchWorkspaceTab('trainer');
+    }
+
+    function updateTrainerCourseBanner() {
+      const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
+      const isDone = completedLessons.includes(lesson.id);
+
+      document.getElementById('trainer-lesson-badge').textContent = `УРОК ${lesson.id} / 12`;
+      document.getElementById('trainer-lesson-title').textContent = lesson.title;
+      document.getElementById('trainer-lesson-goal-desc').textContent = `• Норматив: ${lesson.normReps} ном. (точность ≥${lesson.normAcc}%, отклик <${lesson.normSpeed} мс)`;
+      document.getElementById('trainer-norm-progress').textContent = `${completedExercisesCount} / ${lesson.normReps} ном.`;
+
+      const statusEl = document.getElementById('trainer-norm-status');
+      const nextBtn = document.getElementById('trainer-next-lesson-btn');
+
+      if (isDone) {
+        statusEl.textContent = '✓ ЗАЧЁТ СДАН!';
+        statusEl.className = 'text-emerald-400 font-bold';
+        nextBtn.classList.remove('hidden');
+      } else {
+        statusEl.textContent = 'В процессе...';
+        statusEl.className = 'text-amber-400';
+        nextBtn.classList.add('hidden');
+      }
+    }
+
+    function checkCourseLessonNormCompletion() {
+      const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId);
+      if (!lesson) return;
+
+      const acc = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
+      const avgSpeed = reactionTimes.length > 0
+        ? Math.round(reactionTimes.slice(-15).reduce((a, b) => a + b, 0) / Math.min(15, reactionTimes.length))
+        : 500;
+
+      if (completedExercisesCount >= lesson.normReps && acc >= lesson.normAcc && avgSpeed <= lesson.normSpeed) {
+        if (!completedLessons.includes(lesson.id)) {
+          completedLessons.push(lesson.id);
+          saveCourseProgressToStorage();
+          renderCourseCurriculumUI();
+        }
+      }
+      updateTrainerCourseBanner();
+    }
+
+    function goToNextLessonAndStart() {
+      if (selectedLessonId < COURSE_CURRICULUM.length) {
+        selectedLessonId++;
+        renderCourseCurriculumUI();
+        startActiveCourseLessonInTrainer();
+      } else {
+        switchWorkspaceTab('course');
+      }
+    }
+
+    // ==================== НАВИГАЦИЯ ПО 5 ПРОСТРАНСТВАМ ====================
+    function switchWorkspaceTab(tab) {
+      currentWorkspace = tab;
+      ['course', 'trainer', 'precheck', 'lab', 'theory'].forEach(id => {
+        const sec = document.getElementById(`workspace-${id}`);
+        const btn = document.getElementById(`ws-tab-${id}`);
+        if (!sec || !btn) return;
+        if (id === tab) {
+          sec.classList.remove('hidden');
+          btn.className = 'px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 bg-emerald-500 text-slate-950 shadow';
+        } else {
+          sec.classList.add('hidden');
+          btn.className = 'px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 text-slate-400 hover:text-white';
+        }
+      });
+    }
+
+    function toggleSettingsDrawer() {
+      const drawer = document.getElementById('settings-drawer');
+      const backdrop = document.getElementById('settings-backdrop');
+      const isHidden = drawer.classList.contains('translate-x-full');
+      if (isHidden) {
+        drawer.classList.remove('translate-x-full');
+        backdrop.classList.remove('hidden');
+      } else {
+        drawer.classList.add('translate-x-full');
+        backdrop.classList.add('hidden');
+      }
+    }
+
+    function changeTonality(ton) {
+      currentTonality = ton;
+      document.getElementById('quick-tonality-select').value = ton;
+      updateHeaderSummary();
+      applyScaleHighlightOnKeys();
+      regenerateExercise();
+    }
+
+    function applyTonalityAndStart(ton) {
+      changeTonality(ton);
+      switchWorkspaceTab('trainer');
+    }
+
+    function toggleBassLandmarks() {
+      showBassLandmarks = !showBassLandmarks;
+      const layer = document.getElementById('bass-landmarks-layer');
+      const btn = document.getElementById('bass-landmarks-btn');
+      if (showBassLandmarks) {
+        layer.classList.remove('hidden');
+        btn.textContent = '𝄢 Маяки баса: ВКЛ (Фа3 / Соль2)';
+        btn.className = 'px-2 py-0.5 rounded-md bg-purple-500/20 border border-purple-500/50 text-[11px] font-mono text-purple-200 transition';
+      } else {
+        layer.classList.add('hidden');
+        btn.textContent = '𝄢 Маяки баса: ВЫКЛ';
+        btn.className = 'px-2 py-0.5 rounded-md bg-slate-950/90 border border-slate-800 hover:border-purple-500/40 text-[11px] font-mono text-purple-300 transition';
+      }
+    }
+
+    function toggleScaleHighlight() {
+      showScaleHighlight = !showScaleHighlight;
+      const btn = document.getElementById('scale-hint-btn');
+      btn.className = showScaleHighlight
+        ? 'px-2.5 py-0.5 rounded-lg bg-sky-500/20 border border-sky-500/40 text-[11px] font-semibold text-sky-200 transition'
+        : 'px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-sky-300 transition';
+      applyScaleHighlightOnKeys();
+    }
+
+    function applyScaleHighlightOnKeys() {
+      const cfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
+      Object.keys(MIDI_NOTE_MAP).forEach(noteName => {
+        const el = document.getElementById(`key-${noteName}`);
+        if (!el) return;
+        const pitchClass = noteName.slice(0, -1);
+        if (showScaleHighlight && cfg.scaleNotes.includes(pitchClass)) {
+          el.classList.add('key-scale-hint');
+        } else {
+          el.classList.remove('key-scale-hint');
+        }
+      });
+    }
+
+    function changePhotoExposure(val) {
+      photoExposureMs = parseInt(val, 10);
+      if (currentAppMode === 'photo') triggerPhotoFlashPreview();
+    }
+
+    function triggerPhotoFlashPreview() {
+      if (photoTimer) clearTimeout(photoTimer);
+      isPhotoMasked = false;
+      updatePhotoMaskPosition();
+      photoTimer = setTimeout(() => {
+        if (currentAppMode === 'photo') {
+          isPhotoMasked = true;
+          updatePhotoMaskPosition();
+        }
+      }, photoExposureMs);
+    }
+
+    function toggleScoreDensity() {
+      scoreNoteCount = scoreNoteCount === 16 ? 24 : 16;
+      document.getElementById('density-btn').textContent = `📏 ${scoreNoteCount} нот`;
+      regenerateExercise();
+    }
+
+    function cycleSpeechSuppressor() {
+      const sel = document.getElementById('speech-suppressor-select');
+      sel.selectedIndex = (sel.selectedIndex + 1) % sel.options.length;
+      updateSpeechSuppressor();
+    }
+
+    function updateSpeechSuppressor() {
+      const val = document.getElementById('speech-suppressor-select').value;
+      const map = {
+        count: 'Счёт вслух (1-2-3-4)',
+        tata: 'Слог «ТА-ТА-ТА-ТА»',
+        syllables: 'Ритмослоги (ТА, ТИ-ТИ)',
+        solfege: 'Пение высоты (Фридкин)'
+      };
+      document.getElementById('speech-guide-banner').textContent = map[val] || map.count;
+    }
+
+    // ==================== WEB AUDIO СИНТЕЗАТОР ====================
+    function ensureAudioContext() {
+      if (!audioCtx) {
+        const AudioContextClass = window.AudioContext || window.webkitAudioContext;
+        audioCtx = new AudioContextClass();
+      }
+      if (audioCtx.state === 'suspended') audioCtx.resume();
+    }
+
+    function playPianoTone(freq, duration = 0.55, type = 'triangle', isStaccato = false) {
+      if (!audioEnabled) return;
+      ensureAudioContext();
+      const now = audioCtx.currentTime;
+      const actualDur = isStaccato ? 0.13 : duration;
+
+      const osc1 = audioCtx.createOscillator();
+      const osc2 = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+
+      osc1.type = type;
+      osc2.type = 'sine';
+      osc1.frequency.setValueAtTime(freq, now);
+      osc2.frequency.setValueAtTime(freq * 2, now);
+
+      gain.gain.setValueAtTime(0.001, now);
+      gain.gain.linearRampToValueAtTime(0.28, now + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0008, now + actualDur);
+
+      osc1.connect(gain);
+      osc2.connect(gain);
+      gain.connect(audioCtx.destination);
+
+      osc1.start(now);
+      osc2.start(now);
+      osc1.stop(now + actualDur);
+      osc2.stop(now + actualDur);
+    }
+
+    function playMetronomeClick(isStrong = false) {
+      if (!audioEnabled) return;
+      ensureAudioContext();
+      const now = audioCtx.currentTime;
+      const osc = audioCtx.createOscillator();
+      const gain = audioCtx.createGain();
+      osc.type = 'sine';
+      osc.frequency.setValueAtTime(isStrong ? 1050 : 720, now);
+      gain.gain.setValueAtTime(0.11, now);
+      gain.gain.exponentialRampToValueAtTime(0.001, now + 0.045);
+      osc.connect(gain);
+      gain.connect(audioCtx.destination);
+      osc.start(now);
+      osc.stop(now + 0.05);
+
+      const led = document.getElementById('metronome-led');
+      if (led) {
+        led.className = isStrong
+          ? 'w-2 h-2 rounded-full bg-emerald-400 scale-125 transition-transform'
+          : 'w-2 h-2 rounded-full bg-amber-400 transition-transform';
+        setTimeout(() => { led.className = 'w-2 h-2 rounded-full bg-slate-700 transition-transform'; }, 90);
+      }
+    }
+
+    function clearPreviewTimeouts() {
+      previewTimeouts.forEach(t => clearTimeout(t));
+      previewTimeouts = [];
+    }
+
+    function toggleAudioMaster() {
+      audioEnabled = !audioEnabled;
+      const btn = document.getElementById('audio-toggle-btn');
+      btn.textContent = audioEnabled ? '🔊 Звук' : '🔇 Без звука';
+      btn.className = audioEnabled
+        ? 'px-2.5 py-1.5 rounded-lg bg-emerald-500/15 border border-emerald-500/40 text-emerald-300 text-xs font-medium transition'
+        : 'px-2.5 py-1.5 rounded-lg bg-slate-800 border border-slate-700 text-slate-400 text-xs font-medium transition';
+    }
+
+    function applyTonalityToPitch(noteName) {
+      const pitch = noteName.slice(0, -1);
+      const oct = noteName.slice(-1);
+      if (currentTonality === 'G' && pitch === 'F') return `F#${oct}`;
+      if (currentTonality === 'F' && pitch === 'B') return `A#${oct}`;
+      if (currentTonality === 'D') {
+        if (pitch === 'F') return `F#${oct}`;
+        if (pitch === 'C') return `C#${oct}`;
+      }
+      return noteName;
+    }
+
+    function computeIntervalInfo(prevNote, currNote) {
+      if (!prevNote || !currNote) return { name: 'Прима (старт)', graphicRule: 'Опорная нота' };
+      const diff = Math.abs(currNote.stepIdx - prevNote.stepIdx);
+      const dir = currNote.midi > prevNote.midi ? '↑' : (currNote.midi < prevNote.midi ? '↓' : '→');
+      const map = {
+        0: { name: 'Прима (1)', rule: 'Та же линейка/окошко' },
+        1: { name: `Секунда (2 ${dir})`, rule: 'Линия ➔ Окошко (соседний палец)' },
+        2: { name: `Терция (3 ${dir})`, rule: 'Линия ➔ Линия (через палец!)' },
+        3: { name: `Кварта (4 ${dir})`, rule: 'Линия ➔ Окошко (через 2 ступени)' },
+        4: { name: `Квинта (5 ${dir})`, rule: 'Линия ➔ Линия (края 5 пальцев 1➔5)' }
+      };
+      return map[diff] || { name: `Скачок (${diff + 1} ${dir})`, rule: 'Широкий интервал' };
+    }
+
+    // ==================== ГЕНЕРАТОР ПАРТИТУРЫ ====================
+    function regenerateExercise() {
+      clearPreviewTimeouts();
+      activeExerciseNotes = [];
+      activeNoteIndex = 0;
+
+      const treble5 = ['C4', 'D4', 'E4', 'F4', 'G4'].map(applyTonalityToPitch);
+      const trebleOct2 = ['C4', 'D4', 'E4', 'F4', 'G4', 'A4', 'B4', 'C5', 'D5'].map(applyTonalityToPitch);
+      const bass5 = ['C3', 'D3', 'E3', 'F3', 'G3', 'A3', 'B3'].map(applyTonalityToPitch);
+
+      let pool = treble5;
+      if (currentFilter === 'treble_oct2') pool = trebleOct2;
+      else if (currentFilter === 'bass') pool = bass5;
+
+      const syllablesPool = [
+        { syl: 'ТА', dur: 1 },
+        { syl: 'ТИ-ТИ', dur: 0.5 },
+        { syl: 'ТИ-РИ-ТИ-РИ', dur: 0.25 },
+        { syl: 'ТА-А', dur: 2 }
+      ];
+
+      if (currentAppMode === 'hanon') {
+        const hanon1Seq = [
+          { n: 'C4', f: 1, g: 1 }, { n: 'E4', f: 2, g: 1 }, { n: 'F4', f: 3, g: 1 }, { n: 'G4', f: 4, g: 1 },
+          { n: 'A4', f: 5, g: 2 }, { n: 'G4', f: 4, g: 2 }, { n: 'F4', f: 3, g: 2 }, { n: 'E4', f: 2, g: 2 },
+          { n: 'D4', f: 1, g: 3 }, { n: 'F4', f: 2, g: 3 }, { n: 'G4', f: 3, g: 3 }, { n: 'A4', f: 4, g: 3 },
+          { n: 'B4', f: 5, g: 4 }, { n: 'A4', f: 4, g: 4 }, { n: 'G4', f: 3, g: 4 }, { n: 'F4', f: 2, g: 4 },
+          { n: 'E4', f: 1, g: 5 }, { n: 'G4', f: 2, g: 5 }, { n: 'A4', f: 3, g: 5 }, { n: 'B4', f: 4, g: 5 },
+          { n: 'C5', f: 5, g: 6 }, { n: 'B4', f: 4, g: 6 }, { n: 'A4', f: 3, g: 6 }, { n: 'G4', f: 2, g: 6 }
+        ];
+        const hanon2Seq = [
+          { n: 'C4', f: 1, g: 1 }, { n: 'D4', f: 2, g: 1 }, { n: 'G4', f: 5, g: 1 }, { n: 'F4', f: 4, g: 1 },
+          { n: 'E4', f: 3, g: 2 }, { n: 'F4', f: 4, g: 2 }, { n: 'E4', f: 3, g: 2 }, { n: 'D4', f: 2, g: 2 },
+          { n: 'D4', f: 1, g: 3 }, { n: 'E4', f: 2, g: 3 }, { n: 'A4', f: 5, g: 3 }, { n: 'G4', f: 4, g: 3 },
+          { n: 'F4', f: 3, g: 4 }, { n: 'G4', f: 4, g: 4 }, { n: 'F4', f: 3, g: 4 }, { n: 'E4', f: 2, g: 4 },
+          { n: 'E4', f: 1, g: 5 }, { n: 'F4', f: 2, g: 5 }, { n: 'B4', f: 5, g: 5 }, { n: 'A4', f: 4, g: 5 },
+          { n: 'G4', f: 3, g: 6 }, { n: 'A4', f: 4, g: 6 }, { n: 'G4', f: 3, g: 6 }, { n: 'F4', f: 2, g: 6 }
+        ];
+        const groups4Seq = [
+          { n: 'C4', f: 1, g: 1 }, { n: 'D4', f: 2, g: 1 }, { n: 'E4', f: 3, g: 1 }, { n: 'C4', f: 1, g: 1 },
+          { n: 'D4', f: 2, g: 2 }, { n: 'E4', f: 3, g: 2 }, { n: 'F4', f: 4, g: 2 }, { n: 'D4', f: 2, g: 2 },
+          { n: 'E4', f: 3, g: 3 }, { n: 'F4', f: 4, g: 3 }, { n: 'G4', f: 5, g: 3 }, { n: 'E4', f: 3, g: 3 },
+          { n: 'F4', f: 4, g: 4 }, { n: 'G4', f: 5, g: 4 }, { n: 'A4', f: 5, g: 4 }, { n: 'F4', f: 4, g: 4 },
+          { n: 'G4', f: 5, g: 5 }, { n: 'F4', f: 4, g: 5 }, { n: 'E4', f: 3, g: 5 }, { n: 'D4', f: 2, g: 5 },
+          { n: 'E4', f: 3, g: 6 }, { n: 'D4', f: 2, g: 6 }, { n: 'C4', f: 1, g: 6 }, { n: 'C4', f: 1, g: 6 }
+        ];
+        const coordSeq = [
+          { n: 'C3', f: 5, g: 1, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'E4', f: 3, g: 1, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'F4', f: 4, g: 1, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'G4', f: 5, g: 1, art: 'legato',   syl: 'ТА (leg)' },
+          { n: 'G3', f: 1, g: 2, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'G4', f: 5, g: 2, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'F4', f: 4, g: 2, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'E4', f: 3, g: 2, art: 'legato',   syl: 'ТА (leg)' },
+          { n: 'F3', f: 2, g: 3, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'D4', f: 2, g: 3, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'E4', f: 3, g: 3, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'F4', f: 4, g: 3, art: 'legato',   syl: 'ТА (leg)' },
+          { n: 'C3', f: 5, g: 4, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'E4', f: 3, g: 4, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'D4', f: 2, g: 4, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'C4', f: 1, g: 4, art: 'legato',   syl: 'ТА-А (leg)' },
+          { n: 'G3', f: 1, g: 5, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'D4', f: 2, g: 5, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'E4', f: 3, g: 5, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'F4', f: 4, g: 5, art: 'legato',   syl: 'ТА (leg)' },
+          { n: 'C3', f: 5, g: 6, art: 'staccato', syl: 'ТА (stacc)' },
+          { n: 'E4', f: 3, g: 6, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'D4', f: 2, g: 6, art: 'legato',   syl: 'ТИ-ТИ (leg)' },
+          { n: 'C4', f: 1, g: 6, art: 'legato',   syl: 'ТА (leg)' }
+        ];
+
+        let chosen = hanon1Seq;
+        if (currentHanonType === 'hanon2') chosen = hanon2Seq;
+        if (currentHanonType === 'groups4') chosen = groups4Seq;
+        if (currentHanonType === 'coord') chosen = coordSeq;
+
+        activeExerciseNotes = chosen.slice(0, scoreNoteCount).map((item, idx) => {
+          const adjNote = applyTonalityToPitch(item.n);
+          return {
+            id: idx,
+            noteName: adjNote,
+            ...MIDI_NOTE_MAP[adjNote],
+            finger: item.f,
+            group4: item.g,
+            articulation: item.art || 'legato',
+            syllable: item.syl || (item.f >= 4 ? `Палец ${item.f}!` : 'ТИ-РИ'),
+            durMultiplier: item.art === 'staccato' ? 1 : 0.5,
+            status: idx === 0 ? 'current' : 'pending'
+          };
+        });
+      } else if (currentAppMode === 'intervals') {
+        const patternPool = [0, 2, 1, 3, 2, 4, 3, 1, 0, 4, 2, 0, 1, 2, 3, 4];
+        for (let i = 0; i < scoreNoteCount; i++) {
+          const idx = patternPool[i % patternPool.length] % pool.length;
+          const noteName = pool[idx];
+          activeExerciseNotes.push({
+            id: i,
+            noteName,
+            ...MIDI_NOTE_MAP[noteName],
+            articulation: 'legato',
+            syllable: 'ТА',
+            durMultiplier: 1,
+            status: i === 0 ? 'current' : 'pending'
+          });
+        }
+      } else {
+        let prevIdx = Math.floor(pool.length / 2);
+        for (let i = 0; i < scoreNoteCount; i++) {
+          let noteName;
+          if (currentAppMode === 'gpattern' || currentFilter === 'both') {
+            if (i % 4 === 0) {
+              noteName = bass5[Math.floor(Math.random() * Math.min(5, bass5.length))];
+            } else {
+              const step = Math.floor(Math.random() * 3) - 1;
+              prevIdx = Math.max(0, Math.min(treble5.length - 1, prevIdx + step));
+              noteName = treble5[prevIdx];
+            }
+          } else {
+            const maxStep = currentFilter === 'treble_oct2' ? 2 : 1;
+            const step = Math.floor(Math.random() * (maxStep * 2 + 1)) - maxStep;
+            prevIdx = Math.max(0, Math.min(pool.length - 1, prevIdx + step));
+            noteName = pool[prevIdx];
+          }
+
+          const rObj = currentAppMode === 'rhythm'
+            ? syllablesPool[i % syllablesPool.length]
+            : { syl: 'ТА', dur: 1 };
+
+          activeExerciseNotes.push({
+            id: i,
+            noteName,
+            ...MIDI_NOTE_MAP[noteName],
+            articulation: 'legato',
+            syllable: rObj.syl,
+            durMultiplier: rObj.dur,
+            status: i === 0 ? 'current' : 'pending'
+          });
+        }
+      }
+
+      renderKeySignatureSVG();
+      renderGrandStaffSVG();
+      updateTargetLabels();
+      updateLookaheadCurtain();
+      if (currentAppMode === 'photo') {
+        triggerPhotoFlashPreview();
+      } else {
+        document.getElementById('svg-photo-mask-group').classList.add('hidden');
+      }
+      noteShownTimestamp = performance.now();
+    }
+
+    function renderKeySignatureSVG() {
+      const layer = document.getElementById('key-signature-layer');
+      if (!layer) return;
+      layer.innerHTML = '';
+      const cfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
+      cfg.signs.forEach((s, idx) => {
+        const xPos = 80 + idx * 14;
+        const tSign = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        tSign.setAttribute('x', xPos);
+        tSign.setAttribute('y', s.trebleY);
+        tSign.setAttribute('fill', '#38bdf8');
+        tSign.setAttribute('font-size', '22');
+        tSign.setAttribute('font-weight', 'bold');
+        tSign.textContent = s.type;
+        layer.appendChild(tSign);
+
+        const bSign = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        bSign.setAttribute('x', xPos);
+        bSign.setAttribute('y', s.bassY);
+        bSign.setAttribute('fill', '#a855f7');
+        bSign.setAttribute('font-size', '22');
+        bSign.setAttribute('font-weight', 'bold');
+        bSign.textContent = s.type;
+        layer.appendChild(bSign);
+      });
+    }
+
+    // ==================== ОТРИСОВКА ПАНОРАМНОГО НОТНОГО СТАНА ====================
+    function renderGrandStaffSVG() {
+      const layer = document.getElementById('staff-notes-layer');
+      if (!layer) return;
+      layer.innerHTML = '';
+
+      const startX = 155;
+      const endX = 1650;
+      const availableWidth = endX - startX;
+      const spacingX = availableWidth / Math.max(1, activeExerciseNotes.length - 1);
+
+      if (currentAppMode === 'hanon' || currentAppMode === 'photo') {
+        const totalBars = scoreNoteCount / 4;
+        for (let g = 0; g < totalBars; g++) {
+          const x1 = startX + (g * 4) * spacingX - 16;
+          const x2 = startX + (g * 4 + 3) * spacingX + 16;
+          const bracket = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          bracket.setAttribute('d', `M ${x1} 26 L ${x1} 18 L ${x2} 18 L ${x2} 26`);
+          bracket.setAttribute('stroke', currentAppMode === 'photo' ? '#22d3ee' : '#f43f5e');
+          bracket.setAttribute('stroke-width', '1.8');
+          bracket.setAttribute('fill', 'none');
+          bracket.setAttribute('opacity', '0.75');
+          layer.appendChild(bracket);
+
+          const bLabel = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          bLabel.setAttribute('x', (x1 + x2) / 2);
+          bLabel.setAttribute('y', 13);
+          bLabel.setAttribute('text-anchor', 'middle');
+          bLabel.setAttribute('font-size', '10');
+          bLabel.setAttribute('font-family', 'JetBrains Mono');
+          bLabel.setAttribute('fill', currentAppMode === 'photo' ? '#67e8f9' : '#fb7185');
+          bLabel.textContent = currentAppMode === 'photo' ? `ФОТО-ТАКТ #${g + 1}` : `БЛОК #${g + 1}`;
+          layer.appendChild(bLabel);
+        }
+      }
+
+      activeExerciseNotes.forEach((n, idx) => {
+        const cx = startX + idx * spacingX;
+        const cy = n.y;
+
+        if (idx > 0 && idx % 4 === 0) {
+          const barX = cx - spacingX / 2;
+          const barLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          barLine.setAttribute('x1', barX);
+          barLine.setAttribute('y1', 40);
+          barLine.setAttribute('x2', barX);
+          barLine.setAttribute('y2', 242);
+          barLine.setAttribute('stroke', '#475569');
+          barLine.setAttribute('stroke-width', '1.6');
+          layer.appendChild(barLine);
+
+          const barNum = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          barNum.setAttribute('x', barX + 6);
+          barNum.setAttribute('y', 33);
+          barNum.setAttribute('font-size', '11');
+          barNum.setAttribute('font-family', 'JetBrains Mono');
+          barNum.setAttribute('fill', '#64748b');
+          barNum.textContent = `Такт ${idx / 4 + 1}`;
+          layer.appendChild(barNum);
+        }
+
+        if (currentAppMode === 'intervals' && idx > 0) {
+          const prev = activeExerciseNotes[idx - 1];
+          const px = startX + (idx - 1) * spacingX;
+          const py = prev.y;
+          const stepDiff = Math.abs(n.stepIdx - prev.stepIdx);
+          const isSymmetric = stepDiff % 2 === 0;
+
+          const arc = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const midX = (px + cx) / 2;
+          const midY = Math.min(py, cy) - 24;
+          arc.setAttribute('d', `M ${px} ${py - 8} Q ${midX} ${midY} ${cx} ${cy - 8}`);
+          arc.setAttribute('fill', 'none');
+          arc.setAttribute('stroke', isSymmetric ? '#818cf8' : '#34d399');
+          arc.setAttribute('stroke-width', '1.8');
+          arc.setAttribute('stroke-dasharray', isSymmetric ? 'none' : '3 2');
+          layer.appendChild(arc);
+
+          const intLbl = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          intLbl.setAttribute('x', midX);
+          intLbl.setAttribute('y', midY - 2);
+          intLbl.setAttribute('text-anchor', 'middle');
+          intLbl.setAttribute('font-size', '10');
+          intLbl.setAttribute('font-family', 'JetBrains Mono');
+          intLbl.setAttribute('fill', isSymmetric ? '#a5b4fc' : '#6ee7b7');
+          intLbl.textContent = `${stepDiff + 1}-я (${isSymmetric ? 'симметр.' : 'лин-окошко'})`;
+          layer.appendChild(intLbl);
+        }
+
+        if ((currentAppMode === 'gpattern' || currentFilter === 'both') && idx % 4 === 0 && idx + 1 < activeExerciseNotes.length) {
+          const nextNote = activeExerciseNotes[idx + 1];
+          const nx = startX + (idx + 1) * spacingX;
+          const path = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          path.setAttribute('d', `M ${cx} ${cy - 14} L ${cx} ${nextNote.y} L ${nx - 14} ${nextNote.y}`);
+          path.setAttribute('stroke', '#f59e0b');
+          path.setAttribute('stroke-width', '2.2');
+          path.setAttribute('stroke-dasharray', '5 3');
+          path.setAttribute('fill', 'none');
+          layer.appendChild(path);
+
+          const gTag = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          gTag.setAttribute('x', cx - 10);
+          gTag.setAttribute('y', nextNote.y - 8);
+          gTag.setAttribute('fill', '#fbbf24');
+          gTag.setAttribute('font-size', '11');
+          gTag.setAttribute('font-weight', 'bold');
+          gTag.textContent = 'Г ➔';
+          layer.appendChild(gTag);
+        }
+
+        if (n.ledger) {
+          const lLine = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+          lLine.setAttribute('x1', cx - 18);
+          lLine.setAttribute('y1', n.ledger);
+          lLine.setAttribute('x2', cx + 18);
+          lLine.setAttribute('y2', n.ledger);
+          lLine.setAttribute('stroke', '#94a3b8');
+          lLine.setAttribute('stroke-width', '2.2');
+          layer.appendChild(lLine);
+        }
+
+        let fill = '#e2e8f0';
+        if (n.status === 'current') fill = '#f59e0b';
+        else if (n.status === 'done') fill = '#10b981';
+        else if (n.status === 'missed') fill = '#f43f5e';
+
+        if (n.status === 'current') {
+          const halo = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          halo.setAttribute('cx', cx);
+          halo.setAttribute('cy', cy);
+          halo.setAttribute('r', 19);
+          halo.setAttribute('fill', 'rgba(245, 158, 11, 0.14)');
+          halo.setAttribute('stroke', '#f59e0b');
+          halo.setAttribute('stroke-width', '2');
+          halo.setAttribute('stroke-dasharray', '4 3');
+          layer.appendChild(halo);
+        }
+
+        if (n.accidental) {
+          const accTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          accTxt.setAttribute('x', cx - 23);
+          accTxt.setAttribute('y', cy + 6);
+          accTxt.setAttribute('fill', n.accidental === 'sharp' ? '#38bdf8' : '#fbbf24');
+          accTxt.setAttribute('font-size', '20');
+          accTxt.setAttribute('font-weight', 'bold');
+          accTxt.textContent = n.accidental === 'sharp' ? '♯' : '♭';
+          layer.appendChild(accTxt);
+        }
+
+        const isHalfNote = n.durMultiplier === 2;
+        const head = document.createElementNS('http://www.w3.org/2000/svg', 'ellipse');
+        head.setAttribute('cx', cx);
+        head.setAttribute('cy', cy);
+        head.setAttribute('rx', 10.5);
+        head.setAttribute('ry', 7.5);
+        head.setAttribute('transform', `rotate(-18 ${cx} ${cy})`);
+        head.setAttribute('fill', isHalfNote ? '#060a12' : fill);
+        head.setAttribute('stroke', fill);
+        head.setAttribute('stroke-width', isHalfNote ? '3' : '1');
+        layer.appendChild(head);
+
+        if (n.articulation === 'staccato') {
+          const staccDot = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          staccDot.setAttribute('cx', cx);
+          staccDot.setAttribute('cy', cy + 19);
+          staccDot.setAttribute('r', 3.2);
+          staccDot.setAttribute('fill', '#fb7185');
+          layer.appendChild(staccDot);
+        }
+
+        const stemUp = cy >= 76;
+        const stem = document.createElementNS('http://www.w3.org/2000/svg', 'line');
+        const stemX = stemUp ? cx + 9.5 : cx - 9.5;
+        const stemY2 = stemUp ? cy - 38 : cy + 38;
+        stem.setAttribute('x1', stemX);
+        stem.setAttribute('y1', cy);
+        stem.setAttribute('x2', stemX);
+        stem.setAttribute('y2', stemY2);
+        stem.setAttribute('stroke', fill);
+        stem.setAttribute('stroke-width', '2.2');
+        layer.appendChild(stem);
+
+        if (n.durMultiplier <= 0.5) {
+          const flag1 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const d1 = stemUp
+            ? `M ${stemX} ${stemY2} Q ${stemX + 12} ${stemY2 + 7} ${stemX + 9} ${stemY2 + 17}`
+            : `M ${stemX} ${stemY2} Q ${stemX + 12} ${stemY2 - 7} ${stemX + 9} ${stemY2 - 17}`;
+          flag1.setAttribute('d', d1);
+          flag1.setAttribute('stroke', fill);
+          flag1.setAttribute('stroke-width', '2.4');
+          flag1.setAttribute('fill', 'none');
+          layer.appendChild(flag1);
+        }
+        if (n.durMultiplier === 0.25) {
+          const flag2 = document.createElementNS('http://www.w3.org/2000/svg', 'path');
+          const offset = stemUp ? 9 : -9;
+          const d2 = stemUp
+            ? `M ${stemX} ${stemY2 + offset} Q ${stemX + 12} ${stemY2 + offset + 7} ${stemX + 9} ${stemY2 + offset + 17}`
+            : `M ${stemX} ${stemY2 + offset} Q ${stemX + 12} ${stemY2 + offset - 7} ${stemX + 9} ${stemY2 + offset - 17}`;
+          flag2.setAttribute('d', d2);
+          flag2.setAttribute('stroke', fill);
+          flag2.setAttribute('stroke-width', '2.4');
+          flag2.setAttribute('fill', 'none');
+          layer.appendChild(flag2);
+        }
+
+        if (currentAppMode === 'hanon' || n.finger >= 4) {
+          const fTxt = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+          fTxt.setAttribute('x', cx);
+          fTxt.setAttribute('y', cy - 44);
+          fTxt.setAttribute('text-anchor', 'middle');
+          fTxt.setAttribute('font-size', '12');
+          fTxt.setAttribute('font-family', 'JetBrains Mono');
+          fTxt.setAttribute('font-weight', 'bold');
+          fTxt.setAttribute('fill', n.finger >= 4 ? '#fb7185' : '#94a3b8');
+          fTxt.textContent = n.finger;
+          layer.appendChild(fTxt);
+        }
+
+        const sylText = document.createElementNS('http://www.w3.org/2000/svg', 'text');
+        sylText.setAttribute('x', cx);
+        sylText.setAttribute('y', 274);
+        sylText.setAttribute('text-anchor', 'middle');
+        sylText.setAttribute('font-size', '11');
+        sylText.setAttribute('font-family', 'JetBrains Mono');
+        sylText.setAttribute('font-weight', n.status === 'current' ? 'bold' : 'normal');
+        sylText.setAttribute('fill', n.status === 'current' ? '#38bdf8' : '#64748b');
+        sylText.textContent = n.syllable;
+        layer.appendChild(sylText);
+      });
+    }
+
+    // ==================== РЕНДЕР ПОЛНОШИРИННОЙ КЛАВИАТУРЫ ====================
+    function renderPianoKeyboard() {
+      const stage = document.getElementById('piano-keys-stage');
+      if (!stage) return;
+      stage.innerHTML = '';
+
+      const totalWhite = WHITE_KEYS_ORDER.length;
+
+      WHITE_KEYS_ORDER.forEach((noteName) => {
+        const info = MIDI_NOTE_MAP[noteName];
+        const btn = document.createElement('button');
+        btn.id = `key-${noteName}`;
+        btn.className = 'piano-white-key flex-1 h-full bg-slate-100 hover:bg-white border-r border-slate-300 last:border-r-0 first:rounded-l-lg last:rounded-r-lg flex flex-col justify-end items-center pb-2 relative z-10 cursor-pointer';
+        btn.onclick = () => onUserTriggersNote(noteName);
+
+        const isC = noteName.startsWith('C');
+        btn.innerHTML = `
+          <span class="text-[10px] font-mono text-slate-400 uppercase mb-0.5">${info.pcKey || ''}</span>
+          <span class="text-xs font-bold ${isC ? 'text-emerald-700 bg-emerald-100 px-1 rounded' : 'text-slate-800'}">${noteName}</span>
+        `;
+        stage.appendChild(btn);
+      });
+
+      const blackWidthPct = (0.62 / totalWhite) * 100;
+      BLACK_KEYS_ORDER.forEach((noteName) => {
+        const info = MIDI_NOTE_MAP[noteName];
+        const leftPct = ((info.whiteIdx + 1 - 0.31) / totalWhite) * 100;
+
+        const btn = document.createElement('button');
+        btn.id = `key-${noteName}`;
+        btn.style.left = `${leftPct}%`;
+        btn.style.width = `${blackWidthPct}%`;
+        btn.className = 'piano-black-key absolute top-0 h-[62%] rounded-b-lg z-20 flex flex-col justify-end items-center pb-1.5 cursor-pointer';
+        btn.onclick = (e) => {
+          e.stopPropagation();
+          onUserTriggersNote(noteName);
+        };
+        btn.innerHTML = `<span class="text-[9px] font-mono text-slate-400">${info.pcKey || ''}</span>`;
+        stage.appendChild(btn);
+      });
+
+      applyScaleHighlightOnKeys();
+    }
+
+    // ==================== ОБРАБОТКА ВВОДА ПОЛЬЗОВАТЕЛЯ ====================
+    function onUserTriggersNote(noteName) {
+      const target = activeExerciseNotes[activeNoteIndex];
+      if (!target) return;
+
+      const info = MIDI_NOTE_MAP[noteName];
+      if (info) {
+        playPianoTone(info.freq, 0.5, 'triangle', target.articulation === 'staccato');
+      }
+
+      document.getElementById('last-key-badge').textContent = noteName;
+      totalAttempts++;
+
+      if (noteName === target.noteName) {
+        correctHits++;
+        currentStreak++;
+        if (currentStreak > bestStreak) bestStreak = currentStreak;
+
+        const rt = Math.round(performance.now() - noteShownTimestamp);
+        if (rt > 40 && rt < 6000) reactionTimes.push(rt);
+
+        flashKeyElement(noteName, true);
+        target.status = 'done';
+        const prevBar = Math.floor(activeNoteIndex / 4);
+        activeNoteIndex++;
+        const newBar = Math.floor(activeNoteIndex / 4);
+
+        if (activeNoteIndex >= activeExerciseNotes.length) {
+          completedExercisesCount++;
+          checkCourseLessonNormCompletion();
+          setTimeout(() => regenerateExercise(), 160);
+        } else {
+          activeExerciseNotes[activeNoteIndex].status = 'current';
+          noteShownTimestamp = performance.now();
+          renderGrandStaffSVG();
+          updateTargetLabels();
+          updateLookaheadCurtain();
+          if (currentAppMode === 'photo' && newBar !== prevBar) {
+            triggerPhotoFlashPreview();
+          } else if (currentAppMode === 'photo') {
+            updatePhotoMaskPosition();
+          }
+          if (isContinuousFlow) startContinuousFlowLoop();
+        }
+      } else {
+        flashKeyElement(noteName, false);
+        currentStreak = 0;
+
+        if (isContinuousFlow) {
+          target.status = 'missed';
+          activeNoteIndex++;
+          if (activeNoteIndex >= activeExerciseNotes.length) {
+            completedExercisesCount++;
+            checkCourseLessonNormCompletion();
+            setTimeout(() => regenerateExercise(), 160);
+          } else {
+            activeExerciseNotes[activeNoteIndex].status = 'current';
+            renderGrandStaffSVG();
+            updateTargetLabels();
+            updateLookaheadCurtain();
+            startContinuousFlowLoop();
+          }
+        }
+      }
+
+      updateKPIDisplays();
+    }
+
+    function flashKeyElement(noteName, isCorrect) {
+      const el = document.getElementById(`key-${noteName}`);
+      if (!el) return;
+      const cls = isCorrect ? 'key-active' : 'key-error';
+      el.classList.add(cls);
+      setTimeout(() => el.classList.remove(cls), 190);
+    }
+
+    // ==================== ОБНОВЛЕНИЕ ИНДИКАТОРОВ И РЕЖИМОВ ====================
+    function updateTargetLabels() {
+      const target = activeExerciseNotes[activeNoteIndex];
+      if (!target) return;
+
+      const prev = activeNoteIndex > 0 ? activeExerciseNotes[activeNoteIndex - 1] : null;
+      const intInfo = computeIntervalInfo(prev, target);
+
+      const totalBars = scoreNoteCount / 4;
+      const barNum = Math.floor(activeNoteIndex / 4) + 1;
+      document.getElementById('bar-progress').textContent = `${barNum} / ${totalBars}`;
+      document.getElementById('target-note-pill').textContent =
+        currentAppMode === 'reflex' ? `${target.noteName} (без называния!)` : target.label;
+      document.getElementById('current-interval-badge').textContent = `${intInfo.name}`;
+      document.getElementById('current-syllable-badge').textContent = target.syllable;
+      document.getElementById('current-finger-badge').textContent =
+        `${target.finger >= 4 ? target.finger + ' (слабый!)' : target.finger} • ${target.articulation || 'legato'}`;
+    }
+
+    function updateKPIDisplays() {
+      const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
+      const acc = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : 100;
+      document.getElementById('kpi-accuracy').textContent = `${acc}%`;
+      document.getElementById('kpi-accuracy-sub').textContent = `(${correctHits}/${totalAttempts})`;
+      document.getElementById('kpi-streak').textContent = `${currentStreak}`;
+      document.getElementById('kpi-best-streak').textContent = `рек: ${bestStreak}`;
+      document.getElementById('kpi-reps').textContent = `${completedExercisesCount} / ${lesson.normReps}`;
+
+      if (reactionTimes.length > 0) {
+        const avg = Math.round(reactionTimes.slice(-15).reduce((a, b) => a + b, 0) / Math.min(15, reactionTimes.length));
+        document.getElementById('kpi-speed').textContent = `${avg} ms`;
+      }
+      updateTrainerCourseBanner();
+    }
+
+    function updateLookaheadCurtain() {
+      const group = document.getElementById('svg-curtain-group');
+      const rect = document.getElementById('svg-curtain-rect');
+      const label = document.getElementById('svg-curtain-label');
+      if (!group || !rect || !label) return;
+
+      if (currentAppMode !== 'lookahead') {
+        group.classList.add('hidden');
+        return;
+      }
+      group.classList.remove('hidden');
+
+      const startX = 155;
+      const endX = 1650;
+      const spacingX = (endX - startX) / Math.max(1, activeExerciseNotes.length - 1);
+      const coverWidth = Math.max(48, (activeNoteIndex + 1) * spacingX - (spacingX * 0.42));
+      rect.setAttribute('width', coverWidth);
+      label.setAttribute('x', Math.max(135, 125 + coverWidth - 235));
+    }
+
+    function updatePhotoMaskPosition() {
+      const group = document.getElementById('svg-photo-mask-group');
+      const rect = document.getElementById('svg-photo-mask-rect');
+      const title = document.getElementById('svg-photo-mask-title');
+      const sub = document.getElementById('svg-photo-mask-sub');
+      if (!group || !rect) return;
+
+      if (currentAppMode !== 'photo' || !isPhotoMasked) {
+        group.classList.add('hidden');
+        return;
+      }
+      group.classList.remove('hidden');
+
+      const startX = 155;
+      const endX = 1650;
+      const spacingX = (endX - startX) / Math.max(1, activeExerciseNotes.length - 1);
+      const currentBar = Math.floor(activeNoteIndex / 4);
+      const barStartX = startX + (currentBar * 4) * spacingX - 24;
+      const barWidth = 3 * spacingX + 48;
+
+      rect.setAttribute('x', barStartX);
+      rect.setAttribute('width', barWidth);
+      title.setAttribute('x', barStartX + barWidth / 2);
+      sub.setAttribute('x', barStartX + barWidth / 2);
+    }
+
+    function setAppMode(mode) {
+      currentAppMode = mode;
+      const modes = ['reflex', 'rhythm', 'lookahead', 'photo', 'intervals', 'gpattern', 'blind', 'hanon'];
+      modes.forEach(m => {
+        const btn = document.getElementById(`tab-${m}`);
+        if (!btn) return;
+        if (m === mode) {
+          btn.className = 'mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition bg-emerald-500 text-slate-950 shadow';
+        } else {
+          btn.className = 'mode-pill px-2 py-1 rounded-lg text-[11px] font-semibold transition text-slate-300 hover:bg-slate-800';
+        }
+      });
+
+      const coach = document.getElementById('method-coach-tip');
+      const focusPill = document.getElementById('active-focus-pill');
+      const photoBtn = document.getElementById('photo-flash-btn');
+      photoBtn.classList.toggle('hidden', mode !== 'photo');
+
+      if (mode === 'reflex') {
+        focusPill.textContent = 'Прямой рефлекс «Вижу знак → нажимаю клавишу»';
+        coach.innerHTML = '💡 <strong class="text-emerald-400">Методика (11:39):</strong> Вижу знак на линейке ➔ палец сразу жмёт клавишу без называния ноты в уме.';
+      } else if (mode === 'rhythm') {
+        focusPill.textContent = 'Чтение через ритмослоги (ТА, ТИ-ТИ, ТИ-РИ-ТИ-РИ)';
+        coach.innerHTML = '💡 <strong class="text-amber-400">Ритмослоги (27:33):</strong> Напевайте слоги под нотами вместо математического счёта долей.';
+      } else if (mode === 'lookahead') {
+        focusPill.textContent = 'Чтение с бегунком / шторкой (+1 шаг вперёд)';
+        coach.innerHTML = '💡 <strong class="text-sky-400">Бегунок (14:56):</strong> Пока палец доигрывает текущую ноту, глаза уже обязаны считывать следующую.';
+      } else if (mode === 'photo') {
+        focusPill.textContent = 'Приём «Фотографирования» такта в зрительную память (17:45)';
+        coach.innerHTML = '💡 <strong class="text-cyan-400">Фотографирование (17:45):</strong> Схватите 4 ноты такта за 1.8 сек, затем сыграйте их по памяти, глядя на следующий такт!';
+      } else if (mode === 'intervals') {
+        focusPill.textContent = 'Интервальный декодинг: Линии против промежутков (16:20)';
+        coach.innerHTML = '💡 <strong class="text-indigo-400">Интервалы (16:20):</strong> Секунда (линия➔окошко) = соседний палец; Терция (линия➔линия) = пропуск пальца!';
+      } else if (mode === 'gpattern') {
+        currentFilter = 'both';
+        syncFilterButtonsUI('both');
+        focusPill.textContent = 'Движение взгляда буквой «Г» (Бас ➔ Мелодия ➔ Вперёд)';
+        coach.innerHTML = '💡 <strong class="text-amber-400">Буква «Г» (20:28):</strong> Сначала фиксируем бас левой руки, затем поднимаем взгляд к мелодии и скользим вправо.';
+      } else if (mode === 'blind') {
+        if (!isBlindfolded) toggleBlindfoldKeys();
+        focusPill.textContent = 'Слепое ориентирование по группам из 2 и 3 чёрных клавиш';
+        coach.innerHTML = '💡 <strong class="text-purple-400">Слепая игра (18:20):</strong> Не опускайте глаза на руки — ощущайте рельеф 2 и 3 чёрных клавиш.';
+      } else if (mode === 'hanon') {
+        focusPill.textContent = 'Ганон: Импульс в 4–5 пальцы и блоки по 4 ноты';
+        coach.innerHTML = '💡 <strong class="text-rose-400">Ганон (02:31):</strong> Укрепляем слабые 4 и 5 пальцы и считываем секвенции блоками по 4 ноты.';
+      }
+
+      updateHeaderSummary();
+      regenerateExercise();
+    }
+
+    function setClefFilter(filter) {
+      currentFilter = filter;
+      syncFilterButtonsUI(filter);
+      updateHeaderSummary();
+      regenerateExercise();
+    }
+
+    function syncFilterButtonsUI(filter) {
+      const names = {
+        treble: '200 упр. (C4–G4)',
+        treble_oct2: '2-я октава (C4–D5)',
+        bass: 'Литовко: Бас (C3–B3)',
+        both: '2 руки (Буква «Г»)'
+      };
+      document.getElementById('active-collection-label').textContent = names[filter] || filter;
+
+      ['treble', 'treble_oct2', 'bass', 'both'].forEach(f => {
+        const dBtn = document.getElementById(`filter-${f}`);
+        if (dBtn) {
+          dBtn.className = f === filter
+            ? 'text-left px-3 py-2 rounded-xl text-xs font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
+            : 'text-left px-3 py-2 rounded-xl text-xs font-medium text-slate-400 border border-slate-800 hover:border-slate-700';
+        }
+        const qBtn = document.getElementById(`quick-filter-${f}`);
+        if (qBtn) {
+          qBtn.className = f === filter
+            ? 'px-2 py-0.5 rounded text-[11px] font-medium bg-emerald-500/20 text-emerald-300 border border-emerald-500/40 transition'
+            : 'px-2 py-0.5 rounded text-[11px] font-medium text-slate-400 hover:text-slate-200 border border-transparent transition';
+        }
+      });
+    }
+
+    function updateHeaderSummary() {
+      const modeNames = {
+        reflex: '1. Рефлекс',
+        rhythm: '2. Ритмослоги',
+        lookahead: '3. Бегунок (+1)',
+        photo: '4. Фото-память',
+        intervals: '5. Интервалы',
+        gpattern: '6. Буква «Г»',
+        blind: '7. Вслепую',
+        hanon: '8. Ганон'
+      };
+      const colLabel = document.getElementById('active-collection-label').textContent;
+      const tonName = (TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C']).name;
+      document.getElementById('header-ActiveModeSummary').textContent =
+        `Урок ${selectedLessonId} • ${modeNames[currentAppMode]} • ${colLabel} • ${tonName}`;
+    }
+
+    function changeHanonPattern(val) {
+      currentHanonType = val;
+      setAppMode('hanon');
+    }
+
+    function loadHanonFromLab(type) {
+      currentHanonType = type;
+      const sel = document.getElementById('hanon-pattern-select');
+      if (sel) sel.value = type;
+      setAppMode('hanon');
+      switchWorkspaceTab('trainer');
+    }
+
+    // ==================== ПОТОК (24:20) И ТЕМП ====================
+    function changeTempo(val) {
+      bpm = parseInt(val, 10);
+      document.getElementById('bpm-val').textContent = bpm;
+      if (isContinuousFlow) startContinuousFlowLoop();
+    }
+
+    function toggleContinuousFlow() {
+      isContinuousFlow = !isContinuousFlow;
+      const btn = document.getElementById('flow-btn');
+      if (isContinuousFlow) {
+        btn.textContent = '⏭ Поток: Автоход';
+        btn.className = 'px-2.5 py-1 rounded-lg bg-emerald-500/20 border border-emerald-500/40 text-emerald-300 text-[11px] font-semibold transition';
+        startContinuousFlowLoop();
+      } else {
+        btn.textContent = '⏭ Поток: Пауза';
+        btn.className = 'px-2.5 py-1 rounded-lg bg-slate-800 border border-slate-700 text-slate-300 text-[11px] font-medium transition';
+        if (flowInterval) clearInterval(flowInterval);
+      }
+    }
+
+    function startContinuousFlowLoop() {
+      if (flowInterval) clearInterval(flowInterval);
+      if (!isContinuousFlow) return;
+      const intervalMs = Math.round((60 / bpm) * 1000);
+      flowInterval = setInterval(() => {
+        playMetronomeClick(activeNoteIndex % 4 === 0);
+        advanceFlowStep();
+      }, intervalMs);
+    }
+
+    function advanceFlowStep() {
+      const current = activeExerciseNotes[activeNoteIndex];
+      if (!current) return;
+      if (current.status === 'current') {
+        current.status = 'missed';
+        totalAttempts++;
+        currentStreak = 0;
+        updateKPIDisplays();
+      }
+      activeNoteIndex++;
+      if (activeNoteIndex >= activeExerciseNotes.length) {
+        completedExercisesCount++;
+        checkCourseLessonNormCompletion();
+        regenerateExercise();
+      } else {
+        activeExerciseNotes[activeNoteIndex].status = 'current';
+        noteShownTimestamp = performance.now();
+        renderGrandStaffSVG();
+        updateTargetLabels();
+        updateLookaheadCurtain();
+      }
+    }
+
+    // ==================== АУДИО-ПРЕВЬЮ И ТРЕНАЖЁРЫ ====================
+    function previewSingingSolfege() {
+      clearPreviewTimeouts();
+      const beatMs = (60 / bpm) * 1000;
+      let acc = 0;
+      activeExerciseNotes.forEach((n, idx) => {
+        const durMs = beatMs * (n.durMultiplier || 1);
+        const tid = setTimeout(() => {
+          playPianoTone(n.freq, (durMs / 1000) * 0.9, 'sine', n.articulation === 'staccato');
+          flashKeyElement(n.noteName, true);
+          if (idx % 4 === 0) playMetronomeClick(true);
+        }, acc);
+        previewTimeouts.push(tid);
+        acc += durMs;
+      });
+    }
+
+    function playRhythmAudioDemo() {
+      clearPreviewTimeouts();
+      const beatMs = (60 / bpm) * 1000;
+      let acc = 0;
+      activeExerciseNotes.forEach((n, idx) => {
+        const durMs = beatMs * (n.durMultiplier || 1);
+        const tid = setTimeout(() => {
+          playMetronomeClick(idx % 4 === 0);
+          playPianoTone(n.freq, (durMs / 1000) * 0.85, 'triangle', n.articulation === 'staccato');
+        }, acc);
+        previewTimeouts.push(tid);
+        acc += durMs;
+      });
+    }
+
+    function playSyllablePatternDemo(type) {
+      clearPreviewTimeouts();
+      const patterns = {
+        ta: [0, 500, 1000, 1500],
+        titi: [0, 250, 500, 1000, 1250, 1500],
+        tiritiri: [0, 125, 250, 375, 500, 1000],
+        taa: [0, 1000, 1500]
+      };
+      (patterns[type] || patterns.ta).forEach((t, i) => {
+        const tid = setTimeout(() => {
+          playPianoTone(i === 0 ? 392 : 329.63, type === 'taa' && i === 0 ? 0.9 : 0.22);
+        }, t);
+        previewTimeouts.push(tid);
+      });
+    }
+
+    function playArticulationDemo() {
+      clearPreviewTimeouts();
+      const demo = [
+        { t: 0,    f: 130.81, stacc: true },
+        { t: 0,    f: 329.63, stacc: false },
+        { t: 280,  f: 349.23, stacc: false },
+        { t: 560,  f: 196.00, stacc: true },
+        { t: 560,  f: 392.00, stacc: false },
+        { t: 840,  f: 349.23, stacc: false },
+        { t: 1120, f: 130.81, stacc: true },
+        { t: 1120, f: 261.63, stacc: false }
+      ];
+      demo.forEach(s => {
+        const tid = setTimeout(() => playPianoTone(s.f, 0.45, 'triangle', s.stacc), s.t);
+        previewTimeouts.push(tid);
+      });
+    }
+
+    // ==================== СЛЕПАЯ ИГРА И РЕЖИМ «СТОЛ» ====================
+    function toggleBlindfoldKeys() {
+      isBlindfolded = !isBlindfolded;
+      const wrap = document.getElementById('piano-Wrapper');
+      const btn = document.getElementById('blindfold-btn');
+      if (isBlindfolded) {
+        wrap.classList.add('blind-mode');
+        btn.className = 'px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-[11px] font-semibold text-amber-300 transition';
+        btn.textContent = '🙈 Ширма ВКЛ (2 и 3 чёрные)';
+      } else {
+        wrap.classList.remove('blind-mode');
+        btn.className = 'px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 transition';
+        btn.textContent = '🙈 Тактильная ширма (18:20)';
+      }
+    }
+
+    function toggleTabletopMode() {
+      isTabletopMode = !isTabletopMode;
+      const overlay = document.getElementById('tabletop-overlay');
+      const btn = document.getElementById('tabletop-btn');
+      if (isTabletopMode) {
+        overlay.classList.remove('hidden');
+        btn.className = 'px-2.5 py-0.5 rounded-lg bg-amber-500/20 border border-amber-500/40 text-[11px] font-semibold text-amber-300 transition';
+      } else {
+        overlay.classList.add('hidden');
+        btn.className = 'px-2.5 py-0.5 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-medium text-slate-300 transition';
+      }
+    }
+
+    function triggerTabletopVisualizerStep() {
+      const target = activeExerciseNotes[activeNoteIndex];
+      if (target) onUserTriggersNote(target.noteName);
+    }
+
+    function resetSessionStats() {
+      totalAttempts = 0;
+      correctHits = 0;
+      currentStreak = 0;
+      bestStreak = 0;
+      completedExercisesCount = 0;
+      reactionTimes = [];
+      updateKPIDisplays();
+    }
+
+    // ==================== КЛАВИАТУРА ПК И WEB MIDI ====================
+    window.addEventListener('keydown', (e) => {
+      if (e.repeat) return;
+      if (e.key === 'Escape') {
+        const drawer = document.getElementById('settings-drawer');
+        if (!drawer.classList.contains('translate-x-full')) toggleSettingsDrawer();
+        return;
+      }
+      if (e.code === 'Space') {
+        if (currentWorkspace !== 'trainer') return;
+        e.preventDefault();
+        if (isTabletopMode) {
+          triggerTabletopVisualizerStep();
+        } else {
+          const target = activeExerciseNotes[activeNoteIndex];
+          if (target) onUserTriggersNote(target.noteName);
+        }
+        return;
+      }
+      if (currentWorkspace !== 'trainer') return;
+      const keyLower = e.key.toLowerCase();
+      for (const [noteName, data] of Object.entries(MIDI_NOTE_MAP)) {
+        if (data.pcKey && data.pcKey === keyLower) {
+          onUserTriggersNote(noteName);
+          break;
+        }
+      }
+    });
+
+    function initWebMIDI() {
+      if (!navigator.requestMIDIAccess) return;
+      navigator.requestMIDIAccess().then((midiAccess) => {
+        const updatePorts = () => {
+          const inputs = Array.from(midiAccess.inputs.values());
+          const dot = document.getElementById('midi-dot');
+          const lbl = document.getElementById('midi-label');
+          if (inputs.length > 0) {
+            dot.className = 'w-2 h-2 rounded-full bg-emerald-400 animate-pulse';
+            lbl.textContent = `MIDI: ${inputs.length}`;
+          } else {
+            dot.className = 'w-2 h-2 rounded-full bg-slate-600';
+            lbl.textContent = 'MIDI: 0';
+          }
+          inputs.forEach(input => {
+            input.onmidimessage = (msg) => {
+              const [cmd, midiNote, velocity] = msg.data;
+              if (cmd === 144 && velocity > 0) {
+                const found = Object.entries(MIDI_NOTE_MAP).find(([, v]) => v.midi === midiNote);
+                if (found) onUserTriggersNote(found[0]);
+              }
+            };
+          });
+        };
+        updatePorts();
+        midiAccess.onstatechange = updatePorts;
+      }).catch(() => {});
+    }
+
+    window.addEventListener('DOMContentLoaded', () => {
+      loadCourseProgressFromStorage();
+      renderPianoKeyboard();
+      renderCourseCurriculumUI();
+      regenerateExercise();
+      updateKPIDisplays();
+      initWebMIDI();
+    });
+  </script>
+</body>
+</html>

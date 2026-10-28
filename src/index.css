@@ -1,0 +1,97 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+* { 
+  box-sizing: border-box; 
+}
+
+body {
+  font-family: 'Inter', sans-serif;
+  background-color: #060a12;
+  color: #f1f5f9;
+  user-select: none;
+  overflow: hidden;
+  height: 100vh;
+  width: 100vw;
+}
+
+.font-mono { 
+  font-family: 'JetBrains Mono', monospace; 
+}
+
+/* Полноширинная адаптивная клавиатура */
+.piano-white-key {
+  transition: background-color 0.06s ease, transform 0.06s ease, box-shadow 0.06s ease;
+  box-shadow: inset 0 -5px 0 #cbd5e1, 0 2px 4px rgba(0,0,0,0.45);
+}
+
+.piano-white-key:active, .piano-white-key.key-active {
+  background-color: #6ee7b7 !important;
+  transform: translateY(2px);
+  box-shadow: inset 0 -2px 0 #059669;
+}
+
+.piano-white-key.key-error {
+  background-color: #fda4af !important;
+  transform: translateY(2px);
+}
+
+.piano-white-key.key-scale-hint {
+  background-color: #e0f2fe;
+}
+
+.piano-black-key {
+  transition: background-color 0.06s ease, transform 0.06s ease;
+  background: linear-gradient(180deg, #1e293b 0%, #090d16 100%);
+  box-shadow: inset 0 -4px 0 #020617, 0 4px 8px rgba(0,0,0,0.75);
+}
+
+.piano-black-key:active, .piano-black-key.key-active {
+  background: #10b981 !important;
+  transform: translateY(2px);
+}
+
+.piano-black-key.key-error {
+  background: #f43f5e !important;
+  transform: translateY(2px);
+}
+
+.piano-black-key.key-scale-hint {
+  border: 2px solid #38bdf8;
+}
+
+/* Тактильная ширма: скрывает подписи белых клавиш и выделяет группы из 2 и 3 чёрных клавиш */
+.blind-mode .piano-white-key span {
+  opacity: 0 !important;
+}
+
+.blind-mode .piano-white-key {
+  background-color: #0f172a !important;
+  border-color: #1e293b !important;
+  box-shadow: inset 0 -4px 0 #020617 !important;
+}
+
+.blind-mode .piano-black-key {
+  background: #1e293b !important;
+  border: 2px solid #f59e0b !important;
+  box-shadow: 0 0 14px rgba(245, 158, 11, 0.4) !important;
+}
+
+.blind-mode .piano-black-key span {
+  opacity: 0 !important;
+}
+
+.custom-scroll::-webkit-scrollbar { 
+  width: 6px; 
+  height: 6px; 
+}
+
+.custom-scroll::-webkit-scrollbar-track { 
+  background: #090d16; 
+}
+
+.custom-scroll::-webkit-scrollbar-thumb { 
+  background: #334155; 
+  border-radius: 3px; 
+}
