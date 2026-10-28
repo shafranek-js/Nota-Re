@@ -23,3 +23,8 @@ dist-ssr
 *.njsproj
 *.sln
 *.sw?
+
+# Generated SoundFont assets; source is SHA-pinned and downloaded at build time
+assets/soundfonts/*.sf3
+public/soundfonts/musescore-general/
+public/spessasynth_processor.min.js
