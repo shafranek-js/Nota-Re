@@ -228,7 +228,12 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
       for (const ticks of [...positions].sort((a, b) => a - b)) {
         positionCursorAtTicks(renderer, ticks);
         for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
-          const element = graphicalNote.getSVGGElement() as SVGElement | undefined;
+          // getSVGGElement is implemented by OSMD's VexFlowGraphicalNote,
+          // but not declared on the abstract GraphicalNote base type.
+          const vexflowNote = graphicalNote as typeof graphicalNote & {
+            getSVGGElement?: () => SVGElement | undefined;
+          };
+          const element = vexflowNote.getSVGGElement?.();
           if (!element) continue;
           element.style.visibility = 'hidden';
           element.setAttribute('data-notare-masked', 'true');
@@ -257,7 +262,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
           {currentAppMode === 'photo' && (
             <button
               onClick={triggerPhotoFlash}
-              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/40 text-cyan-700 bg-white"
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/40 text-cyan-300"
               title="Показать ноты текущего такта на выбранное время"
             >
               <Camera className="w-3 h-3" />
