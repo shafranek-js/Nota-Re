@@ -49,7 +49,8 @@ try {
   // A correct note early in its slot must not move the cursor early.
   // Slow tempo makes the deadline observable despite CI render overhead.
   const tempo = page.locator('input[type="range"]').first();
-  await tempo.fill('40');
+  await tempo.focus();
+  await tempo.press('Home'); // native range keyboard input selects the minimum BPM
   const expectedNote = (await page.getByTestId('active-target-note').innerText()).trim();
   assert.match(expectedNote, /^[A-G][#b]?[0-9]$/);
   const beforeCorrect = Number(await score.getAttribute('data-active-note-index'));
