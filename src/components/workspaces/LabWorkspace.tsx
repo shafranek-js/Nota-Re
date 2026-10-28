@@ -164,7 +164,7 @@ export const LabWorkspace: React.FC = () => {
                   className="w-full text-left cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   title="Нажмите, чтобы прослушать ритм"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="font-mono font-bold text-sm text-amber-400">{s.title}</span>
                     <span className="text-xs text-slate-500">{s.noteSym}</span>
                   </div>
