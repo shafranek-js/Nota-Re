@@ -35,10 +35,13 @@ export class MidiAudioDiagnosticsTracker {
   private sustainedChannels = 0;
   private readonly observers = new Set<() => void>();
 
-  constructor(private readonly historyLimit = 128) {
+  private readonly historyLimit: number;
+
+  constructor(historyLimit = 128) {
     if (!Number.isInteger(historyLimit) || historyLimit < 1) {
       throw new Error('A positive history limit is required');
     }
+    this.historyLimit = historyLimit;
   }
 
   recordDispatch(receivedAtMs: number, dispatchedAtMs: number, route: AudioRoute): void {
