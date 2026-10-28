@@ -28,8 +28,11 @@ try {
 
   // An already validated built-in SF3 can also be a user-provided bank.
   await panel.locator('input[type="file"]').setInputFiles('assets/soundfonts/MuseScore_General.sf3');
-  await panel.getByText('Звуковой банк готов к воспроизведению.').waitFor({ timeout: 120000 });
-  assert.match(await panel.innerText(), /MuseScore_General.sf3/);
+  await page.waitForFunction(() => {
+    const el = document.querySelector('[data-testid="piano-sound-settings"]');
+    return el?.textContent?.includes('MuseScore_General.sf3') &&
+      el.textContent.includes('Звуковой банк готов к воспроизведению.');
+  }, null, { timeout: 120000 });
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByTitle('Открыть настройки').click();
