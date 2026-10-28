@@ -124,6 +124,36 @@ function armFlowClock(get: () => AppState): void {
   }, noteDurationMs(note, state.bpm));
 }
 
+function finishExercise(
+  get: () => AppState,
+  set: (patch: Partial<AppState>) => void
+): void {
+  const state = get();
+  const lesson = COURSE_CURRICULUM.find(item => item.id === state.activeLessonId);
+  const result = evaluateLessonCredit({
+    clean: state.isExerciseFlawless,
+    assisted: state.isExerciseAssisted,
+    completedBefore: state.completedExercisesCount,
+    targetRepetitions: lesson?.normReps ?? Infinity,
+    totalAttempts: state.totalAttempts,
+    correctHits: state.correctHits,
+    reactionTimes: state.reactionTimes,
+    requiredAccuracy: lesson?.normAcc ?? 100,
+    maximumReactionMs: lesson?.normSpeed ?? 0,
+    lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId)
+  });
+
+  set({ completedExercisesCount: result.creditedRepetitions });
+  if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
+    const completedLessons = [...state.completedLessons, lesson.id];
+    saveCourseProgressToStorage(completedLessons);
+    set({ completedLessons });
+  }
+
+  stopFlowClock();
+  get().regenerateExercise();
+}
+
 export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
   isSettingsOpen: false,
@@ -343,25 +373,27 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
     stopFlowClock();
-    // A deadline with no keypress is one real missed answer. It resets the
-    // consecutive-repetition count; the clock must not grant a pass for silence.
+
+    // A note advances when its *musical duration* ends. Correct/wrong input
+    // marks the current slot but cannot accelerate the rhythmic grid.
+    const unanswered = target.status !== 'done' && target.status !== 'missed';
+    const nextIndex = activeNoteIndex + 1;
     const nextNotes = activeExerciseNotes.map((note, index) =>
-      index === activeNoteIndex ? { ...note, status: 'missed' as const }
-        : index === activeNoteIndex + 1 ? { ...note, status: 'current' as const }
+      index === activeNoteIndex && unanswered ? { ...note, status: 'missed' as const }
+        : index === nextIndex ? { ...note, status: 'current' as const }
         : note
     );
     set({
       activeExerciseNotes: nextNotes,
-      totalAttempts: state.totalAttempts + 1,
-      currentStreak: 0,
-      completedExercisesCount: 0,
-      isExerciseFlawless: false,
+      totalAttempts: state.totalAttempts + (unanswered ? 1 : 0),
+      currentStreak: unanswered ? 0 : state.currentStreak,
+      completedExercisesCount: unanswered ? 0 : state.completedExercisesCount,
+      isExerciseFlawless: state.isExerciseFlawless && !unanswered,
       lastKeyResult: null
     });
 
-    const nextIndex = activeNoteIndex + 1;
     if (nextIndex >= activeExerciseNotes.length) {
-      get().regenerateExercise();
+      finishExercise(get, patch => set(patch));
       return;
     }
     set({ activeNoteIndex: nextIndex, noteShownTimestamp: performance.now() });
@@ -500,6 +532,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const played = MIDI_NOTE_MAP[noteName];
     if (played && !fromMidi) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
 
+    // The first strike consumes the current rhythmic slot. Repeated strikes
+    // are audible but may not generate extra attempts or move the cursor.
+    if (isContinuousFlow && target.status !== 'current') return;
+
     const rt = Math.round(performance.now() - noteShownTimestamp);
     // A keypress delivered after its musical deadline must never count as
     // correct merely because the JS timer callback was queued behind it.
@@ -533,6 +569,16 @@ export const useAppStore = create<AppState>((set, get) => ({
       set({ lastKeyResult: null });
     }, 150);
 
+    if (isContinuousFlow) {
+      const status = isCorrect ? 'done' as const : 'missed' as const;
+      set({
+        activeExerciseNotes: activeExerciseNotes.map((note, index) =>
+          index === activeNoteIndex ? { ...note, status } : note)
+      });
+      // The existing deadline stays armed until the actual note boundary.
+      return;
+    }
+
     if (isCorrect) {
       target.status = 'done';
       const prevBar = Math.floor(activeNoteIndex / 4);
@@ -540,31 +586,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       const newBar = Math.floor(nextIdx / 4);
 
       if (nextIdx >= activeExerciseNotes.length) {
-        const lesson = COURSE_CURRICULUM.find(l => l.id === get().activeLessonId);
-        const result = evaluateLessonCredit({
-          clean: get().isExerciseFlawless,
-          assisted: get().isExerciseAssisted,
-          completedBefore: get().completedExercisesCount,
-          targetRepetitions: lesson?.normReps ?? Infinity,
-          totalAttempts: get().totalAttempts,
-          correctHits: get().correctHits,
-          reactionTimes: get().reactionTimes,
-          requiredAccuracy: lesson?.normAcc ?? 100,
-          maximumReactionMs: lesson?.normSpeed ?? 0,
-          lessonActive: Boolean(lesson && lesson.id === selectedLessonId)
-        });
-        set({ completedExercisesCount: result.creditedRepetitions });
-
-        if (lesson && result.passed && !completedLessons.includes(lesson.id)) {
-          const updated = [...completedLessons, lesson.id];
-          saveCourseProgressToStorage(updated);
-          set({ completedLessons: updated });
-        }
-
-        stopFlowClock();
-        // The next sequence should not overwrite a newly selected exercise
-        // from an obsolete completion callback.
-        get().regenerateExercise();
+        finishExercise(get, patch => set(patch));
       } else {
         activeExerciseNotes[nextIdx].status = 'current';
         set({
@@ -575,23 +597,6 @@ export const useAppStore = create<AppState>((set, get) => ({
 
         if (get().currentAppMode === 'photo' && newBar !== prevBar) {
           get().triggerPhotoFlash();
-        }
-      }
-    } else {
-      if (isContinuousFlow) {
-        stopFlowClock();
-        const nextIdx = activeNoteIndex + 1;
-        const updatedNotes = activeExerciseNotes.map((note, index) =>
-          index === activeNoteIndex ? { ...note, status: 'missed' as const }
-            : index === nextIdx ? { ...note, status: 'current' as const }
-            : note
-        );
-        set({ activeExerciseNotes: updatedNotes });
-        if (nextIdx >= activeExerciseNotes.length) {
-          get().regenerateExercise();
-        } else {
-          set({ activeNoteIndex: nextIdx, noteShownTimestamp: performance.now() });
-          armFlowClock(get);
         }
       }
     }
