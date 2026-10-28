@@ -6,6 +6,7 @@ import { TONALITY_CONFIG } from '../../../data/tonalities';
 export const PianoKeyboard: React.FC = () => {
   const {
     handleUserTriggerNote,
+    advanceAssistedStep,
     lastKeyResult,
     currentTonality,
     showScaleHighlight,
@@ -32,12 +33,11 @@ export const PianoKeyboard: React.FC = () => {
       }
 
       if (e.code === 'Space') {
+        // Space is a non-scoring imagined step only in tabletop mode.
+        // Never guess the right answer in a graded keyboard exercise.
+        if (!isTabletopMode || e.repeat) return;
         e.preventDefault();
-        // В режиме стола или обычном — нажать целевую ноту
-        const target = activeExerciseNotes[activeNoteIndex];
-        if (target) {
-          handleUserTriggerNote(target.noteName);
-        }
+        advanceAssistedStep();
         return;
       }
 
@@ -53,7 +53,7 @@ export const PianoKeyboard: React.FC = () => {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUserTriggerNote, activeExerciseNotes, activeNoteIndex]);
+  }, [handleUserTriggerNote, advanceAssistedStep, isTabletopMode]);
 
   return (
     <div className={`shrink-0 w-full bg-slate-900/95 border border-slate-800/90 rounded-2xl p-2 flex flex-col gap-1.5 shadow-xl ${isBlindfolded ? 'blind-mode' : ''}`}>
@@ -64,7 +64,7 @@ export const PianoKeyboard: React.FC = () => {
             <span>🎹</span> Полноразмерная дека (3 октавы: C3 – B5)
           </span>
           <span className="text-[11px] font-mono text-slate-400 hidden lg:inline">
-            Вслепую: <strong>группы из 2 и 3 чёрных клавиш</strong> • ПК: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Z–M</kbd> (Бас), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Q–P</kbd> (1–2 окт.), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Пробел</kbd> (Ритм/Шаг)
+            Вслепую: <strong>группы из 2 и 3 чёрных клавиш</strong> • ПК: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Z–M</kbd> (Бас), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Q–P</kbd> (1–2 окт.), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Пробел</kbd> (только «Стол», без зачёта)
           </span>
         </div>
 
@@ -182,13 +182,10 @@ export const PianoKeyboard: React.FC = () => {
               </p>
               <div className="flex items-center gap-3">
                 <button
-                  onClick={() => {
-                    const target = activeExerciseNotes[activeNoteIndex];
-                    if (target) handleUserTriggerNote(target.noteName);
-                  }}
+                  onClick={advanceAssistedStep}
                   className="px-4 py-1.5 rounded-xl bg-amber-500 hover:bg-amber-400 text-slate-950 font-bold text-xs shadow-lg transition"
                 >
-                  👆 Представил клавишу и нажал на столе (Пробел)
+                  Представил клавишу — следующий шаг (без зачёта, Пробел)
                 </button>
                 <button
                   onClick={toggleTabletopMode}
