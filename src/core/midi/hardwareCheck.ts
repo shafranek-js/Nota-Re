@@ -26,7 +26,7 @@ export interface HardwareCheckSnapshot {
 export class MidiHardwareCheck {
   private heldKeys = new Set<string>();
   private pedalChannels = new Set<number>();
-  private releasedWhilePedalDown = false;
+  private releasedWhilePedalDown = new Set<number>();
   private noteOns = 0;
   private noteOffs = 0;
   private maxHeldNotes = 0;
@@ -44,7 +44,7 @@ export class MidiHardwareCheck {
       if (this.heldKeys.size > 0) this.panicWithHeldKeys = true;
       this.heldKeys.clear();
       this.pedalChannels.clear();
-      this.releasedWhilePedalDown = false;
+      this.releasedWhilePedalDown.clear();
       this.panicEvents++;
       return;
     }
@@ -63,7 +63,7 @@ export class MidiHardwareCheck {
       this.lifecycle = true;
       if (this.pedalChannels.has(event.channel)) {
         this.releasesUnderPedal++;
-        this.releasedWhilePedalDown = true;
+        this.releasedWhilePedalDown.add(event.channel);
       }
       return;
     }
@@ -74,10 +74,10 @@ export class MidiHardwareCheck {
       } else {
         if (this.pedalChannels.has(event.channel)) {
           this.sustainReleases++;
-          if (this.releasedWhilePedalDown) this.sustainCycle = true;
+          if (this.releasedWhilePedalDown.has(event.channel)) this.sustainCycle = true;
         }
         this.pedalChannels.delete(event.channel);
-        this.releasedWhilePedalDown = false;
+        this.releasedWhilePedalDown.delete(event.channel);
       }
       return;
     }
@@ -86,6 +86,7 @@ export class MidiHardwareCheck {
         if (key.startsWith(event.channel + ':')) this.heldKeys.delete(key);
       }
       this.pedalChannels.delete(event.channel);
+      this.releasedWhilePedalDown.delete(event.channel);
     }
   }
 
@@ -110,7 +111,7 @@ export class MidiHardwareCheck {
   reset(): void {
     this.heldKeys.clear();
     this.pedalChannels.clear();
-    this.releasedWhilePedalDown = false;
+    this.releasedWhilePedalDown.clear();
     this.noteOns = 0;
     this.noteOffs = 0;
     this.maxHeldNotes = 0;
