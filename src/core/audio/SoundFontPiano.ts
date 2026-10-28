@@ -137,6 +137,10 @@ export class SoundFontPiano {
       for (let channel = 0; channel < 16; channel++) {
         if (channel !== 9) next.programChange(channel, 0);
       }
+      // Keep reference/demo playback on its own virtual channel; it must
+      // never steal or silence the physical MIDI controller's 16 channels.
+      next.addNewChannel();
+      next.programChange(16, 0);
       const previous = this.synth;
       this.stopAll();
       this.synth = next;
@@ -223,6 +227,34 @@ export class SoundFontPiano {
       this.synth.controllerChange(channel, 64, 0);
       this.synth.controllerChange(channel, 123, 0);
     }
+  }
+
+  /**
+   * Worklet events accept AudioContext timestamps, so sample attacks and
+   * releases remain on the musical grid even if JS wakeups are uneven.
+   * Channel 16 is reserved for previews (hardware occupies channels 0..15).
+   * The caller schedules only a short lookahead, so cancellation cannot
+   * enqueue seconds of future audio.
+   */
+  schedulePreviewNote(
+    context: AudioContext, frequencyHz: number,
+    durationSeconds: number, when: number
+  ): (() => void) | null {
+    if (this.status.output !== 'soundfont' || !this.synth || this.status.phase !== 'ready') {
+      if (this.status.output === 'soundfont') void this.prepare(context);
+      return null;
+    }
+    const midi = Math.round(69 + 12 * Math.log2(frequencyHz / 440));
+    if (!Number.isInteger(midi) || midi < 0 || midi > 127) return null;
+    const synth = this.synth;
+    const startAt = Math.max(when, context.currentTime);
+    synth.noteOn(16, midi, 100, { time: startAt });
+    synth.noteOff(16, midi, { time: startAt + Math.max(0.02, durationSeconds) });
+    return () => {
+      if (this.synth !== synth) return;
+      // Cancel currently playing previews and any imminent lookahead events.
+      synth.noteOff(16, midi, { time: Math.max(context.currentTime, startAt + 0.005) });
+    };
   }
 
   play(context: AudioContext, frequencyHz: number, durationSeconds: number,
