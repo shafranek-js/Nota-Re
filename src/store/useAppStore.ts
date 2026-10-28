@@ -558,6 +558,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Tabletop/imagined play is pedagogical practice, not a scored answer.
   advanceAssistedStep: () => {
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
