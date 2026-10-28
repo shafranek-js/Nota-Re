@@ -2,6 +2,7 @@ import { create } from 'zustand';
 import { AppMode, ExerciseNote, FilterType, HanonType, SpeechType, TonalityKey } from '../types/music';
 import { COURSE_CURRICULUM } from '../data/curriculum';
 import { audioEngine } from '../core/audio/AudioEngine';
+import { MIDI_NOTE_MAP } from '../data/notes';
 import { midiManager } from '../core/midi/MidiManager';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
@@ -405,8 +406,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
 
-    // Звук ноты
-    audioEngine.playPianoTone(target.freq, 0.5, target.articulation === 'staccato');
+    // Звук того, что действительно сыграл пользователь, а не целевой ноты.
+    // При ошибке слуховая обратная связь должна соответствовать вводу.
+    const played = MIDI_NOTE_MAP[noteName];
+    if (played) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
 
     const isCorrect = noteName === target.noteName;
     const rt = Math.round(performance.now() - noteShownTimestamp);
