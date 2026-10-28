@@ -1,64 +1,103 @@
-import { MIDI_NOTE_MAP } from '../../data/notes';
+import { parseMidiMessage, type MidiInputEvent } from './midiMessages';
 
-type MidiNoteCallback = (noteName: string) => void;
+export type MidiDeviceEvent = MidiInputEvent | { type: 'panic' };
+type MidiEventCallback = (event: MidiDeviceEvent) => void;
 type PortsChangeCallback = (count: number) => void;
 
-class MidiManager {
-  private midiAccess: WebMidi.MIDIAccess | null = null;
-  private noteListeners: Set<MidiNoteCallback> = new Set();
-  private portListeners: Set<PortsChangeCallback> = new Set();
-  private connectedInputsCount: number = 0;
+/**
+ * MIDI hardware transport. In contrast with the old implementation, handles
+ * every MIDI channel, Note Off, velocity and CC64. Each port gets exactly one
+ * handler, and stale handlers are detached on disconnect or app cleanup.
+ */
+export class MidiManager {
+  private access: WebMidi.MIDIAccess | null = null;
+  private pending: Promise<void> | null = null;
+  private active = false;
+  private handlers = new Map<WebMidi.MIDIInput, (event: WebMidi.MIDIMessageEvent) => void>();
+  private eventListeners = new Set<MidiEventCallback>();
+  private portListeners = new Set<PortsChangeCallback>();
+  private connectedInputsCount = 0;
 
   public async init(): Promise<void> {
-    if (!navigator.requestMIDIAccess) return;
-
-    try {
-      this.midiAccess = await navigator.requestMIDIAccess();
-      this.updatePorts();
-      this.midiAccess.onstatechange = () => this.updatePorts();
-    } catch {
-      // MIDI access denied or unavailable
+    this.active = true;
+    if (this.access) {
+      this.attach();
+      return;
     }
+    if (this.pending) return this.pending;
+    if (typeof navigator === 'undefined' || !navigator.requestMIDIAccess) return;
+
+    this.pending = (async () => {
+      try {
+        const access = await navigator.requestMIDIAccess();
+        this.access = access;
+        if (this.active) this.attach();
+      } catch (error) {
+        console.warn('Web MIDI unavailable or permission denied', error);
+      } finally {
+        this.pending = null;
+      }
+    })();
+    return this.pending;
   }
 
-  private updatePorts(): void {
-    if (!this.midiAccess) return;
-    const inputs = Array.from(this.midiAccess.inputs.values());
-    this.connectedInputsCount = inputs.length;
-    this.portListeners.forEach(cb => cb(this.connectedInputsCount));
+  private attach(): void {
+    if (!this.access || !this.active) return;
+    this.access.onstatechange = () => this.attach();
+    const current = new Set(this.access.inputs.values());
+    let disconnected = false;
+    for (const [input, handler] of this.handlers) {
+      if (!current.has(input) || input.state === 'disconnected') {
+        if (input.onmidimessage === handler) input.onmidimessage = null;
+        this.handlers.delete(input);
+        disconnected = true;
+      }
+    }
+    if (disconnected) this.broadcast({ type: 'panic' });
 
-    inputs.forEach(input => {
-      input.onmidimessage = (msg) => {
-        if (!msg.data) return;
-        const [cmd, midiNote, velocity] = msg.data;
-        // 144 = NoteOn, velocity > 0
-        if (cmd === 144 && velocity > 0) {
-          const found = Object.entries(MIDI_NOTE_MAP).find(([, v]) => v.midi === midiNote);
-          if (found) {
-            this.notifyNote(found[0]);
-          }
-        }
+    for (const input of current) {
+      if (input.state === 'disconnected' || this.handlers.has(input)) continue;
+      const handler = (message: WebMidi.MIDIMessageEvent) => {
+        if (!this.active || !message.data) return;
+        const parsed = parseMidiMessage(message.data);
+        if (parsed) this.broadcast(parsed);
       };
-    });
+      input.onmidimessage = handler;
+      this.handlers.set(input, handler);
+    }
+    this.connectedInputsCount = this.handlers.size;
+    this.portListeners.forEach(cb => cb(this.connectedInputsCount));
+  }
+
+  public dispose(): void {
+    this.active = false;
+    if (this.access) this.access.onstatechange = null;
+    for (const [input, handler] of this.handlers) {
+      if (input.onmidimessage === handler) input.onmidimessage = null;
+    }
+    this.handlers.clear();
+    this.connectedInputsCount = 0;
+    this.portListeners.forEach(cb => cb(0));
+    this.broadcast({ type: 'panic' });
   }
 
   public getInputsCount(): number {
     return this.connectedInputsCount;
   }
 
-  public onNoteTrigger(cb: MidiNoteCallback): () => void {
-    this.noteListeners.add(cb);
-    return () => this.noteListeners.delete(cb);
+  public onMidiEvent(callback: MidiEventCallback): () => void {
+    this.eventListeners.add(callback);
+    return () => { this.eventListeners.delete(callback); };
   }
 
-  public onPortsChange(cb: PortsChangeCallback): () => void {
-    this.portListeners.add(cb);
-    cb(this.connectedInputsCount);
-    return () => this.portListeners.delete(cb);
+  public onPortsChange(callback: PortsChangeCallback): () => void {
+    this.portListeners.add(callback);
+    callback(this.connectedInputsCount);
+    return () => { this.portListeners.delete(callback); };
   }
 
-  private notifyNote(noteName: string): void {
-    this.noteListeners.forEach(cb => cb(noteName));
+  private broadcast(event: MidiDeviceEvent): void {
+    for (const callback of this.eventListeners) callback(event);
   }
 }
 
