@@ -139,6 +139,11 @@ export class SoundFontPiano {
     if (this.generation !== generation) return;
     const next = new Synth(context);
     try {
+      // SpessaSynth does not connect its AudioWorklet output automatically.
+      // Bank parsing/isReady can succeed with a disconnected graph, causing
+      // "SoundFont ready" and silent piano notes. Wire the main stereo output
+      // to Web Audio before marking the bank playable.
+      next.connect(context.destination);
       await next.soundBankManager.addSoundBank(data, 'main');
       await next.isReady;
       await this.waitForChannels(next, 16);
