@@ -92,11 +92,19 @@ export class AudioClockQueue {
   private cancellations: CancelScheduled[] = [];
   private lastEnd = 0;
 
+  private readonly now: () => number;
+  private readonly emit: (tone: TimedTone, absoluteTime: number) => CancelScheduled;
+  private readonly lookaheadSeconds: number;
+
   constructor(
-    private readonly now: () => number,
-    private readonly emit: (tone: TimedTone, absoluteTime: number) => CancelScheduled,
-    private readonly lookaheadSeconds = 0.12
-  ) {}
+    now: () => number,
+    emit: (tone: TimedTone, absoluteTime: number) => CancelScheduled,
+    lookaheadSeconds = 0.12
+  ) {
+    this.now = now;
+    this.emit = emit;
+    this.lookaheadSeconds = lookaheadSeconds;
+  }
 
   start(events: readonly TimedTone[], leadInSeconds = 0.08): void {
     this.stop();
