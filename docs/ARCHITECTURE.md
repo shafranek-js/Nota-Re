@@ -40,3 +40,20 @@ The existing SVG notation and oscillator audio remain active in milestone 1. OSM
 - Avoid putting timer handles, AudioContext instances or MIDI I/O into serializable Zustand state.
 - Provide one lifecycle-controlled input subscription per source.
 - A passing test means it has actually run, not merely that a test was committed.
+
+## Second incremental slice: OSMD score viewer (PR #8)
+
+- `opensheetmusicdisplay@2.2.1` is an **exact** production dependency; the generated `package-lock.json` is committed.
+- OSMD is dynamically imported only when the trainer uses it. The preferred renderer (OSMD or Classic) is saved in `localStorage`.
+- The OSMD viewer consumes `src/core/notation/musicXml.ts` output, uses a compact SVG score, and positions the cursor using musical timestamps.
+- SVG fallback is automatic for `lookahead`, `photo`, `intervals`, `gpattern`, `hanon` and when bass landmarks are enabled, because those modes require custom overlays.
+- The classic renderer is **not removed**. In particular, this PR does **not** assert feature parity for all eight modes.
+- New browser smoke verification: `tests/osmd.smoke.mjs`, running through `.github/workflows/osmd-smoke.yml` in headless Chrome. Screenshots are attached to each workflow run.
+
+### Known gaps before retiring the old SVG
+
+- Reimplement photo masks and lookahead curtains against real OSMD measure/staff geometry.
+- Reimplement intervals and G-pattern guidance without drawing noteheads or staffs by hand.
+- Support genuinely polyphonic exercises in the canonical model (currently serialized sequentially).
+- Test visual layout on narrow screens and verify cursor and notehead alignment across multiple systems.
+- Keep teaching affordances such as optional bass landmarks and photo mode access without losing them in OSMD.

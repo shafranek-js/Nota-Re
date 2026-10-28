@@ -1,0 +1,48 @@
+name: OSMD browser smoke
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+jobs:
+  real-browser:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - name: Install test-only Playwright client
+        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+      - name: Start production preview server
+        run: |
+          npm run preview -- --host 127.0.0.1 --port 4173 > /tmp/notare-preview.log 2>&1 &
+          for i in {1..40}; do
+            if curl --silent --fail http://127.0.0.1:4173/ > /dev/null; then
+              exit 0
+            fi
+            sleep 1
+          done
+          cat /tmp/notare-preview.log
+          exit 1
+      - name: Exercise OSMD with real browser
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/osmd.smoke.mjs
+      - name: Upload browser screenshots
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: osmd-smoke-screenshots
+          path: artifacts/*.png
+          if-no-files-found: ignore
