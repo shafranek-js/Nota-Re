@@ -140,7 +140,7 @@ export const PrecheckWorkspace: React.FC = () => {
                   className={`w-full text-left cursor-pointer p-4 rounded-xl bg-slate-950 border ${t.border} transition flex flex-col justify-between focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400`}
                 >
                   <div>
-                    <div className="flex items-center justify-between mb-1">
+                    <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                       <span className={`font-bold text-sm ${t.textCol}`}>{t.title}</span>
                       <span className={`font-mono text-xs px-2 py-0.5 rounded ${t.badgeCol}`}>{t.badge}</span>
                     </div>
