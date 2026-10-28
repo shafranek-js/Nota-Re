@@ -30,6 +30,31 @@ sound leaves the speakers.** The USB and MIDI transport, worklet render delay,
 driver buffering, OS mixer, speaker latency and human perception are not included.
 Do not sum the displayed figures and label the result “actual latency.”
 
+## Guided physical hardware self-check (PR #16)
+
+In **Settings → MIDI / Audio — диагностика задержки**, expand the section
+and select **Начать проверку MIDI**. Perform the four visible steps:
+
+1. Play and release one physical note (a matching Note Off is required).
+2. Hold two physical keys simultaneously (two successive single taps do not count).
+3. If a compatible pedal is connected, hold sustain (CC64), play and release a
+   key on the same MIDI channel, then release the pedal.
+4. Optionally hold one key and disconnect the controller to verify the
+   disconnect panic resets active voices. Reconnect afterward.
+
+Results are shown live; select **Завершить проверку**, then **Скачать отчёт JSON**.
+The report contains only check booleans, counts and the diagnostics aggregates
+already shown in the panel. No key numbers, velocities, device IDs, raw MIDI
+messages or per-event times appear in the file. Nothing is uploaded.
+
+**Important:** while Settings are open, MIDI still plays sound but no notes
+count toward lesson grading. Opening Settings pauses any running flow; closing
+the drawer does not silently resume it. This makes the check safe during a
+course session. Marked "Пройдено" means the browser received the expected MIDI
+event sequence, **not** that physical sound quality or key-to-speaker latency
+has been measured. Pedal and unplug tests can remain "Не проверено" on
+hardware without those features.
+
 ## Physical keyboard UAT (manual)
 
 1. Open Nota-Re in a Chromium browser, connect a MIDI keyboard, and permit Web

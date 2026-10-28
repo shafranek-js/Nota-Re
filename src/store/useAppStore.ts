@@ -300,7 +300,20 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleSettingsDrawer: () => {
-    set((state) => ({ isSettingsOpen: !state.isSettingsOpen }));
+    const opening = !get().isSettingsOpen;
+    // Opening a modal must not silently grade missed notes while the player
+    // is checking their MIDI hardware or audio settings.
+    if (opening) stopFlowClock();
+    const interruptedFlow = opening && get().isContinuousFlow;
+    set({
+      isSettingsOpen: opening,
+      isContinuousFlow: opening ? false : get().isContinuousFlow,
+      // A flow lesson interrupted by Settings cannot silently continue as
+      // an untimed certified run. Relaunch the course preset to qualify.
+      activeLessonId: interruptedFlow ? null : get().activeLessonId,
+      completedExercisesCount: interruptedFlow ? 0 : get().completedExercisesCount,
+      isExerciseFlawless: interruptedFlow ? false : get().isExerciseFlawless
+    });
   },
 
   selectCourseLesson: (id) => {
@@ -545,6 +558,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Tabletop/imagined play is pedagogical practice, not a scored answer.
   advanceAssistedStep: () => {
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
@@ -574,6 +588,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   handleUserTriggerNote: (noteName, fromMidi = false) => {
+    // The hardware must remain audible during diagnostics, but neither
+    // background MIDI nor keyboard shortcuts may inflate a course result.
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
