@@ -19,9 +19,7 @@ try {
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
 
   // Lesson 3 explicitly enables continuous flow in its course preset.
-  await page.getByText(/Урок 3: .*поток/i).first().click().catch(async () => {
-    await page.getByText(/Урок 3:/).first().click();
-  });
+  await page.getByText(/Урок 3:/).first().click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   const running = page.getByRole('button', { name: 'Поток: ИДЁТ' });
   await running.waitFor({ state: 'visible', timeout: 30000 });
