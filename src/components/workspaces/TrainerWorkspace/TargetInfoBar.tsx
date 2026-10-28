@@ -7,7 +7,8 @@ export const TargetInfoBar: React.FC = () => {
     activeExerciseNotes,
     activeNoteIndex,
     lastTriggeredNote,
-    currentAppMode
+    currentAppMode,
+    isExerciseAssisted
   } = useAppStore();
 
   const target = activeExerciseNotes[activeNoteIndex];
@@ -28,6 +29,12 @@ export const TargetInfoBar: React.FC = () => {
   return (
     <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/60 text-xs">
       <div className="flex flex-wrap items-center gap-2">
+        {isExerciseAssisted && (
+          <span role="status" data-testid="assisted-step-notice"
+            className="px-2 py-0.5 rounded border border-amber-500/50 text-amber-300">
+            Подсказка использована — упражнение без зачёта
+          </span>
+        )}
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
           ЦЕЛЬ: <strong className="text-sky-400 font-mono">{target?.noteName || '—'}</strong>
         </span>
