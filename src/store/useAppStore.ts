@@ -300,7 +300,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleSettingsDrawer: () => {
-    set((state) => ({ isSettingsOpen: !state.isSettingsOpen }));
+    const opening = !get().isSettingsOpen;
+    // Opening a modal must not silently grade missed notes while the player
+    // is checking their MIDI hardware or audio settings.
+    if (opening) stopFlowClock();
+    set({
+      isSettingsOpen: opening,
+      isContinuousFlow: opening ? false : get().isContinuousFlow
+    });
   },
 
   selectCourseLesson: (id) => {
@@ -574,6 +581,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   handleUserTriggerNote: (noteName, fromMidi = false) => {
+    // The hardware must remain audible during diagnostics, but neither
+    // background MIDI nor keyboard shortcuts may inflate a course result.
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
