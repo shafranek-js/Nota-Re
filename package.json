@@ -4,11 +4,12 @@
   "version": "3.0.0",
   "type": "module",
   "scripts": {
-    "dev": "npm run prepare:worklet && vite",
-    "build": "npm run prepare:worklet && tsc -b && vite build",
+    "dev": "npm run prepare:worklet && npm run prepare:soundfont && vite",
+    "build": "npm run prepare:worklet && npm run prepare:soundfont && tsc -b && vite build",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
-    "prepare:worklet": "node scripts/copy-soundfont-worklet.mjs"
+    "prepare:worklet": "node scripts/copy-soundfont-worklet.mjs",
+    "prepare:soundfont": "node scripts/prepare-soundfont-assets.mjs"
   },
   "dependencies": {
     "lucide-react": "^1.16.0",
