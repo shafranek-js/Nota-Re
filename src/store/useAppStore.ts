@@ -207,29 +207,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
   isSettingsOpen: false,
 
-  selectedLessonId: 1,
+  // All user preference keys live in the versioned, validated snapshot.
+  ...loadTrainerPreferences(),
+
+  // Session-only state: never resume graded flow or restore fake results.
   completedLessons: [],
   activeLessonId: null,
-
-  currentAppMode: 'reflex',
-  currentFilter: 'treble',
-  currentTonality: 'C',
-  currentHanonType: 'hanon1',
-  speechSuppressor: 'count',
-  scoreNoteCount: 16,
-  bpm: 60,
   isContinuousFlow: false,
-  isBlindfolded: false,
-  isTabletopMode: false,
-  showBassLandmarks: false,
-  showScaleHighlight: false,
-  photoExposureMs: 1800,
   isPhotoMasked: false,
-
-  audioEnabled: true,
-  // Hydrate preferences before the first React render, but never hydrate
-  // active exams, transient stats, MIDI device counts or flow timers.
-  ...loadTrainerPreferences(),
   midiInputsCount: 0,
 
   totalAttempts: 0,
