@@ -65,7 +65,7 @@ export const CourseWorkspace: React.FC = () => {
         
         {/* Список 12 уроков */}
         <div className="lg:col-span-5 flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:min-h-0">
-          <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800 shrink-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2.5 border-b border-slate-800 shrink-0">
             <span className="text-xs font-bold uppercase font-mono text-slate-400">Уроки программы (1–12)</span>
             <span className="text-xs text-slate-500 font-mono">Нажмите для выбора</span>
           </div>
