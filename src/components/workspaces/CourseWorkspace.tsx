@@ -21,7 +21,7 @@ export const CourseWorkspace: React.FC = () => {
   const pct = Math.round((doneCount / COURSE_CURRICULUM.length) * 100);
 
   return (
-    <section className="flex-1 min-h-0 w-full p-3.5 overflow-hidden flex flex-col gap-3">
+    <section className="flex-1 min-h-full lg:min-h-0 w-full p-3 sm:p-3.5 overflow-visible lg:overflow-hidden flex flex-col gap-3">
       {/* Шапка курса */}
       <div className="shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
         <div className="max-w-2xl">
@@ -40,7 +40,7 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Общая шкала курса */}
-        <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 min-w-[260px] flex flex-col gap-2">
+        <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 w-full sm:w-auto sm:min-w-[260px] min-w-0 flex flex-col gap-2">
           <div className="flex items-center justify-between text-xs">
             <span className="text-slate-400 font-medium">Общий прогресс курса:</span>
             <span className="font-mono font-bold text-emerald-400">{doneCount} / 12 ({pct}%)</span>
@@ -61,25 +61,29 @@ export const CourseWorkspace: React.FC = () => {
       </div>
 
       {/* 2 Колонки: Список 12 уроков (слева) + Карточка выбранного урока (справа) */}
-      <div className="flex-1 min-h-0 w-full grid grid-cols-1 lg:grid-cols-12 gap-3.5">
+      <div className="w-full grid grid-cols-1 lg:grid-cols-12 lg:flex-1 lg:min-h-0 gap-3.5">
         
         {/* Список 12 уроков */}
-        <div className="lg:col-span-5 flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl p-3 min-h-0">
+        <div className="lg:col-span-5 flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:min-h-0">
           <div className="flex items-center justify-between px-2 pb-2.5 border-b border-slate-800 shrink-0">
             <span className="text-xs font-bold uppercase font-mono text-slate-400">Уроки программы (1–12)</span>
             <span className="text-xs text-slate-500 font-mono">Нажмите для выбора</span>
           </div>
 
-          <div className="flex-1 min-h-0 overflow-y-auto custom-scroll space-y-2 pr-1 pt-2">
+          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-2 pr-1 pt-2">
             {COURSE_CURRICULUM.map(item => {
               const isSelected = item.id === selectedLessonId;
               const itemDone = completedLessons.includes(item.id);
 
               return (
-                <div
+                <button
+                  type="button"
                   key={item.id}
+                  data-testid={`course-lesson-${item.id}`}
+                  aria-current={isSelected ? 'true' : undefined}
+                  aria-label={`Выбрать урок ${item.id}: ${item.title}`}
                   onClick={() => selectCourseLesson(item.id)}
-                  className={`p-3 rounded-xl border cursor-pointer transition flex items-start justify-between gap-2.5 ${
+                  className={`w-full text-left p-3 rounded-xl border cursor-pointer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 flex items-start justify-between gap-2.5 ${
                     isSelected
                       ? 'bg-emerald-500/10 border-emerald-500/60 shadow-md shadow-emerald-950/40'
                       : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-950'
@@ -98,7 +102,7 @@ export const CourseWorkspace: React.FC = () => {
                         <span className="text-[10px] font-mono text-slate-400 uppercase">{item.module}</span>
                         <span className="text-[10px] text-slate-500">• {item.timecode}</span>
                       </div>
-                      <h4 className={`text-xs font-bold truncate mt-0.5 ${
+                      <h4 className={`text-xs font-bold line-clamp-2 lg:truncate mt-0.5 ${
                         isSelected ? 'text-white' : 'text-slate-200'
                       }`}>
                         {item.title}
@@ -120,14 +124,14 @@ export const CourseWorkspace: React.FC = () => {
                       </span>
                     )}
                   </div>
-                </div>
+                </button>
               );
             })}
           </div>
         </div>
 
         {/* Карточка выбранного урока */}
-        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 overflow-y-auto custom-scroll min-h-0">
+        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 lg:overflow-y-auto custom-scroll lg:min-h-0">
           <div className="space-y-4">
             {/* Шапка карточки */}
             <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-3">
@@ -198,7 +202,7 @@ export const CourseWorkspace: React.FC = () => {
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
                 📊 Норматив зачёта (автоматическая фиксация в студии):
               </h4>
-              <div className="grid grid-cols-3 gap-2 text-center">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Серия номеров</div>
                   <div className="text-sm font-bold font-mono text-purple-400 mt-0.5">{lesson.normReps} упр.</div>
