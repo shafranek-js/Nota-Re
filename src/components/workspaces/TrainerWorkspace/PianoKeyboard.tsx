@@ -26,11 +26,13 @@ export const PianoKeyboard: React.FC = () => {
   // Обработка клавиш ПК (Z-M для баса, Q-[ для скрипичного, цифры для знаков, пробел для шага)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Игнорируем ввод, если фокус в input/select/textarea
-      const targetTag = (e.target as HTMLElement)?.tagName?.toLowerCase();
-      if (targetTag === 'input' || targetTag === 'select' || targetTag === 'textarea') {
-        return;
-      }
+      // Settings owns the keyboard while its dialog is open. Don't turn
+      // letters typed into controls into piano notes or steal their shortcuts.
+      if (useAppStore.getState().isSettingsOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      const target = e.target as HTMLElement | null;
+      const targetTag = target?.tagName?.toLowerCase();
+      if (target?.isContentEditable || targetTag === 'input' ||
+          targetTag === 'select' || targetTag === 'textarea') return;
 
       if (e.code === 'Space') {
         // Space is a non-scoring imagined step only in tabletop mode.
@@ -105,8 +107,8 @@ export const PianoKeyboard: React.FC = () => {
       </div>
 
       {/* Сами клавиши */}
-      <div className="w-full overflow-hidden">
-        <div className="relative w-full h-[132px] flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
+      <div className="w-full overflow-x-auto custom-scroll" role="region" aria-label="Прокручиваемая клавиатура фортепиано" tabIndex={0}>
+        <div className="relative w-full min-w-[560px] h-[132px] flex bg-slate-950 p-1 rounded-xl border border-slate-800 shadow-inner">
           <div className="relative w-full h-full flex">
             {/* Белые клавиши */}
             {WHITE_KEYS_ORDER.map(noteName => {
@@ -122,6 +124,7 @@ export const PianoKeyboard: React.FC = () => {
               return (
                 <button
                   key={noteName}
+                  aria-label={`Клавиша ${noteName}`}
                   onClick={() => handleUserTriggerNote(noteName)}
                   className={`piano-white-key flex-1 h-full bg-slate-100 hover:bg-white border-r border-slate-300 last:border-r-0 first:rounded-l-lg last:rounded-r-lg flex flex-col justify-end items-center pb-2 relative z-10 cursor-pointer ${
                     isScaleHint ? 'key-scale-hint' : ''
@@ -151,6 +154,7 @@ export const PianoKeyboard: React.FC = () => {
               return (
                 <button
                   key={noteName}
+                  aria-label={`Клавиша ${noteName}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleUserTriggerNote(noteName);
