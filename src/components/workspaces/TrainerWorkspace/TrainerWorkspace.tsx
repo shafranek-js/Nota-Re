@@ -29,9 +29,9 @@ export const TrainerWorkspace: React.FC = () => {
     try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
   };
 
-  // First migration slice: custom geometry/overlays need UAT before removing
-  // their original implementation. Do not silently drop teaching features.
-  const requiresLegacy = ['lookahead', 'photo', 'intervals', 'gpattern', 'hanon'].includes(currentAppMode) ||
+  // Lookahead and photo use OSMD's actual note geometry. Other specialty
+  // modes still need separate guidance overlays; keep classic fallback.
+  const requiresLegacy = ['intervals', 'gpattern', 'hanon'].includes(currentAppMode) ||
     showBassLandmarks;
   const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
 
