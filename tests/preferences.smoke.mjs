@@ -60,8 +60,42 @@ try {
     'refresh never silently resumes graded flow');
   assert.ok(await page.getByTitle('Включить звук').isVisible());
   await page.getByTitle('Открыть настройки').click();
-  await page.getByRole('button', { name: 'Сбросить настройки' }).click().catch(() => {});
-  // The reset confirmation deliberately protects against accidental clicks.
+  const resetDialog = page.waitForEvent('dialog');
+  await page.getByRole('button', { name: 'Сбросить настройки' }).click({ noWaitAfter: true });
+  await (await resetDialog).accept();
+  await page.waitForFunction(() =>
+    JSON.parse(localStorage.getItem('notare-trainer-preferences-v1'))?.preferences?.bpm === 60
+  );
+  const reset = await prefs();
+  assert.equal(reset.preferences.currentAppMode, 'reflex');
+  assert.equal(reset.preferences.currentTonality, 'C');
+  assert.equal(reset.preferences.selectedLessonId, 1);
+  assert.equal(reset.preferences.audioEnabled, true);
+  assert.equal(reset.preferences.isBlindfolded, false);
+  assert.equal(await page.evaluate(() => localStorage.getItem('notare_course_completed_v3')), '[1,2]',
+    'reset preferences must never remove completed course lessons');
+  await page.getByRole('button', { name: 'Готово', exact: true }).click();
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/);
+  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
+
+  // Corrupt data and unsupported schema versions must not brick the app.
+  await page.evaluate(() => {
+    localStorage.setItem('notare-trainer-preferences-v1',
+      JSON.stringify({ version: 1, preferences: {
+        currentAppMode: 'unknown', bpm: -500, currentTonality: 'F',
+        isBlindfolded: 'yes'
+      }}));
+    localStorage.setItem('notare_course_completed_v3', '[1,1,14,"2",2]');
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/);
+  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
+  assert.equal(await page.locator('select').filter({ has: page.locator('option[value="F"]') }).inputValue(), 'F');
+  assert.deepEqual(errors, [], 'no browser errors on reload/reset/invalid preferences');
+  console.log('Settings Chrome smoke passed: saved setup, safe flow restart, reset and invalid storage.');
 } finally {
   await browser.close();
 }
