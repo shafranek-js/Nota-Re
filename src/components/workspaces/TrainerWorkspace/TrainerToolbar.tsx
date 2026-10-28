@@ -2,7 +2,8 @@ import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { AppMode, FilterType, TonalityKey } from '../../../types/music';
 import { audioEngine } from '../../../core/audio/AudioEngine';
-import { RotateCw, Mic, Play, Pause } from 'lucide-react';
+import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
+import { RotateCw, Mic, Play, Pause, FileDown } from 'lucide-react';
 
 export const TrainerToolbar: React.FC = () => {
   const {
@@ -46,6 +47,29 @@ export const TrainerToolbar: React.FC = () => {
       durMultiplier: n.durMultiplier,
       articulation: n.articulation
     })), bpm);
+  };
+
+  const handleExportMusicXml = () => {
+    try {
+      const score = createScoreFromExercise(
+        activeExerciseNotes,
+        currentTonality,
+        'Nota-Re - ' + currentAppMode + ' exercise'
+      );
+      const xml = toMusicXml(score, { includeFingering: currentAppMode === 'hanon' });
+      const blob = new Blob([xml], { type: 'application/vnd.recordare.musicxml+xml;charset=utf-8' });
+      const url = URL.createObjectURL(blob);
+      const link = document.createElement('a');
+      link.href = url;
+      link.download = 'notare-' + currentAppMode + '.musicxml';
+      document.body.appendChild(link);
+      link.click();
+      link.remove();
+      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+    } catch (error) {
+      console.error('MusicXML export failed', error);
+      window.alert('Не удалось экспортировать упражнение в MusicXML.');
+    }
   };
 
   return (
@@ -145,6 +169,16 @@ export const TrainerToolbar: React.FC = () => {
         >
           <Mic className="w-3 h-3" />
           <span>Петь</span>
+        </button>
+
+        {/* MusicXML boundary: useful independently and ready for OSMD migration. */}
+        <button
+          onClick={handleExportMusicXml}
+          className="flex items-center gap-1 px-2.5 py-1 rounded-lg bg-slate-800 hover:bg-slate-700 border border-slate-700 text-[11px] font-semibold text-sky-200"
+          title="Скачать текущие ноты в формате MusicXML"
+        >
+          <FileDown className="w-3 h-3" />
+          <span>MusicXML</span>
         </button>
 
         {/* Сгенерировать новый номер */}
