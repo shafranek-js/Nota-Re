@@ -47,6 +47,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/midi.smoke.mjs
+      - name: Stress-test MIDI polyphony, pedal and dispatch metrics
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/midi-stress.smoke.mjs
       - name: Verify assisted steps never count for certification
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
