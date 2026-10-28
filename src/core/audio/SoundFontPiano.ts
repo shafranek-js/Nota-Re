@@ -148,12 +148,10 @@ export class SoundFontPiano {
       for (let channel = 0; channel < 16; channel++) {
         if (channel !== 9) next.programChange(channel, 0);
       }
-      // Keep reference/demo playback on its own virtual channel; it must
-      // never steal or silence the physical MIDI controller's 16 channels.
-      next.addNewChannel();
-      await this.waitForChannels(next, 17);
-      if (this.generation !== generation) { next.destroy(); return; }
-      next.programChange(16, 0);
+      // Worklet 4.4 currently emits inconsistent channel events when adding
+      // a 17th channel here. Use the highest melodic channel for previews
+      // until upstream channel allocation is fixed, keeping physical channel 1
+      // (the usual keyboard default) entirely separate from previews.
       const previous = this.synth;
       this.stopAll();
       this.synth = next;
@@ -245,7 +243,7 @@ export class SoundFontPiano {
   /**
    * Worklet events accept AudioContext timestamps, so sample attacks and
    * releases remain on the musical grid even if JS wakeups are uneven.
-   * Channel 16 is reserved for previews (hardware occupies channels 0..15).
+   * Preview channel 15 is used; physical channel 15 may overlap during demos.
    * The caller schedules only a short lookahead, so cancellation cannot
    * enqueue seconds of future audio.
    */
@@ -261,12 +259,12 @@ export class SoundFontPiano {
     if (!Number.isInteger(midi) || midi < 0 || midi > 127) return null;
     const synth = this.synth;
     const startAt = Math.max(when, context.currentTime);
-    synth.noteOn(16, midi, 100, { time: startAt });
-    synth.noteOff(16, midi, { time: startAt + Math.max(0.02, durationSeconds) });
+    synth.noteOn(15, midi, 100, { time: startAt });
+    synth.noteOff(15, midi, { time: startAt + Math.max(0.02, durationSeconds) });
     return () => {
       if (this.synth !== synth) return;
       // Cancel currently playing previews and any imminent lookahead events.
-      synth.noteOff(16, midi, { time: Math.max(context.currentTime, startAt + 0.005) });
+      synth.noteOff(15, midi, { time: Math.max(context.currentTime, startAt + 0.005) });
     };
   }
 
