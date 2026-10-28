@@ -1,6 +1,6 @@
 import { parseMidiMessage, type MidiInputEvent } from './midiMessages';
 
-export type MidiDeviceEvent = MidiInputEvent | { type: 'panic' };
+export type MidiDeviceEvent = (MidiInputEvent & { receivedAtMs: number }) | { type: 'panic' };
 type MidiEventCallback = (event: MidiDeviceEvent) => void;
 type PortsChangeCallback = (count: number) => void;
 
@@ -59,8 +59,11 @@ export class MidiManager {
       if (input.state === 'disconnected' || this.handlers.has(input)) continue;
       const handler = (message: WebMidi.MIDIMessageEvent) => {
         if (!this.active || !message.data) return;
+        // Same monotonic time origin as performance.now() in AudioEngine.
+        // This is a JS callback timestamp, not a physical key-onset time.
+        const receivedAtMs = performance.now();
         const parsed = parseMidiMessage(message.data);
-        if (parsed) this.broadcast(parsed);
+        if (parsed) this.broadcast({ ...parsed, receivedAtMs });
       };
       input.onmidimessage = handler;
       this.handlers.set(input, handler);

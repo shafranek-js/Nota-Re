@@ -7,6 +7,9 @@ import { audioEngine } from '../../core/audio/AudioEngine';
 export const SettingsDrawer: React.FC = () => {
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const [soundError, setSoundError] = useState<string | null>(null);
+  const [midiDiagnostics, setMidiDiagnostics] = useState(
+    () => audioEngine.getMidiAudioDiagnostics()
+  );
 
   useEffect(() => audioEngine.subscribeSoundFont(setSoundStatus), []);
 
@@ -44,7 +47,17 @@ export const SettingsDrawer: React.FC = () => {
     resetSessionStats
   } = useAppStore();
 
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    const refresh = () => setMidiDiagnostics(audioEngine.getMidiAudioDiagnostics());
+    refresh();
+    return audioEngine.subscribeMidiAudioDiagnostics(refresh);
+  }, [isSettingsOpen]);
+
   if (!isSettingsOpen) return null;
+
+  const formatLatency = (ms: number | null) =>
+    ms === null ? '—' : `${ms.toFixed(2)} мс`;
 
   const filters: { id: FilterType; label: string; desc: string }[] = [
     { id: 'treble', label: '200 упражнений (C4–G4):', desc: '5 пальцев в одной позиции' },
@@ -144,6 +157,75 @@ export const SettingsDrawer: React.FC = () => {
               </p>
             )}
           </div>
+
+          <details
+            className="rounded-xl border border-slate-700 bg-slate-950/60 p-3"
+            data-testid="midi-audio-diagnostics"
+          >
+            <summary className="cursor-pointer text-xs font-bold uppercase font-mono text-slate-300">
+              MIDI / Audio — диагностика задержки
+            </summary>
+            <div className="mt-3 space-y-3 text-xs">
+              <div className="grid grid-cols-2 gap-x-3 gap-y-2 text-slate-400">
+                <span>Обработано нажатий (последние 128)</span>
+                <strong data-testid="midi-diag-samples" className="text-right text-sky-200 tabular-nums">
+                  {midiDiagnostics.samples}
+                </strong>
+                <span>JS → отправка звука, медиана</span>
+                <strong data-testid="midi-diag-median" className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.medianDispatchMs)}
+                </strong>
+                <span>JS → отправка звука, P95</span>
+                <strong data-testid="midi-diag-p95" className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.p95DispatchMs)}
+                </strong>
+                <span>Максимальная задержка отправки</span>
+                <strong className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.maxDispatchMs)}
+                </strong>
+                <span>Передано в SoundFont / осциллятор</span>
+                <strong data-testid="midi-diag-routes" className="text-right text-sky-200 tabular-nums">
+                  {midiDiagnostics.soundFontCount} / {midiDiagnostics.oscillatorCount}
+                </strong>
+                <span>Отслеживаемые MIDI-голоса / пик</span>
+                <strong data-testid="midi-diag-voices" className="text-right text-sky-200 tabular-nums">
+                  {midiDiagnostics.activeVoices} / {midiDiagnostics.peakVoices}
+                </strong>
+                <span>Каналов с нажатой педалью</span>
+                <strong className="text-right text-sky-200 tabular-nums">
+                  {midiDiagnostics.sustainedChannels}
+                </strong>
+                <span>AudioContext</span>
+                <strong className="text-right text-sky-200">
+                  {midiDiagnostics.contextState} · {midiDiagnostics.sampleRateHz ?? '—'} Hz
+                </strong>
+                <span>baseLatency (оценка браузера)</span>
+                <strong className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.baseLatencyMs)}
+                </strong>
+                <span>outputLatency (оценка браузера)</span>
+                <strong className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.outputLatencyMs)}
+                </strong>
+              </div>
+              <p className="leading-relaxed text-[11px] text-slate-400">
+                Измерение ведётся от входа в JavaScript MIDI-обработчик до передачи
+                команды звуковому движку. Оно не включает задержку устройства,
+                USB, AudioWorklet, аудиодрайвера и динамиков. baseLatency и
+                outputLatency — оценки браузера, их нельзя напрямую складывать
+                с измеренной задержкой. Удержание sustain внутри SoundFont
+                и хвосты затухания не входят в число отслеживаемых голосов.
+                Сырые MIDI-ноты и идентификаторы устройств не сохраняются.
+              </p>
+              <button
+                type="button"
+                onClick={() => audioEngine.resetMidiAudioDiagnostics()}
+                className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-200 hover:border-sky-500"
+              >
+                Сбросить измерения
+              </button>
+            </div>
+          </details>
 
           {/* 1. Сборник и диапазон */}
           <div>
