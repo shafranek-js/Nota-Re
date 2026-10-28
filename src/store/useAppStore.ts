@@ -3,7 +3,10 @@ import { AppMode, ExerciseNote, FilterType, HanonType, SpeechType, TonalityKey }
 import { COURSE_CURRICULUM } from '../data/curriculum';
 import { audioEngine } from '../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../data/notes';
-import { noteDurationMs, startsMeasure, evaluateLessonCredit } from '../core/training/flowTiming';
+import {
+  noteDurationMs, startsMeasure, evaluateLessonCredit,
+  nextAudioDeadline, remainingAudioMs
+} from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
@@ -102,26 +105,67 @@ export interface AppState {
 let photoTimerId: number | null = null;
 let flowTimeoutId: number | null = null;
 let flowEpoch = 0;
+let flowOnsetAudioTime: number | null = null;
+let flowDeadlineAudioTime: number | null = null;
+let flowClickCancel: (() => void) | null = null;
 
 function stopFlowClock(): void {
   ++flowEpoch;
   if (flowTimeoutId !== null) window.clearTimeout(flowTimeoutId);
   flowTimeoutId = null;
+  flowClickCancel?.();
+  flowClickCancel = null;
+  flowOnsetAudioTime = null;
+  flowDeadlineAudioTime = null;
 }
 
-function armFlowClock(get: () => AppState): void {
+function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): void {
   stopFlowClock();
   const state = get();
   if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
   const note = state.activeExerciseNotes[state.activeNoteIndex];
   if (!note) return;
   const epoch = flowEpoch;
-  audioEngine.playMetronomeClick(startsMeasure(state.activeExerciseNotes, state.activeNoteIndex));
-  flowTimeoutId = window.setTimeout(() => {
+  const audioTime = audioEngine.ensureAudioContext()?.currentTime ?? null;
+  // The new slot begins at the preceding *planned* boundary, never at
+  // a delayed JavaScript callback. Fresh sessions have a 40 ms lead-in.
+  const onset = audioTime === null ? null :
+    (nextOnsetAudioTime ?? (audioTime + 0.04));
+  flowOnsetAudioTime = onset;
+  flowDeadlineAudioTime = onset === null ? null : nextAudioDeadline(onset, note, state.bpm);
+  flowClickCancel = audioEngine.scheduleMetronomeClick(
+    startsMeasure(state.activeExerciseNotes, state.activeNoteIndex),
+    onset ?? undefined
+  );
+  const fallbackEnd = performance.now() + noteDurationMs(note, state.bpm);
+
+  const wake = () => {
     if (flowEpoch !== epoch) return;
+    const now = audioEngine.currentAudioTime();
+    const remaining = now !== null && flowDeadlineAudioTime !== null
+      ? remainingAudioMs(now, flowDeadlineAudioTime)
+      : Math.max(0, Math.round(fallbackEnd - performance.now()));
+    if (remaining > 2) {
+      // These JS callbacks drive only the visible cursor; oscillator and
+      // SoundFont attacks were already queued against the audio clock.
+      flowTimeoutId = window.setTimeout(wake, Math.min(remaining, 250));
+      return;
+    }
     flowTimeoutId = null;
+
+    // Never penalize a learner for a suspended/hidden tab or a main-thread
+    // freeze. Pause rather than run an entire unseen exercise at once.
+    const lateBy = now !== null && flowDeadlineAudioTime !== null
+      ? (now - flowDeadlineAudioTime) * 1000
+      : performance.now() - fallbackEnd;
+    if (document.hidden || lateBy > 350) {
+      stopFlowClock();
+      useAppStore.setState({ isContinuousFlow: false });
+      return;
+    }
     get().advanceFlowStep();
-  }, noteDurationMs(note, state.bpm));
+  };
+  flowTimeoutId = window.setTimeout(wake, Math.min(noteDurationMs(note, state.bpm), 250));
 }
 
 function finishExercise(
@@ -226,8 +270,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     void midiManager.init();
 
+    const pauseWhenHidden = () => {
+      if (document.hidden && get().isContinuousFlow) {
+        stopFlowClock();
+        set({ isContinuousFlow: false });
+      }
+    };
+    document.addEventListener('visibilitychange', pauseWhenHidden);
+
     get().regenerateExercise();
     return () => {
+      document.removeEventListener('visibilitychange', pauseWhenHidden);
+      stopFlowClock();
       unlistenEvents();
       unlistenPorts();
       midiManager.dispose();
@@ -376,6 +430,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { activeNoteIndex, activeExerciseNotes } = state;
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
+    const nextPlannedOnset = flowDeadlineAudioTime;
     stopFlowClock();
 
     // A note advances when its *musical duration* ends. Correct/wrong input
@@ -406,7 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         Math.floor(activeExerciseNotes.slice(0, activeNoteIndex).reduce((sum,n) => sum+n.durMultiplier,0) / 4)) {
       get().triggerPhotoFlash();
     }
-    armFlowClock(get);
+    armFlowClock(get, nextPlannedOnset);
   },
 
   toggleBlindfoldKeys: () => {
@@ -538,10 +593,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     // are audible but may not generate extra attempts or move the cursor.
     if (isContinuousFlow && target.status !== 'current') return;
 
-    const rt = Math.round(performance.now() - noteShownTimestamp);
-    // A keypress delivered after its musical deadline must never count as
-    // correct merely because the JS timer callback was queued behind it.
-    const isLate = isContinuousFlow && rt >= noteDurationMs(target, get().bpm);
+    const audioNow = audioEngine.currentAudioTime();
+    const rt = isContinuousFlow && flowOnsetAudioTime !== null && audioNow !== null
+      ? Math.max(0, Math.round((audioNow - flowOnsetAudioTime) * 1000))
+      : Math.round(performance.now() - noteShownTimestamp);
+    // Late judgments use the same monotonic AudioContext clock as the
+    // deadline / click scheduling, not an unrelated setTimeout wakeup.
+    const isLate = isContinuousFlow && (
+      flowDeadlineAudioTime !== null && audioNow !== null
+        ? audioNow >= flowDeadlineAudioTime
+        : rt >= noteDurationMs(target, get().bpm)
+    );
     const isCorrect = noteName === target.noteName && !isLate;
 
     set((s) => {
