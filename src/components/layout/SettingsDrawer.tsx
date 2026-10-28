@@ -63,6 +63,17 @@ export const SettingsDrawer: React.FC = () => {
     const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
     const previousBodyOverflow = document.body.style.overflow;
     document.body.style.overflow = 'hidden';
+    // Keep background controls inaccessible to pointer and assistive-tech
+    // navigation while the modal is open, not just behind a visual overlay.
+    const background = [...(dialogRef.current?.parentElement?.querySelectorAll<HTMLElement>(
+      ':scope > header, :scope > main'
+    ) ?? [])].map(node => ({
+      node, wasInert: node.inert, ariaHidden: node.getAttribute('aria-hidden')
+    }));
+    for (const { node } of background) {
+      node.inert = true;
+      node.setAttribute('aria-hidden', 'true');
+    }
     // The dialog is mounted after the state transition; avoid a focusable
     // background element staying active behind the overlay.
     closeButtonRef.current?.focus();
@@ -102,6 +113,11 @@ export const SettingsDrawer: React.FC = () => {
     return () => {
       document.removeEventListener('keydown', handleDialogKeys, true);
       document.body.style.overflow = previousBodyOverflow;
+      for (const { node, wasInert, ariaHidden } of background) {
+        node.inert = wasInert;
+        if (ariaHidden === null) node.removeAttribute('aria-hidden');
+        else node.setAttribute('aria-hidden', ariaHidden);
+      }
       if (opener?.isConnected) opener.focus();
     };
   }, [isSettingsOpen, toggleSettingsDrawer]);
