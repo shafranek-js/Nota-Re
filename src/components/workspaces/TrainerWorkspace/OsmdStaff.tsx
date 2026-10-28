@@ -3,7 +3,8 @@ import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
-import { Volume2 } from 'lucide-react';
+import { getMaskedNoteIndices, getNoteOnsets, TICKS_PER_MEASURE } from '../../../core/notation/scoreMasks';
+import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
   count: 'Счёт вслух (1-2-3-4)',
@@ -44,9 +45,8 @@ interface OsmdStaffProps {
 }
 
 /**
- * First OSMD migration slice: a real notation renderer, driven by MusicXML.
- * It intentionally only handles modes where a standard cursor is sufficient.
- * Custom note-hiding/interval/trajectory overlays still use GrandStaffSvg.
+ * MusicXML-based notation with optional pedagogical note hiding. Notehead/stem
+ * visibility is applied to OSMD's own graphical notes; no custom staff layout.
  */
 export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
   const {
@@ -59,13 +59,17 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     cycleSpeechSuppressor,
     showBassLandmarks,
     toggleBassLandmarks,
-    bpm
+    bpm,
+    isPhotoMasked,
+    triggerPhotoFlash
   } = useAppStore();
 
   const mountRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
+  const [renderEpoch, setRenderEpoch] = useState(0);
+  const hiddenNotesRef = useRef<Set<SVGElement>>(new Set());
 
   // The source array is replaced on regeneration. Progress advances the
   // active index but must NOT reload and re-engrave the score on every keypress.
@@ -101,6 +105,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
           setLoadState('ready');
           osmdRef.current = renderer;
           positionCursorAtTicks(renderer, currentOnsetTicks());
+          setRenderEpoch(epoch => epoch + 1);
         }
       } catch (error) {
         if (!cancelled) {
@@ -158,6 +163,11 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     return () => {
       cancelled = true;
       observer?.disconnect();
+      for (const element of hiddenNotesRef.current) {
+        element.style.visibility = '';
+        element.removeAttribute('data-notare-masked');
+      }
+      hiddenNotesRef.current.clear();
       osmdRef.current = null;
       // OSMD has no public dispose for the full instance. Explicitly release
       // cursors/backends and use autoResize:false to avoid global listeners.
@@ -169,9 +179,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
 
   // Note: MusicXML can contain rests on the other staff. A simple cursor.next()
   // per exercise note would drift. Match the cursor's musical timestamp instead.
-  const onsetTicks = activeExerciseNotes.length && activeNoteIndex < activeExerciseNotes.length
-    ? activeExerciseNotes.slice(0, activeNoteIndex).reduce((sum, n) => sum + n.durMultiplier * 4, 0)
-    : 0;
+  const noteOnsets = useMemo(() => getNoteOnsets(activeExerciseNotes), [activeExerciseNotes]);
+  const onsetTicks = noteOnsets[activeNoteIndex] ?? 0;
+  const actualBar = Math.floor(onsetTicks / TICKS_PER_MEASURE) + 1;
 
   useEffect(() => {
     if (loadState !== 'ready' || !osmdRef.current) return;
@@ -182,15 +192,78 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     }
   }, [onsetTicks, loadState, xml]);
 
+  // Apply visual teaching masks to OSMD-generated note SVG groups. We do not
+  // draw or position notes ourselves, and we keep score/key/staff geometry intact.
+  // Also include split tied-note segments when a note crosses a barline.
+  useEffect(() => {
+    for (const element of hiddenNotesRef.current) {
+      element.style.visibility = '';
+      element.removeAttribute('data-notare-masked');
+    }
+    hiddenNotesRef.current.clear();
+
+    const renderer = osmdRef.current;
+    if (!renderer || loadState !== 'ready') return;
+    const indices = getMaskedNoteIndices(
+      activeExerciseNotes,
+      activeNoteIndex,
+      currentAppMode === 'lookahead' || currentAppMode === 'photo' ? currentAppMode : 'none',
+      isPhotoMasked
+    );
+    if (indices.length === 0) return;
+
+    try {
+      const positions = new Set<number>();
+      for (const index of indices) {
+        const start = noteOnsets[index];
+        const end = start + activeExerciseNotes[index].durMultiplier * 4;
+        positions.add(start);
+        for (let barline = Math.floor(start / TICKS_PER_MEASURE + 1) * TICKS_PER_MEASURE;
+             barline < end;
+             barline += TICKS_PER_MEASURE) {
+          positions.add(barline);
+        }
+      }
+
+      for (const ticks of [...positions].sort((a, b) => a - b)) {
+        positionCursorAtTicks(renderer, ticks);
+        for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+          const element = graphicalNote.getSVGGElement() as SVGElement | undefined;
+          if (!element) continue;
+          element.style.visibility = 'hidden';
+          element.setAttribute('data-notare-masked', 'true');
+          hiddenNotesRef.current.add(element);
+        }
+      }
+    } catch (error) {
+      console.error('OSMD teaching mask failed', error);
+      setLoadState('error'); // Never silently show unmasked memory exercises.
+      setErrorMessage('Не удалось скрыть ноты. Используйте классический стан.');
+    } finally {
+      // Mask inspection walks the iterator: always restore actual training spot.
+      positionCursorAtTicks(renderer, currentOnsetTicks());
+    }
+  }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
+
   return (
     <div data-testid="osmd-score" data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         <div className="flex items-center flex-wrap gap-2.5">
-          <span className="text-slate-400">Такт: <strong className="text-white">{Math.floor(onsetTicks / 16) + 1}</strong></span>
+          <span className="text-slate-400">Такт: <strong className="text-white">{actualBar}</strong></span>
           <span className="text-slate-400">Сборник: <strong className="text-sky-400">{collectionNames[currentFilter]}</strong></span>
           <span className="text-emerald-300">OSMD · MusicXML</span>
         </div>
         <div className="flex items-center flex-wrap gap-1.5">
+          {currentAppMode === 'photo' && (
+            <button
+              onClick={triggerPhotoFlash}
+              className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-cyan-500/20 border border-cyan-500/40 text-cyan-700 bg-white"
+              title="Показать ноты текущего такта на выбранное время"
+            >
+              <Camera className="w-3 h-3" />
+              Вспышка такта
+            </button>
+          )}
           <button
             onClick={toggleBassLandmarks}
             title="Включить ориентиры басового ключа (временно использует классический стан)"
@@ -215,6 +288,11 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
       </div>
 
       <div className="relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-white text-slate-900">
+        {currentAppMode === 'photo' && isPhotoMasked && (
+          <div data-testid="photo-masked-notice" className="sticky top-0 z-20 mx-auto w-fit px-3 py-1 rounded-b-lg bg-cyan-950 text-cyan-100 text-xs pointer-events-none">
+            Такт {actualBar} скрыт — играйте по памяти
+          </div>
+        )}
         <div ref={mountRef} className="w-full min-h-[200px]" aria-label="Нотная партитура OpenSheetMusicDisplay" />
         {loadState === 'loading' && (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-white/95 text-slate-600 text-xs">
