@@ -2,6 +2,7 @@ import React from 'react';
 import { useAppStore, WorkspaceTab } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
 import { Settings, Volume2, VolumeX, Music } from 'lucide-react';
+import { BUILD_DETAILS } from '../../core/release/buildInfo';
 
 export const Header: React.FC = () => {
   const {
@@ -66,12 +67,17 @@ export const Header: React.FC = () => {
         <div>
           <div className="flex items-center gap-2">
             <span className="font-bold text-sm tracking-tight text-white">NotaRe Academy</span>
-            <span className="text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
+            <span className="hidden md:inline text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
               Курс: {completedLessons.length} / 12 уроков
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 hidden sm:block">
-            Урок {lesson.id} • {modeLabels[currentAppMode] || currentAppMode} • {filterLabels[currentFilter]}
+          <p className="text-[10px] text-slate-400 flex flex-wrap items-center gap-x-1">
+            <span data-testid="build-version" className="font-mono text-sky-300" title="Версия и ревизия кода, из которого собран интерфейс">
+              {BUILD_DETAILS}
+            </span>
+            <span className="hidden sm:inline">
+              · Урок {lesson.id} • {modeLabels[currentAppMode] || currentAppMode} • {filterLabels[currentFilter]}
+            </span>
           </p>
         </div>
       </div>
