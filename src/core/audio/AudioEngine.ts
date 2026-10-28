@@ -1,5 +1,8 @@
 import { SoundFontPiano, type PianoOutput, type SoundFontStatus } from './SoundFontPiano';
 import {
+  MidiAudioDiagnosticsTracker, type MidiAudioDiagnostics, type AudioRoute
+} from './midiDiagnostics';
+import {
   AudioClockQueue, articulationTimeline, sequenceTimeline, syllableTimeline,
   type TimedTone
 } from './audioTimeline';
@@ -20,6 +23,51 @@ class AudioEngine {
   private piano = new SoundFontPiano();
   private liveVoices = new Map<string, LiveMidiVoice>();
   private sustainChannels = new Set<number>();
+  private readonly diagnostics = new MidiAudioDiagnosticsTracker();
+
+  /**
+   * The two browser latencies are API estimates, not an acoustic loopback
+   * measurement. JS dispatch measures only callback -> noteOn invocation.
+   */
+  public getMidiAudioDiagnostics(): MidiAudioDiagnostics & {
+    contextState: AudioContextState | 'not-created';
+    sampleRateHz: number | null;
+    baseLatencyMs: number | null;
+    outputLatencyMs: number | null;
+    soundFontPhase: SoundFontStatus['phase'];
+  } {
+    const context = this.ctx;
+    const latency = (value: number | undefined): number | null =>
+      typeof value === 'number' && Number.isFinite(value) && value >= 0
+        ? value * 1000 : null;
+    return {
+      ...this.diagnostics.snapshot(),
+      contextState: context?.state ?? 'not-created',
+      sampleRateHz: context?.sampleRate ?? null,
+      baseLatencyMs: latency(context?.baseLatency),
+      outputLatencyMs: latency(context?.outputLatency),
+      soundFontPhase: this.piano.getStatus().phase
+    };
+  }
+
+  public subscribeMidiAudioDiagnostics(callback: () => void): () => void {
+    return this.diagnostics.subscribe(callback);
+  }
+
+  public resetMidiAudioDiagnostics(): void {
+    this.diagnostics.reset();
+  }
+
+  private updateDiagnosticVoices(): void {
+    this.diagnostics.updateVoices(this.liveVoices.size, this.sustainChannels.size);
+  }
+
+  private recordMidiDispatch(receivedAtMs: number | undefined, route: AudioRoute): void {
+    if (receivedAtMs !== undefined) {
+      this.diagnostics.recordDispatch(receivedAtMs, performance.now(), route);
+    }
+    this.updateDiagnosticVoices();
+  }
 
   public getSoundFontStatus(): SoundFontStatus { return this.piano.getStatus(); }
   public subscribeSoundFont(callback: (status: SoundFontStatus) => void): () => void {
@@ -83,7 +131,9 @@ class AudioEngine {
    * lesson scoring currently knows only the narrower training note map.
    * While SoundFont loads, a live oscillator voice remains held until release.
    */
-  public midiNoteOn(channel: number, note: number, velocity: number): void {
+  public midiNoteOn(
+    channel: number, note: number, velocity: number, receivedAtMs?: number
+  ): void {
     if (!this.isAudioEnabled) return;
     if (channel < 0 || channel > 15 || note < 0 || note > 127 || velocity < 1 || velocity > 127) return;
     const context = this.ensureAudioContext();
@@ -103,6 +153,7 @@ class AudioEngine {
       this.previewUsesSoundFont && this.previewQueue?.isPlaying;
     if (!previewCollision && this.piano.noteOn(context, channel, note, velocity)) {
       this.liveVoices.set(key, { kind: 'soundfont', released: false });
+      this.recordMidiDispatch(receivedAtMs, 'soundfont');
       return;
     }
 
@@ -121,6 +172,7 @@ class AudioEngine {
       oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
       oscillator.start(now);
       this.liveVoices.set(key, { kind: 'oscillator', oscillator, gain, released: false });
+      this.recordMidiDispatch(receivedAtMs, 'oscillator');
     } catch (error) {
       console.warn('Cannot create MIDI fallback voice', error);
     }
@@ -154,6 +206,7 @@ class AudioEngine {
       this.releaseLiveVoice(channel, note, voice);
       this.liveVoices.delete(key);
     }
+    this.updateDiagnosticVoices();
   }
 
   public midiSustain(channel: number, value: number): void {
@@ -169,6 +222,7 @@ class AudioEngine {
         }
       }
     }
+    this.updateDiagnosticVoices();
   }
 
   public midiAllNotesOff(channel: number): void {
@@ -179,6 +233,7 @@ class AudioEngine {
       this.releaseLiveVoice(channel, Number(key.split(':')[1]), voice, true);
       this.liveVoices.delete(key);
     }
+    this.updateDiagnosticVoices();
   }
 
   public stopMidiVoices(): void {
@@ -189,6 +244,7 @@ class AudioEngine {
     this.liveVoices.clear();
     this.sustainChannels.clear();
     this.piano.stopAll();
+    this.updateDiagnosticVoices();
   }
 
   public getAudioEnabled(): boolean {
