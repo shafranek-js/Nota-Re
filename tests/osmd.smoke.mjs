@@ -44,15 +44,17 @@ try {
   await page.getByRole('button', { name: /3\. Бегунок/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
   await page.keyboard.press('Space');
-  await page.locator('[data-notare-masked="true"]').first().waitFor({ timeout: 10000 });
+  await page.locator('[data-notare-masked="true"]').first().waitFor({ state: 'attached', timeout: 10000 });
   assert.ok(await page.getByTestId('osmd-score').isVisible(), 'lookahead must use OSMD');
+  assert.equal(await page.locator('[data-notare-masked="true"]').first().evaluate(el => getComputedStyle(el).visibility),
+    'hidden', 'the graphical note group must really be invisible');
 
   // Photo exercise must first reveal the score, then hide actual note SVGs
   // after the existing exposure timer. "Flash" must reveal them again.
   await page.getByRole('button', { name: /4\. Фото-память/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'visible', timeout: 10000 });
-  await page.locator('[data-notare-masked="true"]').first().waitFor({ timeout: 10000 });
+  await page.locator('[data-notare-masked="true"]').first().waitFor({ state: 'attached', timeout: 10000 });
   await page.getByRole('button', { name: 'Вспышка такта' }).click();
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'hidden', timeout: 5000 });
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-masked="true"]').length === 0);
