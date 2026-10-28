@@ -1,7 +1,32 @@
+import { SoundFontPiano, type PianoOutput, type SoundFontStatus } from './SoundFontPiano';
+
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private isAudioEnabled: boolean = true;
   private previewTimeouts: number[] = [];
+  private piano = new SoundFontPiano();
+
+  public getSoundFontStatus(): SoundFontStatus { return this.piano.getStatus(); }
+  public subscribeSoundFont(callback: (status: SoundFontStatus) => void): () => void {
+    return this.piano.subscribe(callback);
+  }
+  public setPianoOutput(output: PianoOutput): void { this.piano.setOutput(output); }
+  public async prepareSoundFont(retry = false): Promise<void> {
+    const context = this.ensureAudioContext();
+    if (context) await this.piano.prepare(context, retry);
+  }
+  public async importCustomSoundFont(file: File): Promise<void> {
+    const context = this.ensureAudioContext();
+    if (!context) throw new Error('Web Audio is not supported in this browser.');
+    await this.piano.importCustom(file, context);
+    this.piano.setOutput('soundfont');
+  }
+  public async selectBuiltInSoundFont(): Promise<void> {
+    const context = this.ensureAudioContext();
+    if (!context) throw new Error('Web Audio is not supported in this browser.');
+    await this.piano.useBuiltIn(context);
+    this.piano.setOutput('soundfont');
+  }
 
   public ensureAudioContext(): AudioContext | null {
     if (!this.ctx) {
@@ -20,6 +45,7 @@ class AudioEngine {
     this.isAudioEnabled = enabled;
     if (!enabled) {
       this.clearPreviewTimeouts();
+      this.piano.stopAll();
     }
   }
 
@@ -36,6 +62,9 @@ class AudioEngine {
     if (!this.isAudioEnabled) return;
     const ctx = this.ensureAudioContext();
     if (!ctx) return;
+    // A missing/loading/failed SoundFont never silences training: fall back
+    // to the original oscillator without blocking a single note.
+    if (this.piano.play(ctx, freq, duration, isStaccato)) return;
 
     try {
       const now = ctx.currentTime;
