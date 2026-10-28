@@ -1,9 +1,35 @@
-import React from 'react';
+import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { FilterType, HanonType, SpeechType } from '../../types/music';
 import { X } from 'lucide-react';
+import { audioEngine } from '../../core/audio/AudioEngine';
 
 export const SettingsDrawer: React.FC = () => {
+  const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
+  const [soundError, setSoundError] = useState<string | null>(null);
+
+  useEffect(() => audioEngine.subscribeSoundFont(setSoundStatus), []);
+
+  const handleCustomBank = async (event: React.ChangeEvent<HTMLInputElement>) => {
+    const file = event.currentTarget.files?.[0];
+    event.currentTarget.value = '';
+    if (!file) return;
+    setSoundError(null);
+    try { await audioEngine.importCustomSoundFont(file); }
+    catch (error) { setSoundError(error instanceof Error ? error.message : String(error)); }
+  };
+
+  const handleDefaultBank = async () => {
+    setSoundError(null);
+    try { await audioEngine.selectBuiltInSoundFont(); }
+    catch (error) { setSoundError(error instanceof Error ? error.message : String(error)); }
+  };
+
+  const handleEnableSoundFont = () => {
+    audioEngine.setPianoOutput('soundfont');
+    void audioEngine.prepareSoundFont(true);
+  };
+
   const {
     isSettingsOpen,
     toggleSettingsDrawer,
@@ -46,6 +72,77 @@ export const SettingsDrawer: React.FC = () => {
             >
               <X className="w-4 h-4" />
             </button>
+          </div>
+
+          {/* Piano SoundFont – included bank works without uploading a file. */}
+          <div className="space-y-2 rounded-xl border border-slate-700 bg-slate-950/60 p-3" data-testid="piano-sound-settings">
+            <label className="block text-xs font-bold uppercase font-mono text-slate-300">
+              Звук фортепиано
+            </label>
+            <div className="flex gap-2" role="group" aria-label="Звуковой движок">
+              <button
+                type="button"
+                aria-pressed={soundStatus.output === 'soundfont'}
+                onClick={handleEnableSoundFont}
+                className={'rounded-lg border px-3 py-1.5 text-xs ' +
+                  (soundStatus.output === 'soundfont'
+                    ? 'border-emerald-500 text-emerald-300 bg-emerald-500/15'
+                    : 'border-slate-700 text-slate-300')}
+              >
+                SoundFont (по умолчанию)
+              </button>
+              <button
+                type="button"
+                aria-pressed={soundStatus.output === 'oscillator'}
+                onClick={() => audioEngine.setPianoOutput('oscillator')}
+                className={'rounded-lg border px-3 py-1.5 text-xs ' +
+                  (soundStatus.output === 'oscillator'
+                    ? 'border-emerald-500 text-emerald-300 bg-emerald-500/15'
+                    : 'border-slate-700 text-slate-300')}
+              >
+                Синтезатор
+              </button>
+            </div>
+            <div className="text-xs text-slate-400">
+              Банк: <strong className="text-sky-300">
+                {soundStatus.source === 'builtin' ? 'MuseScore General v0.2 (встроенный)' : soundStatus.bankName}
+              </strong>
+            </div>
+            <div className="text-xs text-slate-400" role="status">
+              {soundStatus.phase === 'ready' ? 'Звуковой банк готов к воспроизведению.' :
+                soundStatus.phase === 'loading' ? 'Загрузка и подготовка звукового банка…' :
+                soundStatus.phase === 'error' ? 'Не удалось загрузить SoundFont — доступен синтезатор.' :
+                'Банк загрузится при первом воспроизведении или по нажатию SoundFont.'}
+            </div>
+            <div className="flex flex-wrap items-center gap-2">
+              <button
+                type="button"
+                disabled={soundStatus.phase === 'loading'}
+                onClick={() => void handleDefaultBank()}
+                className="px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 disabled:opacity-50"
+              >
+                Встроенный банк
+              </button>
+              <label className="px-2.5 py-1.5 rounded-lg border border-slate-700 text-xs text-slate-200 cursor-pointer hover:border-sky-500">
+                Подключить свой SF2/SF3
+                <input
+                  type="file"
+                  accept=".sf2,.sf3"
+                  className="sr-only"
+                  onChange={handleCustomBank}
+                  aria-label="Выбрать собственный SoundFont SF2 или SF3"
+                />
+              </label>
+            </div>
+            <p className="text-[11px] text-slate-500">
+              Свой банк сохраняется только в браузере (IndexedDB), не отправляется на сервер.
+              Встроенный MuseScore General — MIT. При ошибке используется старый синтезатор.
+            </p>
+            {(soundError || soundStatus.error) && (
+              <p role="alert" className="text-xs text-rose-300">
+                {soundError ?? soundStatus.error}
+              </p>
+            )}
           </div>
 
           {/* 1. Сборник и диапазон */}
