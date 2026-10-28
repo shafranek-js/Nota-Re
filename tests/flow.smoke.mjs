@@ -46,10 +46,29 @@ try {
   assert.equal(await attempts(), pausedAttempts, 'no missed notes while paused');
   assert.equal(await score.getAttribute('data-active-note-index'), pausedIndex, 'cursor frozen on pause');
 
-  // Resuming starts one new deadline, and leaving the trainer stops it.
+  // A correct note early in its slot must not move the cursor early.
+  // Slow tempo makes the deadline observable despite CI render overhead.
+  const tempo = page.locator('input[type="range"]').first();
+  await tempo.fill('40');
+  const expectedNote = (await page.getByTestId('active-target-note').innerText()).trim();
+  assert.match(expectedNote, /^[A-G][#b]?[0-9]$/);
+  const beforeCorrect = Number(await score.getAttribute('data-active-note-index'));
+  const attemptsBeforeCorrect = await attempts();
   await page.getByRole('button', { name: 'Поток: Пауза' }).click();
   await running.waitFor();
-  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
+  await page.locator('button.piano-white-key').filter({ hasText: expectedNote }).click();
+  assert.equal(Number(await score.getAttribute('data-active-note-index')), beforeCorrect,
+    'correct strike must not accelerate the musical clock');
+  assert.equal(await attempts(), attemptsBeforeCorrect + 1);
+  await page.waitForFunction(({ previousIndex }) => {
+    const element = document.querySelector('[data-testid="osmd-score"]');
+    return Number(element?.getAttribute('data-active-note-index')) > previousIndex;
+  }, { previousIndex: beforeCorrect }, { timeout: 6000 });
+  assert.equal(await attempts(), attemptsBeforeCorrect + 1,
+    'correctly played slot must not be counted again as missed at its deadline');
+
+  // Leaving the trainer stops the clock and prevents background misses.
+  await page.getByRole('button', { name: /Курс \\(12 уроков\\)/ }).click();
   const stoppedAt = await attempts();
   await page.waitForTimeout(1800);
   assert.equal(await attempts(), stoppedAt, 'navigation away cancels background flow');
