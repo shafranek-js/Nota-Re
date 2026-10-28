@@ -30,6 +30,9 @@ export const HardwareMidiCheck: React.FC = () => {
   }, [running]);
 
   const start = () => {
+    // The report summarizes only this hardware-check run, not preceding
+    // ordinary MIDI use from earlier in the browser session.
+    audioEngine.resetMidiAudioDiagnostics();
     tracker.current.reset();
     setSnapshot(tracker.current.snapshot());
     setSavedReport(null);
