@@ -10,11 +10,10 @@ test('diagnostics report bounded callback-to-dispatch samples and correct quanti
   tracker.recordDispatch(100, 104, 'oscillator');
   tracker.recordDispatch(100, 108, 'oscillator');
   tracker.recordDispatch(100, 116, 'oscillator');
-  assert.deepEqual(
-    [tracker.snapshot().samples, tracker.snapshot().medianDispatchMs,
-      tracker.snapshot().p95DispatchMs, tracker.snapshot().maxDispatchMs],
-    [5, 4, 14.4, 16]
-  );
+  assert.equal(tracker.snapshot().samples, 5);
+  assert.equal(tracker.snapshot().medianDispatchMs, 4);
+  assert.ok(Math.abs(tracker.snapshot().p95DispatchMs - 14.4) < 1e-9);
+  assert.equal(tracker.snapshot().maxDispatchMs, 16);
   tracker.recordDispatch(100, 101.5, 'soundfont');
   assert.equal(tracker.snapshot().samples, 5, 'only recent samples are retained');
   assert.equal(tracker.snapshot().soundFontCount, 3, 'route totals are tracked since reset');
