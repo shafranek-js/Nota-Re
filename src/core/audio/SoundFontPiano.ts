@@ -6,7 +6,7 @@ import {
   saveCustomBank,
   validateCustomBank,
   workletUrl
-} from './soundfontBank';
+} from './soundfontBank.ts';
 
 export type PianoOutput = 'soundfont' | 'oscillator';
 export type SoundFontPhase = 'idle' | 'loading' | 'ready' | 'error';
