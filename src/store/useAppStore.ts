@@ -304,9 +304,15 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Opening a modal must not silently grade missed notes while the player
     // is checking their MIDI hardware or audio settings.
     if (opening) stopFlowClock();
+    const interruptedFlow = opening && get().isContinuousFlow;
     set({
       isSettingsOpen: opening,
-      isContinuousFlow: opening ? false : get().isContinuousFlow
+      isContinuousFlow: opening ? false : get().isContinuousFlow,
+      // A flow lesson interrupted by Settings cannot silently continue as
+      // an untimed certified run. Relaunch the course preset to qualify.
+      activeLessonId: interruptedFlow ? null : get().activeLessonId,
+      completedExercisesCount: interruptedFlow ? 0 : get().completedExercisesCount,
+      isExerciseFlawless: interruptedFlow ? false : get().isExerciseFlawless
     });
   },
 
