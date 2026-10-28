@@ -21,7 +21,7 @@ export const App: React.FC = () => {
       <Header />
 
       {/* 2. Активное рабочее пространство */}
-      <main className="flex-1 min-h-0 w-full overflow-hidden flex flex-col">
+      <main className="flex-1 min-h-0 w-full overflow-y-auto lg:overflow-hidden flex flex-col">
         {currentWorkspace === 'course' && <CourseWorkspace />}
         {currentWorkspace === 'trainer' && <TrainerWorkspace />}
         {currentWorkspace === 'precheck' && <PrecheckWorkspace />}

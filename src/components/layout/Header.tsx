@@ -57,7 +57,7 @@ export const Header: React.FC = () => {
   ];
 
   return (
-    <header className="h-12 shrink-0 w-full bg-slate-900/95 border-b border-slate-800/90 px-3.5 flex items-center justify-between gap-2 z-30">
+    <header className="shrink-0 w-full min-h-12 bg-slate-900/95 border-b border-slate-800/90 px-3 py-1.5 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2 z-30">
       {/* Логотип и общий прогресс курса */}
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-md shadow-emerald-950/60">
@@ -77,14 +77,15 @@ export const Header: React.FC = () => {
       </div>
 
       {/* Центральный переключатель 5 рабочих пространств */}
-      <nav className="flex items-center bg-slate-950 p-1 rounded-xl border border-slate-800">
+      <nav aria-label="Рабочие пространства" className="order-3 xl:order-none w-full xl:w-auto min-w-0 max-w-full flex items-center overflow-x-auto bg-slate-950 p-1 rounded-xl border border-slate-800 custom-scroll">
         {tabs.map(tab => {
           const isActive = currentWorkspace === tab.id;
           return (
             <button
               key={tab.id}
               onClick={() => switchWorkspace(tab.id)}
-              className={`px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
+              aria-current={isActive ? 'page' : undefined}
+              className={`shrink-0 whitespace-nowrap px-3 py-1 rounded-lg text-xs font-semibold transition flex items-center gap-1.5 ${
                 isActive
                   ? 'bg-emerald-500 text-slate-950 shadow'
                   : 'text-slate-400 hover:text-white'
@@ -104,7 +105,7 @@ export const Header: React.FC = () => {
 
       {/* Правый блок: Телеметрия + MIDI + Звук + Настройки */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="hidden xl:flex items-center gap-2.5 bg-slate-950/90 border border-slate-800 px-3 py-1 rounded-lg text-xs">
+        <div className="hidden 2xl:flex items-center gap-2.5 bg-slate-950/90 border border-slate-800 px-3 py-1 rounded-lg text-xs">
           <div className="flex items-center gap-1" title="Точность попаданий в текущей сессии">
             <span className="text-slate-500">Точность:</span>
             <span className="font-mono font-bold text-emerald-400">{accuracy === null ? '—' : `${accuracy}%`}</span>
@@ -158,6 +159,8 @@ export const Header: React.FC = () => {
           onClick={toggleSettingsDrawer}
           className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 hover:text-white border border-slate-700 transition"
           title="Открыть настройки"
+          aria-label="Открыть настройки"
+          aria-haspopup="dialog"
         >
           <Settings className="w-4 h-4" />
         </button>
