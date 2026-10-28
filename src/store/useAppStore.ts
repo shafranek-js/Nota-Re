@@ -58,6 +58,8 @@ export interface AppState {
   activeExerciseNotes: ExerciseNote[];
   activeNoteIndex: number;
   noteShownTimestamp: number;
+  // Assisted/imagined steps cannot be used as evidence for course certification.
+  isExerciseAssisted: boolean;
 
   // Методы управления
   initApp: () => () => void;
@@ -90,6 +92,7 @@ export interface AppState {
   resetSessionStats: () => void;
   regenerateExercise: () => void;
   handleUserTriggerNote: (noteName: string, fromMidi?: boolean) => void;
+  advanceAssistedStep: () => void;
   advanceFlowStep: () => void;
 }
 
@@ -133,6 +136,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeExerciseNotes: [],
   activeNoteIndex: 0,
   noteShownTimestamp: performance.now(),
+  isExerciseAssisted: false,
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
@@ -416,10 +420,36 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeExerciseNotes: notes,
       activeNoteIndex: 0,
       noteShownTimestamp: performance.now(),
-      isPhotoMasked: false
+      isPhotoMasked: false,
+      isExerciseAssisted: false
     });
 
     if (currentAppMode === 'photo') {
+      get().triggerPhotoFlash();
+    }
+  },
+
+  // Tabletop/imagined play is pedagogical practice, not a scored answer.
+  advanceAssistedStep: () => {
+    const { activeExerciseNotes, activeNoteIndex } = get();
+    const target = activeExerciseNotes[activeNoteIndex];
+    if (!target) return;
+    audioEngine.playPianoTone(target.freq, 0.25, target.articulation === 'staccato');
+    target.status = 'done';
+    const nextIndex = activeNoteIndex + 1;
+    if (nextIndex >= activeExerciseNotes.length) {
+      set({ isExerciseAssisted: true });
+      window.setTimeout(() => get().regenerateExercise(), 160);
+      return;
+    }
+    activeExerciseNotes[nextIndex].status = 'current';
+    set({
+      activeNoteIndex: nextIndex,
+      noteShownTimestamp: performance.now(),
+      isExerciseAssisted: true
+    });
+    if (get().currentAppMode === 'photo' &&
+        Math.floor(nextIndex / 4) !== Math.floor(activeNoteIndex / 4)) {
       get().triggerPhotoFlash();
     }
   },
@@ -477,8 +507,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       const newBar = Math.floor(nextIdx / 4);
 
       if (nextIdx >= activeExerciseNotes.length) {
-        const nextCompletedEx = get().completedExercisesCount + 1;
-        set({ completedExercisesCount: nextCompletedEx });
+        // A partly assisted exercise is never included in the certificate
+        // count, even if its last note was answered correctly without help.
+        const nextCompletedEx = get().completedExercisesCount + (get().isExerciseAssisted ? 0 : 1);
+        if (!get().isExerciseAssisted) {
+          set({ completedExercisesCount: nextCompletedEx });
+        }
 
         // Проверка сдачи норматива урока курса
         const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId);
@@ -489,7 +523,9 @@ export const useAppStore = create<AppState>((set, get) => ({
             ? Math.round(reactionTimes.slice(-15).reduce((a, b) => a + b, 0) / Math.min(15, reactionTimes.length))
             : 500;
 
-          if (nextCompletedEx >= lesson.normReps && acc >= lesson.normAcc && avgSpeed <= lesson.normSpeed) {
+          if (!get().isExerciseAssisted &&
+              totalAttempts > 0 && reactionTimes.length > 0 &&
+              nextCompletedEx >= lesson.normReps && acc >= lesson.normAcc && avgSpeed <= lesson.normSpeed) {
             if (!completedLessons.includes(lesson.id)) {
               const updated = [...completedLessons, lesson.id];
               saveCourseProgressToStorage(updated);
