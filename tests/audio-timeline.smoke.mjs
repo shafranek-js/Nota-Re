@@ -11,6 +11,15 @@ try {
   // This is a genuine Web Audio oscillator start() probe, not a JavaScript
   // setTimeout-based approximation of when audio would start.
   await page.addInitScript(() => {
+    const input = { id: 'virtual-music-keyboard', state: 'connected', onmidimessage: null };
+    const access = { inputs: new Map([['virtual-music-keyboard', input]]), onstatechange: null };
+    Object.defineProperty(navigator, 'requestMIDIAccess', {
+      configurable: true, value: async () => access
+    });
+    window.__sendVirtualMidi = data => {
+      if (typeof input.onmidimessage !== 'function') throw new Error('No MIDI handler');
+      input.onmidimessage({ data: Uint8Array.from(data) });
+    };
     window.__scheduledAudioStarts = [];
     const original = AudioContext.prototype.createOscillator;
     AudioContext.prototype.createOscillator = function () {
@@ -67,6 +76,26 @@ try {
     window.__scheduledAudioStarts.some(entry => entry.type === 'sine' && entry.when > entry.current),
     null, { timeout: 8000 }
   );
+  // Use a fully loaded SoundFont for an actual preview and verify that
+  // its worklet events do not crash. Live MIDI on channel 16 falls back to an
+  // independent oscillator voice if it overlaps preview sample channel 16.
+  await page.getByRole('button', { name: 'Поток: ИДЁТ' }).click();
+  await page.getByTitle('Открыть настройки').click();
+  const panel = page.getByTestId('piano-sound-settings');
+  await panel.getByRole('button', { name: 'SoundFont (по умолчанию)' }).click();
+  await panel.getByText('Звуковой банк готов к воспроизведению.')
+    .waitFor({ timeout: 120000 });
+  await page.getByRole('button', { name: 'Готово', exact: true }).click();
+  await page.getByRole('button', { name: 'Петь' }).click();
+  const oscillatorCountBefore = await page.evaluate(() =>
+    window.__scheduledAudioStarts.filter(e => e.type === 'triangle').length
+  );
+  await page.evaluate(() => window.__sendVirtualMidi([0x9f, 60, 100]));
+  await page.waitForFunction(previous =>
+    window.__scheduledAudioStarts.filter(e => e.type === 'triangle').length > previous,
+    oscillatorCountBefore, { timeout: 5000 }
+  );
+  await page.evaluate(() => window.__sendVirtualMidi([0x8f, 60, 0]));
   assert.deepEqual(errors, [], 'no browser runtime errors');
   console.log('Audio timeline Chrome smoke passed: exact preview onsets, cancel and scheduled metronome.');
 } finally {
