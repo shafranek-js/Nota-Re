@@ -45,7 +45,8 @@ export const SettingsDrawer: React.FC = () => {
     setPhotoExposure,
     currentHanonType,
     setHanonType,
-    resetSessionStats
+    resetSessionStats,
+    resetTrainerPreferences
   } = useAppStore();
 
   useEffect(() => {
@@ -305,7 +306,19 @@ export const SettingsDrawer: React.FC = () => {
           </div>
         </div>
 
-        <div className="pt-3 border-t border-slate-800 flex items-center justify-between gap-2">
+        <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <button
+            type="button"
+            title="Восстановить исходные настройки тренажёра, не удаляя прогресс курса"
+            onClick={() => {
+              if (window.confirm('Вернуть настройки тренажёра по умолчанию? Прогресс курса останется без изменений.')) {
+                resetTrainerPreferences();
+              }
+            }}
+            className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs font-medium"
+          >
+            Сбросить настройки
+          </button>
           <button
             onClick={() => {
               resetSessionStats();

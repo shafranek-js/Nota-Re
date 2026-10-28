@@ -14,6 +14,10 @@ import {
   saveCourseProgressToStorage, 
   clearCourseProgressFromStorage 
 } from '../core/storage/progressStorage';
+import {
+  DEFAULT_TRAINER_PREFERENCES, loadTrainerPreferences,
+  saveTrainerPreferences, selectTrainerPreferences
+} from '../core/storage/trainerPreferences';
 
 export type WorkspaceTab = 'course' | 'trainer' | 'precheck' | 'lab' | 'theory';
 
@@ -96,6 +100,7 @@ export interface AppState {
   triggerPhotoFlash: () => void;
   toggleAudioMaster: () => void;
   resetSessionStats: () => void;
+  resetTrainerPreferences: () => void;
   regenerateExercise: () => void;
   handleUserTriggerNote: (noteName: string, fromMidi?: boolean) => void;
   advanceAssistedStep: () => void;
@@ -202,26 +207,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
   isSettingsOpen: false,
 
-  selectedLessonId: 1,
+  // All user preference keys live in the versioned, validated snapshot.
+  ...loadTrainerPreferences(),
+
+  // Session-only state: never resume graded flow or restore fake results.
   completedLessons: [],
   activeLessonId: null,
-
-  currentAppMode: 'reflex',
-  currentFilter: 'treble',
-  currentTonality: 'C',
-  currentHanonType: 'hanon1',
-  speechSuppressor: 'count',
-  scoreNoteCount: 16,
-  bpm: 60,
   isContinuousFlow: false,
-  isBlindfolded: false,
-  isTabletopMode: false,
-  showBassLandmarks: false,
-  showScaleHighlight: false,
-  photoExposureMs: 1800,
   isPhotoMasked: false,
-
-  audioEnabled: true,
   midiInputsCount: 0,
 
   totalAttempts: 0,
@@ -242,6 +235,17 @@ export const useAppStore = create<AppState>((set, get) => ({
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
     set({ completedLessons: saved });
+    audioEngine.setAudioEnabled(get().audioEnabled);
+
+    // Save preference changes only, not thousands of note/status updates.
+    // Explicit course presets update the user's most recently chosen setup.
+    let previousPrefs = JSON.stringify(selectTrainerPreferences(get()));
+    const unlistenPrefs = useAppStore.subscribe(state => {
+      const next = JSON.stringify(selectTrainerPreferences(state));
+      if (next === previousPrefs) return;
+      previousPrefs = next;
+      saveTrainerPreferences(state);
+    });
 
     const unlistenPorts = midiManager.onPortsChange(count => set({ midiInputsCount: count }));
     const unlistenEvents = midiManager.onMidiEvent(event => {
@@ -282,6 +286,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     return () => {
       document.removeEventListener('visibilitychange', pauseWhenHidden);
       stopFlowClock();
+      unlistenPrefs();
       unlistenEvents();
       unlistenPorts();
       midiManager.dispose();
@@ -515,6 +520,21 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = !get().audioEnabled;
     audioEngine.setAudioEnabled(next);
     set({ audioEnabled: next });
+  },
+
+  resetTrainerPreferences: () => {
+    stopFlowClock();
+    audioEngine.clearPreviewTimeouts();
+    audioEngine.setAudioEnabled(DEFAULT_TRAINER_PREFERENCES.audioEnabled);
+    set({
+      ...DEFAULT_TRAINER_PREFERENCES,
+      isContinuousFlow: false,
+      activeLessonId: null,
+      completedExercisesCount: 0,
+      isExerciseAssisted: false,
+      isExerciseFlawless: true
+    });
+    get().regenerateExercise();
   },
 
   resetSessionStats: () => {
