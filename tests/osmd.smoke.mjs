@@ -27,14 +27,14 @@ try {
 
   const renderError = page.getByText('Ошибка нотного движка:', { exact: false });
   assert.equal(await renderError.count(), 0, 'OSMD must not show an error on first load');
-  const targetBefore = await page.getByText('ЦЕЛЬ:', { exact: false }).first().innerText();
+  const indexBefore = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
 
   // Space is a pre-existing assisted step in Nota-Re. Here it is used only
   // to verify that changing an active note doesn't re-create the score.
   await page.keyboard.press('Space');
   assert.ok(await svg.isVisible(), 'Notation must remain after note input');
-  const targetAfter = await page.getByText('ЦЕЛЬ:', { exact: false }).first().innerText();
-  assert.notEqual(targetBefore, targetAfter, 'exercise should advance to the next target');
+  const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
+  assert.equal(indexAfter, indexBefore + 1, 'exercise should advance exactly one step');
 
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
