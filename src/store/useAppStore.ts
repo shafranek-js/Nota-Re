@@ -116,6 +116,7 @@ function armFlowClock(get: () => AppState): void {
   const note = state.activeExerciseNotes[state.activeNoteIndex];
   if (!note) return;
   const epoch = flowEpoch;
+  audioEngine.playMetronomeClick(startsMeasure(state.activeExerciseNotes, state.activeNoteIndex));
   flowTimeoutId = window.setTimeout(() => {
     if (flowEpoch !== epoch) return;
     flowTimeoutId = null;
@@ -209,7 +210,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (tab !== 'trainer') stopFlowClock();
     set(state => ({
       currentWorkspace: tab,
-      isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false
+      isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
+      activeLessonId: tab === 'trainer' ? state.activeLessonId : null
     }));
   },
 
@@ -341,8 +343,6 @@ export const useAppStore = create<AppState>((set, get) => ({
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
     stopFlowClock();
-    audioEngine.playMetronomeClick(startsMeasure(activeExerciseNotes, activeNoteIndex));
-
     // A deadline with no keypress is one real missed answer. It resets the
     // consecutive-repetition count; the clock must not grant a pass for silence.
     const nextNotes = activeExerciseNotes.map((note, index) =>
@@ -462,7 +462,9 @@ export const useAppStore = create<AppState>((set, get) => ({
     const nextIndex = activeNoteIndex + 1;
     if (nextIndex >= activeExerciseNotes.length) {
       set({ isExerciseAssisted: true, isExerciseFlawless: false, completedExercisesCount: 0 });
-      window.setTimeout(() => get().regenerateExercise(), 160);
+      window.setTimeout(() => {
+        if (get().activeExerciseNotes === activeExerciseNotes) get().regenerateExercise();
+      }, 160);
       return;
     }
     activeExerciseNotes[nextIndex].status = 'current';
@@ -498,8 +500,11 @@ export const useAppStore = create<AppState>((set, get) => ({
     const played = MIDI_NOTE_MAP[noteName];
     if (played && !fromMidi) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
 
-    const isCorrect = noteName === target.noteName;
     const rt = Math.round(performance.now() - noteShownTimestamp);
+    // A keypress delivered after its musical deadline must never count as
+    // correct merely because the JS timer callback was queued behind it.
+    const isLate = isContinuousFlow && rt >= noteDurationMs(target, get().bpm);
+    const isCorrect = noteName === target.noteName && !isLate;
 
     set((s) => {
       const newTotal = s.totalAttempts + 1;
