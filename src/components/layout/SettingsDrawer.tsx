@@ -5,7 +5,7 @@ import { X } from 'lucide-react';
 import { audioEngine } from '../../core/audio/AudioEngine';
 
 export const SettingsDrawer: React.FC = () => {
-  const [soundStatus, setSoundStatus] = useState(audioEngine.getSoundFontStatus);
+  const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const [soundError, setSoundError] = useState<string | null>(null);
 
   useEffect(() => audioEngine.subscribeSoundFont(setSoundStatus), []);
