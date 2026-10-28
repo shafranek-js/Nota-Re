@@ -71,6 +71,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/preferences.smoke.mjs
+      - name: Check responsive layout and keyboard-accessible Settings
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/responsive-a11y.smoke.mjs
       - name: Upload browser screenshots
         if: always()
         uses: actions/upload-artifact@v4
