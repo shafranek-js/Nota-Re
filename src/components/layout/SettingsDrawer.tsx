@@ -1,4 +1,4 @@
-import React, { useEffect, useState } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { FilterType, HanonType, SpeechType } from '../../types/music';
 import { X } from 'lucide-react';
@@ -6,6 +6,8 @@ import { audioEngine } from '../../core/audio/AudioEngine';
 import { HardwareMidiCheck } from './HardwareMidiCheck';
 
 export const SettingsDrawer: React.FC = () => {
+  const dialogRef = useRef<HTMLElement>(null);
+  const closeButtonRef = useRef<HTMLButtonElement>(null);
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const [soundError, setSoundError] = useState<string | null>(null);
   const [midiDiagnostics, setMidiDiagnostics] = useState(
@@ -56,6 +58,54 @@ export const SettingsDrawer: React.FC = () => {
     return audioEngine.subscribeMidiAudioDiagnostics(refresh);
   }, [isSettingsOpen]);
 
+  useEffect(() => {
+    if (!isSettingsOpen) return;
+    const opener = document.activeElement instanceof HTMLElement ? document.activeElement : null;
+    const previousBodyOverflow = document.body.style.overflow;
+    document.body.style.overflow = 'hidden';
+    // The dialog is mounted after the state transition; avoid a focusable
+    // background element staying active behind the overlay.
+    closeButtonRef.current?.focus();
+
+    const handleDialogKeys = (event: KeyboardEvent) => {
+      if (event.key === 'Escape') {
+        event.preventDefault();
+        event.stopPropagation();
+        toggleSettingsDrawer();
+        return;
+      }
+      if (event.key !== 'Tab' || !dialogRef.current) return;
+      const focusable = [...dialogRef.current.querySelectorAll<HTMLElement>(
+        'button:not([disabled]), input:not([disabled]), select:not([disabled]), ' +
+        'textarea:not([disabled]), a[href], summary, [tabindex]:not([tabindex="-1"])'
+      )].filter(node => node.getClientRects().length > 0 &&
+        node.getAttribute('aria-hidden') !== 'true');
+      if (!focusable.length) {
+        event.preventDefault();
+        dialogRef.current.focus();
+        return;
+      }
+      const first = focusable[0];
+      const last = focusable[focusable.length - 1];
+      const active = document.activeElement;
+      if (event.shiftKey && (active === first || !dialogRef.current.contains(active))) {
+        event.preventDefault();
+        last.focus();
+      } else if (!event.shiftKey && (active === last || !dialogRef.current.contains(active))) {
+        event.preventDefault();
+        first.focus();
+      }
+    };
+
+    // Capture before global piano-key shortcuts; the modal owns keyboard input.
+    document.addEventListener('keydown', handleDialogKeys, true);
+    return () => {
+      document.removeEventListener('keydown', handleDialogKeys, true);
+      document.body.style.overflow = previousBodyOverflow;
+      if (opener?.isConnected) opener.focus();
+    };
+  }, [isSettingsOpen, toggleSettingsDrawer]);
+
   if (!isSettingsOpen) return null;
 
   const formatLatency = (ms: number | null) =>
@@ -70,18 +120,29 @@ export const SettingsDrawer: React.FC = () => {
 
   return (
     <>
-      <div 
+      <div
+        aria-hidden="true"
         onClick={toggleSettingsDrawer}
         className="fixed inset-0 bg-black/60 backdrop-blur-xs z-40 transition-opacity"
       />
-      <aside className="fixed top-0 right-0 h-full w-80 sm:w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col justify-between p-5">
+      <aside
+        ref={dialogRef}
+        role="dialog"
+        aria-modal="true"
+        aria-labelledby="trainer-settings-heading"
+        tabIndex={-1}
+        className="fixed top-0 right-0 h-full w-full max-w-96 bg-slate-900 border-l border-slate-800 shadow-2xl z-50 flex flex-col justify-between p-4 sm:p-5"
+      >
         <div className="space-y-4 overflow-y-auto custom-scroll pr-1">
           <div className="flex items-center justify-between border-b border-slate-800 pb-3">
             <div>
-              <h3 className="font-bold text-base text-white">⚙️ Настройки тренажёра</h3>
+              <h3 id="trainer-settings-heading" className="font-bold text-base text-white">⚙️ Настройки тренажёра</h3>
               <p className="text-xs text-slate-400">Ручная калибровка параметров</p>
             </div>
-            <button 
+            <button
+              ref={closeButtonRef}
+              type="button"
+              aria-label="Закрыть настройки"
               onClick={toggleSettingsDrawer}
               className="p-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-300 text-xs transition"
             >
@@ -257,10 +318,10 @@ export const SettingsDrawer: React.FC = () => {
 
           {/* 2. Глушитель называния нот */}
           <div>
-            <label className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
+            <label htmlFor="trainer-speech-setting" className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
               2. Глушитель называния нот (15:05)
             </label>
-            <select
+            <select id="trainer-speech-setting"
               value={speechSuppressor}
               onChange={(e) => setSpeechSuppressor(e.target.value as SpeechType)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-emerald-500"
@@ -274,10 +335,10 @@ export const SettingsDrawer: React.FC = () => {
 
           {/* 3. Окно экспозиции фото-памяти */}
           <div>
-            <label className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
+            <label htmlFor="trainer-photo-setting" className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
               3. Окно экспозиции «Фотографирование» (17:45)
             </label>
-            <select
+            <select id="trainer-photo-setting"
               value={photoExposureMs}
               onChange={(e) => setPhotoExposure(Number(e.target.value))}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-cyan-500"
@@ -290,10 +351,10 @@ export const SettingsDrawer: React.FC = () => {
 
           {/* 4. Профиль упражнений Ганона */}
           <div>
-            <label className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
+            <label htmlFor="trainer-hanon-setting" className="block text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
               4. Профиль упражнений Ганона (02:31)
             </label>
-            <select
+            <select id="trainer-hanon-setting"
               value={currentHanonType}
               onChange={(e) => setHanonType(e.target.value as HanonType)}
               className="w-full bg-slate-950 border border-slate-800 rounded-xl px-3 py-2 text-xs text-slate-200 focus:outline-none focus:border-rose-500"
