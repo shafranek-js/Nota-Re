@@ -1,4 +1,8 @@
 import { SoundFontPiano, type PianoOutput, type SoundFontStatus } from './SoundFontPiano';
+import {
+  AudioClockQueue, articulationTimeline, sequenceTimeline, syllableTimeline,
+  type TimedTone
+} from './audioTimeline';
 
 interface LiveMidiVoice {
   kind: 'soundfont' | 'oscillator';
@@ -10,7 +14,9 @@ interface LiveMidiVoice {
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private isAudioEnabled: boolean = true;
-  private previewTimeouts: number[] = [];
+  private previewQueue: AudioClockQueue | null = null;
+  private previewUsesSoundFont = false;
+  private activeMetronomeStops = new Set<() => void>();
   private piano = new SoundFontPiano();
   private liveVoices = new Map<string, LiveMidiVoice>();
   private sustainChannels = new Set<number>();
@@ -20,6 +26,7 @@ class AudioEngine {
     return this.piano.subscribe(callback);
   }
   public setPianoOutput(output: PianoOutput): void {
+    this.clearPreviewTimeouts();
     this.stopMidiVoices();
     this.piano.setOutput(output);
   }
@@ -30,6 +37,7 @@ class AudioEngine {
   public async importCustomSoundFont(file: File): Promise<void> {
     const context = this.ensureAudioContext();
     if (!context) throw new Error('Web Audio is not supported in this browser.');
+    this.clearPreviewTimeouts();
     this.stopMidiVoices();
     await this.piano.importCustom(file, context);
     this.piano.setOutput('soundfont');
@@ -37,6 +45,7 @@ class AudioEngine {
   public async selectBuiltInSoundFont(): Promise<void> {
     const context = this.ensureAudioContext();
     if (!context) throw new Error('Web Audio is not supported in this browser.');
+    this.clearPreviewTimeouts();
     this.stopMidiVoices();
     await this.piano.useBuiltIn(context);
     this.piano.setOutput('soundfont');
@@ -55,10 +64,16 @@ class AudioEngine {
     return this.ctx;
   }
 
+  /** Null until Web Audio has been created through a user gesture. */
+  public currentAudioTime(): number | null {
+    return this.ctx?.currentTime ?? null;
+  }
+
   public setAudioEnabled(enabled: boolean): void {
     this.isAudioEnabled = enabled;
     if (!enabled) {
       this.clearPreviewTimeouts();
+      this.stopScheduledMetronome();
       this.stopMidiVoices();
     }
   }
@@ -81,7 +96,12 @@ class AudioEngine {
     }
 
     if (this.sustainChannels.has(channel)) this.piano.sustain(channel, 127);
-    if (this.piano.noteOn(context, channel, note, velocity)) {
+    // Preview samples occupy channel 15. During a demo, a physical note
+    // on that same channel uses its own oscillator voice rather than
+    // competing for the same SoundFont note-off state.
+    const previewCollision = channel === 15 &&
+      this.previewUsesSoundFont && this.previewQueue?.isPlaying;
+    if (!previewCollision && this.piano.noteOn(context, channel, note, velocity)) {
       this.liveVoices.set(key, { kind: 'soundfont', released: false });
       return;
     }
@@ -175,9 +195,78 @@ class AudioEngine {
     return this.isAudioEnabled;
   }
 
+  /**
+   * Public API name is kept for callers, but no preview event relies on
+   * setTimeout anymore. Stop both imminent worklet events and WebAudio nodes.
+   */
   public clearPreviewTimeouts(): void {
-    this.previewTimeouts.forEach(id => clearTimeout(id));
-    this.previewTimeouts = [];
+    this.previewQueue?.stop();
+    this.previewQueue = null;
+    this.previewUsesSoundFont = false;
+  }
+
+  private scheduleFallbackPreview(
+    context: AudioContext, tone: TimedTone, when: number
+  ): () => void {
+    const oscillators: OscillatorNode[] = [];
+    const voices: { oscillator: OscillatorNode; gain: GainNode }[] = [];
+    const startAt = Math.max(context.currentTime, when);
+    const duration = Math.max(0.025, tone.durationSeconds);
+    for (const [harmonic, volume] of [[1, 0.28], [2, 0.06]]) {
+      const oscillator = context.createOscillator();
+      const gain = context.createGain();
+      oscillator.type = harmonic === 1 ? 'triangle' : 'sine';
+      oscillator.frequency.setValueAtTime(tone.frequencyHz * harmonic, startAt);
+      gain.gain.setValueAtTime(0.0001, startAt);
+      gain.gain.exponentialRampToValueAtTime(volume, startAt + 0.012);
+      gain.gain.exponentialRampToValueAtTime(0.0001, startAt + duration);
+      oscillator.connect(gain);
+      gain.connect(context.destination);
+      oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
+      oscillator.start(startAt);
+      oscillator.stop(startAt + duration + 0.04);
+      oscillators.push(oscillator);
+      voices.push({ oscillator, gain });
+    }
+    return () => {
+      for (const voice of voices) {
+        try {
+          const now = context.currentTime;
+          voice.gain.gain.cancelScheduledValues(now);
+          voice.gain.gain.setValueAtTime(0.0001, now);
+          voice.oscillator.stop(now + 0.005);
+        } catch { /* already released */ }
+      }
+      oscillators.length = 0;
+    };
+  }
+
+  private playTimeline(events: readonly TimedTone[]): void {
+    this.clearPreviewTimeouts();
+    if (!this.isAudioEnabled || !events.length) return;
+    const context = this.ensureAudioContext();
+    if (!context) return;
+    // Use one timbre for an entire preview even when the bank completes
+    // loading halfway through it.
+    const hardwareChannel16Held = [...this.liveVoices.keys()]
+      .some(key => key.startsWith('15:'));
+    const sampleReady = this.piano.getStatus().phase === 'ready' &&
+      this.piano.getStatus().output === 'soundfont' && !hardwareChannel16Held;
+    this.previewUsesSoundFont = sampleReady;
+    const queue = new AudioClockQueue(
+      () => context.currentTime,
+      (tone, time) => {
+        if (sampleReady) {
+          const cancel = this.piano.schedulePreviewNote(context, tone.frequencyHz, tone.durationSeconds, time);
+          if (cancel) return cancel;
+        } else if (this.piano.getStatus().output === 'soundfont') {
+          void this.piano.prepare(context);
+        }
+        return this.scheduleFallbackPreview(context, tone, time);
+      }
+    );
+    this.previewQueue = queue;
+    queue.start(events);
   }
 
   public playPianoTone(freq: number, duration: number = 0.55, isStaccato: boolean = false): void {
@@ -225,99 +314,65 @@ class AudioEngine {
     }
   }
 
-  public playMetronomeClick(isStrong: boolean = false): void {
-    if (!this.isAudioEnabled) return;
-    const ctx = this.ensureAudioContext();
-    if (!ctx) return;
-
-    try {
-      const now = ctx.currentTime;
-      const osc = ctx.createOscillator();
-      const gain = ctx.createGain();
-
-      osc.type = 'sine';
-      osc.frequency.setValueAtTime(isStrong ? 1046.5 : 784.0, now); // C6 : G5
-
-      gain.gain.setValueAtTime(0.25, now);
-      gain.gain.exponentialRampToValueAtTime(0.0001, now + 0.04);
-
-      osc.connect(gain);
-      gain.connect(ctx.destination);
-      osc.start(now);
-      osc.stop(now + 0.05);
-    } catch {
-      // Audio error silently caught
-    }
+  /**
+   * Actual click onset is scheduled on the AudioContext clock. The returned
+   * cancel callback only affects this click, not live MIDI or preview voices.
+   */
+  public scheduleMetronomeClick(isStrong = false, at?: number): () => void {
+    if (!this.isAudioEnabled) return () => {};
+    const context = this.ensureAudioContext();
+    if (!context) return () => {};
+    const time = Math.max(at ?? context.currentTime, context.currentTime);
+    const oscillator = context.createOscillator();
+    const gain = context.createGain();
+    oscillator.type = 'sine';
+    oscillator.frequency.setValueAtTime(isStrong ? 1046.5 : 784, time);
+    gain.gain.setValueAtTime(0.25, time);
+    gain.gain.exponentialRampToValueAtTime(0.0001, time + 0.04);
+    oscillator.connect(gain);
+    gain.connect(context.destination);
+    const cancel = () => {
+      this.activeMetronomeStops.delete(cancel);
+      try {
+        const now = context.currentTime;
+        gain.gain.cancelScheduledValues(now);
+        gain.gain.setValueAtTime(0.0001, now);
+        oscillator.stop(now + 0.005);
+      } catch { /* click already finished */ }
+    };
+    oscillator.onended = () => {
+      this.activeMetronomeStops.delete(cancel);
+      oscillator.disconnect();
+      gain.disconnect();
+    };
+    this.activeMetronomeStops.add(cancel);
+    oscillator.start(time);
+    oscillator.stop(time + 0.05);
+    return cancel;
   }
 
-  public playSyllablePatternDemo(type: 'ta' | 'titi' | 'tiritiri' | 'taa', bpm: number = 60): void {
-    this.clearPreviewTimeouts();
-    this.ensureAudioContext();
-    const beatMs = (60 / bpm) * 1000;
-    const toneFreq = 392.00; // G4
-
-    if (type === 'ta') {
-      for (let i = 0; i < 4; i++) {
-        const tid = window.setTimeout(() => this.playPianoTone(toneFreq, 0.4), i * beatMs);
-        this.previewTimeouts.push(tid);
-      }
-    } else if (type === 'titi') {
-      const pattern = [0, 0.5, 1, 2, 2.5, 3];
-      pattern.forEach(b => {
-        const tid = window.setTimeout(() => this.playPianoTone(toneFreq, 0.22), b * beatMs);
-        this.previewTimeouts.push(tid);
-      });
-    } else if (type === 'tiritiri') {
-      const pattern = [0, 0.25, 0.5, 0.75, 1, 2, 2.25, 2.5, 2.75, 3];
-      pattern.forEach(b => {
-        const tid = window.setTimeout(() => this.playPianoTone(toneFreq, 0.12), b * beatMs);
-        this.previewTimeouts.push(tid);
-      });
-    } else if (type === 'taa') {
-      const tid1 = window.setTimeout(() => this.playPianoTone(toneFreq, 1.2), 0);
-      const tid2 = window.setTimeout(() => this.playPianoTone(toneFreq, 0.4), 2 * beatMs);
-      const tid3 = window.setTimeout(() => this.playPianoTone(toneFreq, 0.4), 3 * beatMs);
-      this.previewTimeouts.push(tid1, tid2, tid3);
-    }
+  public stopScheduledMetronome(): void {
+    for (const cancel of [...this.activeMetronomeStops]) cancel();
   }
 
-  public playArticulationDemo(bpm: number = 60): void {
-    this.clearPreviewTimeouts();
-    this.ensureAudioContext();
-    const beatMs = (60 / bpm) * 1000;
-
-    // Левая рука: басы стаккато
-    [0, 1, 2, 3].forEach(b => {
-      const tid = window.setTimeout(() => {
-        this.playPianoTone(130.81, 0.15, true); // C3
-      }, b * beatMs);
-      this.previewTimeouts.push(tid);
-    });
-
-    // Правая рука: мелодия легато восьмыми
-    [0, 0.5, 1, 1.5, 2, 2.5, 3, 3.5].forEach((b, idx) => {
-      const freqs = [261.63, 293.66, 329.63, 349.23, 392.00, 349.23, 329.63, 293.66];
-      const tid = window.setTimeout(() => {
-        this.playPianoTone(freqs[idx % freqs.length], 0.38, false);
-      }, b * beatMs);
-      this.previewTimeouts.push(tid);
-    });
+  public playMetronomeClick(isStrong = false): void {
+    this.scheduleMetronomeClick(isStrong);
   }
 
-  public playSequence(notes: { freq: number; durMultiplier?: number; articulation?: 'legato' | 'staccato' }[], bpm: number = 60): void {
-    this.clearPreviewTimeouts();
-    this.ensureAudioContext();
-    const beatMs = (60 / bpm) * 1000;
+  public playSyllablePatternDemo(type: 'ta' | 'titi' | 'tiritiri' | 'taa', bpm = 60): void {
+    this.playTimeline(syllableTimeline(type, bpm));
+  }
 
-    let accumTime = 0;
-    notes.forEach(note => {
-      const durSec = (note.durMultiplier || 1) * (60 / bpm);
-      const tid = window.setTimeout(() => {
-        this.playPianoTone(note.freq, durSec * 0.9, note.articulation === 'staccato');
-      }, accumTime * 1000);
-      this.previewTimeouts.push(tid);
-      accumTime += durSec;
-    });
+  public playArticulationDemo(bpm = 60): void {
+    this.playTimeline(articulationTimeline(bpm));
+  }
+
+  public playSequence(notes: {
+    freq: number;
+    durMultiplier?: number;
+    articulation?: 'legato' | 'staccato';
+  }[], bpm = 60): void {
+    this.playTimeline(sequenceTimeline(notes, bpm));
   }
 }
 

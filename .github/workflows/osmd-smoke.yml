@@ -55,6 +55,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/flow.smoke.mjs
+      - name: Verify AudioContext-clock preview timestamps and cancellation
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/audio-timeline.smoke.mjs
       - name: Upload browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

@@ -35,5 +35,32 @@ the oscillator remains available, and the built-in bank can be restored.
 `tests/soundfont.smoke.mjs` tests built-in readiness, oscillator switch, personal SF3 import,
 refresh and restoring the default in a real Chrome session.
 
-MIDI note-off, controller velocity, sustain and end-to-end audio scheduling are separate work
-in #4/#5. Automated readiness checks do not prove perceived piano timbre or hardware latency.
+## Audio timeline and cancellation
+
+In PR #11, Nota-Re added full Note On/Off, MIDI velocity, CC64 sustain and
+disconnect-panic handling for live MIDI channels 1–16. In PR #14, the metronome,
+syllable demos, articulation demos, and score preview were moved from JavaScript
+onset timers to **absolute AudioContext timestamps**. The preview queue runs a
+short (120 ms) lookahead; its JS timer only queues future events.
+
+SpessaSynth 4.4 accepts `{ time: audioContextTime }` in both `noteOn` and
+`noteOff`. Preview samples use melodic channel 16 (zero-based 15), since
+attempts to allocate a 17th channel emitted inconsistent channel-state
+callbacks in Chrome. To avoid cutting a live note on MIDI channel 16, the
+engine temporarily uses an independent Web Audio oscillator voice for that
+channel during SoundFont previews; if that channel is already held, the preview
+uses oscillators for its duration. Normal channel-1 hardware playback and the
+built-in bank are unaffected.
+
+New notes keep the fixed musical timeline rather than inheriting late
+JavaScript callback times. The visual cursor is still advanced by small JS
+wakeups, and background-tab or excessive main-thread stalls pause grading
+rather than inventing missed responses.
+
+`tests/audioTimeline.test.mjs` checks the onset grid, cancellation and
+deadline calculations. `tests/audio-timeline.smoke.mjs` reads real scheduled
+AudioContext oscillator start times in Chrome. Automated tests cannot judge
+perceived piano tone, MIDI round-trip latency or all device/browser combinations.
+
+**Remaining #4 / #5 work:** instrument latency measurements, hardware pedal
+UAT and long-session performance (including browser throttling).

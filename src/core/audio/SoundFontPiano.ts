@@ -121,6 +121,16 @@ export class SoundFontPiano {
     return this.loading;
   }
 
+  private async waitForChannels(synth: WorkletSynthesizer, count: number): Promise<void> {
+    const expires = performance.now() + 3000;
+    while (synth.midiChannels.length < count) {
+      if (performance.now() > expires) {
+        throw new Error('SoundFont worklet did not initialize its MIDI channels.');
+      }
+      await new Promise<void>(resolve => setTimeout(resolve, 15));
+    }
+  }
+
   private async activate(data: ArrayBuffer, context: AudioContext, generation: number): Promise<void> {
     if (this.generation !== generation) return;
     await context.audioWorklet.addModule(workletUrl());
@@ -131,12 +141,17 @@ export class SoundFontPiano {
     try {
       await next.soundBankManager.addSoundBank(data, 'main');
       await next.isReady;
+      await this.waitForChannels(next, 16);
       if (this.generation !== generation) { next.destroy(); return; }
       // Keep acoustic piano selected on melodic channels. GM channel 10
       // (zero-based 9) remains percussion by standard convention.
       for (let channel = 0; channel < 16; channel++) {
         if (channel !== 9) next.programChange(channel, 0);
       }
+      // Worklet 4.4 currently emits inconsistent channel events when adding
+      // a 17th channel here. Use the highest melodic channel for previews
+      // until upstream channel allocation is fixed, keeping physical channel 1
+      // (the usual keyboard default) entirely separate from previews.
       const previous = this.synth;
       this.stopAll();
       this.synth = next;
@@ -223,6 +238,34 @@ export class SoundFontPiano {
       this.synth.controllerChange(channel, 64, 0);
       this.synth.controllerChange(channel, 123, 0);
     }
+  }
+
+  /**
+   * Worklet events accept AudioContext timestamps, so sample attacks and
+   * releases remain on the musical grid even if JS wakeups are uneven.
+   * Preview channel 15 is used; physical channel 15 may overlap during demos.
+   * The caller schedules only a short lookahead, so cancellation cannot
+   * enqueue seconds of future audio.
+   */
+  schedulePreviewNote(
+    context: AudioContext, frequencyHz: number,
+    durationSeconds: number, when: number
+  ): (() => void) | null {
+    if (this.status.output !== 'soundfont' || !this.synth || this.status.phase !== 'ready') {
+      if (this.status.output === 'soundfont') void this.prepare(context);
+      return null;
+    }
+    const midi = Math.round(69 + 12 * Math.log2(frequencyHz / 440));
+    if (!Number.isInteger(midi) || midi < 0 || midi > 127) return null;
+    const synth = this.synth;
+    const startAt = Math.max(when, context.currentTime);
+    synth.noteOn(15, midi, 100, { time: startAt });
+    synth.noteOff(15, midi, { time: startAt + Math.max(0.02, durationSeconds) });
+    return () => {
+      if (this.synth !== synth) return;
+      // Cancel currently playing previews and any imminent lookahead events.
+      synth.noteOff(15, midi, { time: Math.max(context.currentTime, startAt + 0.005) });
+    };
   }
 
   play(context: AudioContext, frequencyHz: number, durationSeconds: number,
