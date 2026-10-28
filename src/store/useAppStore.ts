@@ -13,6 +13,8 @@ import {
 
 export type WorkspaceTab = 'course' | 'trainer' | 'precheck' | 'lab' | 'theory';
 
+const MIDI_PITCH_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
+
 export interface AppState {
   // Навигация и модалки
   currentWorkspace: WorkspaceTab;
@@ -58,7 +60,7 @@ export interface AppState {
   noteShownTimestamp: number;
 
   // Методы управления
-  initApp: () => void;
+  initApp: () => () => void;
   switchWorkspace: (tab: WorkspaceTab) => void;
   toggleSettingsDrawer: () => void;
   selectCourseLesson: (id: number) => void;
@@ -87,7 +89,7 @@ export interface AppState {
   toggleAudioMaster: () => void;
   resetSessionStats: () => void;
   regenerateExercise: () => void;
-  handleUserTriggerNote: (noteName: string) => void;
+  handleUserTriggerNote: (noteName: string, fromMidi?: boolean) => void;
   advanceFlowStep: () => void;
 }
 
@@ -136,11 +138,40 @@ export const useAppStore = create<AppState>((set, get) => ({
     const saved = loadCourseProgressFromStorage();
     set({ completedLessons: saved });
 
-    midiManager.init();
-    midiManager.onPortsChange((count) => set({ midiInputsCount: count }));
-    midiManager.onNoteTrigger((noteName) => get().handleUserTriggerNote(noteName));
+    const unlistenPorts = midiManager.onPortsChange(count => set({ midiInputsCount: count }));
+    const unlistenEvents = midiManager.onMidiEvent(event => {
+      switch (event.type) {
+        case 'note-on': {
+          // Physical keys sound until actual Note Off. Only Note On affects
+          // sight-reading scoring; no second fixed-duration preview sound.
+          audioEngine.midiNoteOn(event.channel, event.note, event.velocity);
+          const noteName = MIDI_PITCH_NAMES.get(event.note);
+          if (noteName) get().handleUserTriggerNote(noteName, true);
+          break;
+        }
+        case 'note-off':
+          audioEngine.midiNoteOff(event.channel, event.note);
+          break;
+        case 'sustain':
+          audioEngine.midiSustain(event.channel, event.value);
+          break;
+        case 'all-notes-off':
+          audioEngine.midiAllNotesOff(event.channel);
+          break;
+        case 'panic':
+          audioEngine.stopMidiVoices();
+          break;
+      }
+    });
+    void midiManager.init();
 
     get().regenerateExercise();
+    return () => {
+      unlistenEvents();
+      unlistenPorts();
+      midiManager.dispose();
+      audioEngine.stopMidiVoices();
+    };
   },
 
   switchWorkspace: (tab) => {
@@ -393,7 +424,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
   },
 
-  handleUserTriggerNote: (noteName) => {
+  handleUserTriggerNote: (noteName, fromMidi = false) => {
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
@@ -409,7 +440,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Звук того, что действительно сыграл пользователь, а не целевой ноты.
     // При ошибке слуховая обратная связь должна соответствовать вводу.
     const played = MIDI_NOTE_MAP[noteName];
-    if (played) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
+    if (played && !fromMidi) audioEngine.playPianoTone(played.freq, 0.5, target.articulation === 'staccato');
 
     const isCorrect = noteName === target.noteName;
     const rt = Math.round(performance.now() - noteShownTimestamp);

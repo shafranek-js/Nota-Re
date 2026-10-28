@@ -132,7 +132,11 @@ export class SoundFontPiano {
       await next.soundBankManager.addSoundBank(data, 'main');
       await next.isReady;
       if (this.generation !== generation) { next.destroy(); return; }
-      next.programChange(0, 0); // GM program 0 = acoustic grand piano
+      // Keep acoustic piano selected on melodic channels. GM channel 10
+      // (zero-based 9) remains percussion by standard convention.
+      for (let channel = 0; channel < 16; channel++) {
+        if (channel !== 9) next.programChange(channel, 0);
+      }
       const previous = this.synth;
       this.stopAll();
       this.synth = next;
@@ -185,6 +189,39 @@ export class SoundFontPiano {
           error: error instanceof Error ? error.message : String(error) });
       }
       throw error;
+    }
+  }
+
+  /**
+   * Live MIDI notes are held until the physical Note Off. Unlike the existing
+   * lesson preview they do not use a hard-coded timer or fixed velocity.
+   */
+  noteOn(context: AudioContext, channel: number, note: number, velocity: number): boolean {
+    if (this.status.output !== 'soundfont') return false;
+    if (!this.synth || this.status.phase !== 'ready') {
+      void this.prepare(context);
+      return false;
+    }
+    this.synth.noteOn(channel, note, velocity);
+    return true;
+  }
+
+  noteOff(channel: number, note: number): void {
+    if (this.synth && this.status.output === 'soundfont') {
+      this.synth.noteOff(channel, note);
+    }
+  }
+
+  sustain(channel: number, value: number): void {
+    if (this.synth && this.status.output === 'soundfont') {
+      this.synth.controllerChange(channel, 64, value);
+    }
+  }
+
+  allNotesOff(channel: number): void {
+    if (this.synth && this.status.output === 'soundfont') {
+      this.synth.controllerChange(channel, 64, 0);
+      this.synth.controllerChange(channel, 123, 0);
     }
   }
 
