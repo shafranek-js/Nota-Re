@@ -87,7 +87,7 @@ export const LabWorkspace: React.FC = () => {
         {/* Лаборатория Ганона */}
         <div className="xl:col-span-7 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span className="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-rose-500/15 text-rose-300 border border-rose-500/30 font-semibold">
                 Таймкоды 02:27 – 03:35 и 35:45
               </span>
@@ -102,12 +102,15 @@ export const LabWorkspace: React.FC = () => {
 
             <div className="grid grid-cols-1 md:grid-cols-2 gap-3">
               {hanons.map(h => (
-                <div
+                <button
+                  type="button"
                   key={h.type}
+                  data-testid={`lab-hanon-${h.type}`}
+                  aria-label={`Запустить упражнение: ${h.title}`}
                   onClick={() => handleLoadHanon(h.type)}
-                  className={`cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 ${h.borderCol} rounded-xl p-4 transition`}
+                  className={`w-full text-left cursor-pointer group bg-slate-950/90 hover:bg-slate-950 border border-slate-800 ${h.borderCol} rounded-xl p-4 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-rose-400`}
                 >
-                  <div className="flex items-center justify-between mb-1.5">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1.5">
                     <span className={`font-bold text-sm ${h.textCol}`}>{h.title}</span>
                     <span className="text-[11px] font-mono px-2 py-0.5 rounded bg-rose-500/20 text-rose-300">
                       {h.badge}
@@ -117,7 +120,7 @@ export const LabWorkspace: React.FC = () => {
                   <span className="text-[11px] font-semibold text-emerald-400">
                     ▶ Запустить на полном стане →
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
@@ -137,7 +140,7 @@ export const LabWorkspace: React.FC = () => {
         {/* Лаборатория ритмослогов */}
         <div className="xl:col-span-5 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between gap-4">
           <div>
-            <div className="flex items-center justify-between gap-2 mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span className="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-amber-500/15 text-amber-300 border border-amber-500/30 font-semibold">
                 Таймкод 27:33 – 33:30
               </span>
@@ -152,18 +155,21 @@ export const LabWorkspace: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               {syllables.map(s => (
-                <div
+                <button
+                  type="button"
                   key={s.type}
+                  data-testid={`lab-rhythm-${s.type}`}
+                  aria-label={`Прослушать ритм: ${s.title}`}
                   onClick={() => audioEngine.playSyllablePatternDemo(s.type, bpm)}
-                  className="cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition"
+                  className="w-full text-left cursor-pointer bg-slate-950 border border-slate-800 hover:border-amber-500/50 rounded-xl p-3.5 transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-amber-400"
                   title="Нажмите, чтобы прослушать ритм"
                 >
-                  <div className="flex items-center justify-between mb-1">
+                  <div className="flex flex-wrap items-center justify-between gap-2 mb-1">
                     <span className="font-mono font-bold text-sm text-amber-400">{s.title}</span>
                     <span className="text-xs text-slate-500">{s.noteSym}</span>
                   </div>
                   <p className="text-xs text-slate-400 leading-relaxed">{s.desc}</p>
-                </div>
+                </button>
               ))}
             </div>
           </div>
