@@ -84,7 +84,7 @@ export const PrecheckWorkspace: React.FC = () => {
         {/* 5-шаговый алгоритм подготовки */}
         <div className="xl:col-span-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span className="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">
                 Видео 1 (VCwxNO_LGj4) • Таймкод 01:33 – 03:30
               </span>
@@ -116,7 +116,7 @@ export const PrecheckWorkspace: React.FC = () => {
         {/* Выбор тональности и знаков */}
         <div className="xl:col-span-6 bg-slate-900/90 border border-slate-800 rounded-2xl p-5 flex flex-col justify-between">
           <div>
-            <div className="flex items-center justify-between mb-2">
+            <div className="flex flex-wrap items-center justify-between gap-2 mb-2">
               <span className="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-emerald-500/15 text-emerald-300 border border-emerald-500/30 font-semibold">
                 Тренажёр тональностей • nota-re.ru
               </span>
@@ -131,10 +131,13 @@ export const PrecheckWorkspace: React.FC = () => {
 
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-4">
               {tonalities.map(t => (
-                <div
+                <button
+                  type="button"
                   key={t.key}
                   onClick={() => handleApplyTonality(t.key)}
-                  className={`cursor-pointer p-4 rounded-xl bg-slate-950 border ${t.border} transition flex flex-col justify-between`}
+                  aria-label={`Запустить тренировку в тональности ${t.title}`}
+                  data-testid={`precheck-tonality-${t.key}`}
+                  className={`w-full text-left cursor-pointer p-4 rounded-xl bg-slate-950 border ${t.border} transition flex flex-col justify-between focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400`}
                 >
                   <div>
                     <div className="flex items-center justify-between mb-1">
@@ -146,12 +149,12 @@ export const PrecheckWorkspace: React.FC = () => {
                   <span className="text-[11px] font-semibold text-sky-400 mt-2">
                     ▶ Запустить на стане →
                   </span>
-                </div>
+                </button>
               ))}
             </div>
           </div>
 
-          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 flex items-center justify-between">
+          <div className="p-3.5 rounded-xl bg-slate-950 border border-slate-800 text-xs text-slate-300 flex flex-wrap items-center justify-between gap-2">
             <span>
               Порядок диезов: <strong className="font-mono text-sky-400">Фа - До - Соль - Ре - Ля - Ми - Си</strong> • Бемолей: <strong className="font-mono text-amber-400">Си - Ми - Ля - Ре - Соль - До - Фа</strong>
             </span>
