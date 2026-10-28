@@ -249,7 +249,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         case 'note-on': {
           // Physical keys sound until actual Note Off. Only Note On affects
           // sight-reading scoring; no second fixed-duration preview sound.
-          audioEngine.midiNoteOn(event.channel, event.note, event.velocity);
+          audioEngine.midiNoteOn(event.channel, event.note, event.velocity, event.receivedAtMs);
           const noteName = MIDI_PITCH_NAMES.get(event.note);
           if (noteName) get().handleUserTriggerNote(noteName, true);
           break;
