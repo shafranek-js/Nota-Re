@@ -29,8 +29,9 @@ try {
   assert.equal(await renderError.count(), 0, 'OSMD must not show an error on first load');
   const indexBefore = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
 
-  // Space is a pre-existing assisted step in Nota-Re. Here it is used only
-  // to verify that changing an active note doesn't re-create the score.
+  // Explicitly enter ungraded tabletop mode to advance cursor in smoke
+  // tests; regular Space no longer auto-enters a correct pitch.
+  await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.keyboard.press('Space');
   assert.ok(await svg.isVisible(), 'Notation must remain after note input');
   const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
