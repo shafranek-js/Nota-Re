@@ -58,8 +58,12 @@ try {
     window.__uat.send([0x90, 60, 85]);
     window.__uat.send([0x90, 64, 90]);
   });
-  await page.getByTestId('hardware-step-0').getByText('Пройдено').waitFor();
-  await page.getByTestId('hardware-step-1').getByText('Пройдено').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="hardware-step-0"]')?.textContent?.trim() === 'Пройдено'
+  );
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="hardware-step-1"]')?.textContent?.trim() === 'Пройдено'
+  );
   await page.evaluate(() => {
     window.__uat.send([0x80, 60, 0]);
     window.__uat.send([0x80, 64, 0]);
@@ -70,8 +74,12 @@ try {
     window.__uat.send([0x90, 72, 75]);
     window.__uat.unplug();
   });
-  await page.getByTestId('hardware-step-2').getByText('Пройдено').waitFor();
-  await page.getByTestId('hardware-step-3').getByText('Пройдено').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="hardware-step-2"]')?.textContent?.trim() === 'Пройдено'
+  );
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="hardware-step-3"]')?.textContent?.trim() === 'Пройдено'
+  );
   await page.waitForTimeout(1300);
   assert.equal(await attempts(), initialAttempts,
     'hardware test and hidden-flow timeouts cannot change scoring while Settings is open');
