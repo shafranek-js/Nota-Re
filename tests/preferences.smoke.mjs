@@ -82,7 +82,7 @@ try {
     'reset preferences must never remove completed course lessons');
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
   await page.reload({ waitUntil: 'domcontentloaded' });
-  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/);
+  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/i);
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
 
@@ -96,7 +96,7 @@ try {
     localStorage.setItem('notare_course_completed_v3', '[1,1,14,"2",2]');
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
-  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/);
+  assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/i);
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
   assert.equal(await page.locator('select').filter({ has: page.locator('option[value="F"]') }).inputValue(), 'F');
