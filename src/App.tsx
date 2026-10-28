@@ -12,7 +12,7 @@ export const App: React.FC = () => {
   const { currentWorkspace, initApp } = useAppStore();
 
   useEffect(() => {
-    initApp();
+    return initApp();
   }, [initApp]);
 
   return (
