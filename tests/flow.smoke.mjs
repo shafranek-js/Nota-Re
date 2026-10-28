@@ -68,7 +68,7 @@ try {
     'correctly played slot must not be counted again as missed at its deadline');
 
   // Leaving the trainer stops the clock and prevents background misses.
-  await page.getByRole('button', { name: /Курс \\(12 уроков\\)/ }).click();
+  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
   const stoppedAt = await attempts();
   await page.waitForTimeout(1800);
   assert.equal(await attempts(), stoppedAt, 'navigation away cancels background flow');
