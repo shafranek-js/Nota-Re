@@ -183,7 +183,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
   }, [onsetTicks, loadState, xml]);
 
   return (
-    <div className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
+    <div data-testid="osmd-score" data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         <div className="flex items-center flex-wrap gap-2.5">
           <span className="text-slate-400">Такт: <strong className="text-white">{Math.floor(onsetTicks / 16) + 1}</strong></span>
