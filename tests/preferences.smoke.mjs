@@ -22,7 +22,14 @@ try {
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
   await page.locator('select').filter({ has: page.locator('option[value="F"]') }).selectOption('F');
-  await page.locator('input[type="range"]').first().fill('88');
+  await page.locator('input[type="range"]').first().evaluate(input => {
+    // HTML range elements cannot be filled as ordinary text inputs; invoke
+    // native setter so React's controlled onChange sees the new tempo.
+    const setter = Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set;
+    setter.call(input, '88');
+    input.dispatchEvent(new Event('input', { bubbles: true }));
+    input.dispatchEvent(new Event('change', { bubbles: true }));
+  });
   await page.getByRole('button', { name: /16 нот/ }).click();
   await page.getByRole('button', { name: /Тактильная ширма/ }).click();
   await page.getByRole('button', { name: 'Поток: Пауза' }).click();
@@ -60,9 +67,8 @@ try {
     'refresh never silently resumes graded flow');
   assert.ok(await page.getByTitle('Включить звук').isVisible());
   await page.getByTitle('Открыть настройки').click();
-  const resetDialog = page.waitForEvent('dialog');
-  await page.getByRole('button', { name: 'Сбросить настройки' }).click({ noWaitAfter: true });
-  await (await resetDialog).accept();
+  page.once('dialog', dialog => { void dialog.accept(); });
+  await page.getByRole('button', { name: 'Сбросить настройки' }).click();
   await page.waitForFunction(() =>
     JSON.parse(localStorage.getItem('notare-trainer-preferences-v1'))?.preferences?.bpm === 60
   );
