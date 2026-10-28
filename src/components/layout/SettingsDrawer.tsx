@@ -4,6 +4,7 @@ import { FilterType, HanonType, SpeechType } from '../../types/music';
 import { X } from 'lucide-react';
 import { audioEngine } from '../../core/audio/AudioEngine';
 import { HardwareMidiCheck } from './HardwareMidiCheck';
+import { BUILD_DETAILS } from '../../core/release/buildInfo';
 
 export const SettingsDrawer: React.FC = () => {
   const dialogRef = useRef<HTMLElement>(null);
@@ -384,6 +385,9 @@ export const SettingsDrawer: React.FC = () => {
         </div>
 
         <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
+          <p className="w-full text-[11px] text-slate-400 font-mono" data-testid="settings-build-version">
+            Версия приложения: {BUILD_DETAILS}
+          </p>
           <button
             type="button"
             title="Восстановить исходные настройки тренажёра, не удаляя прогресс курса"
