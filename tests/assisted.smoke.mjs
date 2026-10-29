@@ -21,6 +21,7 @@ try {
   assert.equal(Number(await score.getAttribute('data-active-note-index')), initialIndex,
     'Space must never auto-answer when not in tabletop mode');
 
+  await page.getByTestId('toolbar-trigger-view').click();
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   const button = page.getByRole('button', { name: /Представил клавишу — следующий шаг/ });
   await button.waitFor();
