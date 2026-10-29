@@ -4,6 +4,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
 import { getMaskedNoteIndices, getNoteOnsets, TICKS_PER_MEASURE } from '../../../core/notation/scoreMasks';
+import { getIntervalGuides } from '../../../core/notation/intervalGuides';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -249,6 +250,98 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
       positionCursorAtTicks(renderer, currentOnsetTicks());
     }
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
+
+  // Teaching overlay only: derive interval arcs from OSMD's rendered note
+  // positions, never reimplement the notation/staff layout. OSMD can create
+  // multiple SVG pages, so connect only notes in the same SVG viewport.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    mount.querySelectorAll('[data-notare-interval-overlay="true"]').forEach(el => el.remove());
+    if (loadState !== 'ready' || currentAppMode !== 'intervals' || !osmdRef.current) return;
+
+    const renderer = osmdRef.current;
+    const guides = getIntervalGuides(activeExerciseNotes);
+    if (!guides.length) return;
+    const svgNS = 'http://www.w3.org/2000/svg';
+    type Point = { x: number; y: number; root: SVGSVGElement };
+    const points = new Map<number, Point>();
+
+    try {
+      for (const index of new Set(guides.flatMap(g => [g.fromIndex, g.toIndex]))) {
+        positionCursorAtTicks(renderer, noteOnsets[index]);
+        for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+          const vexflowNote = graphicalNote as typeof graphicalNote & {
+            getSVGGElement?: () => SVGElement | undefined;
+          };
+          const element = vexflowNote.getSVGGElement?.();
+          if (!element || !mount.contains(element)) continue;
+          const root = element.closest('svg') as SVGSVGElement | null;
+          if (!root) continue;
+          // VexFlow notehead groups are preferable to the complete note
+          // bounding box, which can include the stem, ledger and flags.
+          const head = element.querySelector<SVGGraphicsElement>(
+            '.vf-notehead, [class*="notehead"], [id*="notehead"]'
+          ) ?? element;
+          const rect = head.getBoundingClientRect();
+          const matrix = root.getScreenCTM();
+          if (!matrix || rect.width < 1 || rect.height < 1) continue;
+          const point = root.createSVGPoint();
+          point.x = rect.left + rect.width / 2;
+          point.y = rect.top + rect.height / 2;
+          const local = point.matrixTransform(matrix.inverse());
+          points.set(index, { x: local.x, y: local.y, root });
+          break;
+        }
+      }
+
+      for (const guide of guides) {
+        const from = points.get(guide.fromIndex);
+        const to = points.get(guide.toIndex);
+        if (!from || !to || from.root !== to.root) continue;
+        const root = from.root;
+        const group = document.createElementNS(svgNS, 'g');
+        group.setAttribute('data-notare-interval-overlay', 'true');
+        group.setAttribute('aria-hidden', 'true');
+        group.setAttribute('pointer-events', 'none');
+        const xMid = (from.x + to.x) / 2;
+        const yTop = Math.min(from.y, to.y) - 20;
+        const arc = document.createElementNS(svgNS, 'path');
+        arc.setAttribute('d',
+          `M ${from.x} ${from.y - 10} Q ${xMid} ${yTop - 18} ${to.x} ${to.y - 10}`);
+        arc.setAttribute('fill', 'none');
+        arc.setAttribute('stroke', guide.symmetric ? '#4f46e5' : '#047857');
+        arc.setAttribute('stroke-width', '1.8');
+        if (!guide.symmetric) arc.setAttribute('stroke-dasharray', '4 3');
+
+        const label = document.createElementNS(svgNS, 'text');
+        label.setAttribute('x', String(xMid));
+        label.setAttribute('y', String(yTop - 7));
+        label.setAttribute('text-anchor', 'middle');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('fill', guide.symmetric ? '#3730a3' : '#065f46');
+        label.textContent = `${guide.steps}-я`;
+        group.append(arc, label);
+        root.appendChild(group);
+      }
+      if (!mount.querySelector('[data-notare-interval-overlay="true"]')) {
+        // If actual note geometry cannot be found, do not silently lose
+        // the pedagogical interval guides when switching from Classic.
+        setErrorMessage('Не удалось разместить интервальные подсказки. Используйте классический стан.');
+        setLoadState('error');
+      }
+    } catch (error) {
+      console.error('OSMD interval guides failed', error);
+      setErrorMessage('Не удалось разместить интервальные подсказки. Используйте классический стан.');
+      setLoadState('error');
+    } finally {
+      positionCursorAtTicks(renderer, currentOnsetTicks());
+    }
+
+    return () => {
+      mount.querySelectorAll('[data-notare-interval-overlay="true"]').forEach(el => el.remove());
+    };
+  }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
 
   return (
     <div data-testid="osmd-score" data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
