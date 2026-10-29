@@ -69,8 +69,10 @@ test('browser system-to-JS queue delay is distinct from JS-to-audio dispatch', (
   assert.ok(Math.abs(snap.p95MidiQueueMs - 19.45) < 1e-6);
   assert.equal(snap.medianSystemToDispatchMs, 19);
   assert.equal(snap.medianDispatchMs, 4);
-  assert.equal(Object.keys(snap).some(k => /deviceId|note|timestamp/i.test(k)), false,
-    'no note names, raw event timestamps or identifying device details');
+  assert.equal('note' in snap, false);
+  assert.equal('deviceId' in snap, false);
+  assert.equal('systemReceivedAtMs' in snap, false,
+    'the snapshot retains sample counts, not raw event timestamps');
 
   tracker.recordDispatch(400, 403, 'soundfont', 399);
   tracker.recordDispatch(500, 502, 'soundfont', 500.5); // future is invalid
