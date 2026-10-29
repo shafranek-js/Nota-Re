@@ -9,6 +9,7 @@ import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
+import { osmdZoomForWidth } from '../../../core/notation/osmdZoom';
 import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
@@ -59,6 +60,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
 
   const mountRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
+  const zenRef = useRef(zen);
+  zenRef.current = zen;
+  const requestEngravingRef = useRef<(() => void) | null>(null);
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [renderEpoch, setRenderEpoch] = useState(0);
@@ -100,6 +104,10 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       }
       rendering = true;
       try {
+        // The historical 0.8 zoom rendered tiny notation in a much taller
+        // Zen canvas. Use OSMD's own engraving zoom, not a CSS-scaled SVG.
+        // Re-evaluate on width changes and on entering/exiting focus.
+        renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.render();
         if (!cancelled) {
           setLoadState('ready');
@@ -135,9 +143,14 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
           drawComposer: false,
           cursorsOptions: [{ type: 0, color: '#f59e0b', alpha: 0.34, follow: false }]
         });
-        renderer.zoom = 0.8;
+        renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.load(xml);
         if (cancelled) return;
+        requestEngravingRef.current = () => {
+          if (renderer && renderer.zoom !== osmdZoomForWidth(container.clientWidth, zenRef.current)) {
+            void runRender();
+          }
+        };
         await runRender();
         if (cancelled) return;
 
@@ -163,6 +176,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     return () => {
       cancelled = true;
       observer?.disconnect();
+      requestEngravingRef.current = null;
       for (const element of hiddenNotesRef.current) {
         element.style.visibility = '';
         element.removeAttribute('data-notare-masked');
@@ -176,6 +190,12 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       container.replaceChildren();
     };
   }, [xml]);
+
+  // Same loaded OSMD instance, unchanged MusicXML and scoring state:
+  // Zen transitions only request an engraving-scale update if needed.
+  useEffect(() => {
+    requestEngravingRef.current?.();
+  }, [zen]);
 
   // Note: MusicXML can contain rests on the other staff. A simple cursor.next()
   // per exercise note would drift. Match the cursor's musical timestamp instead.
