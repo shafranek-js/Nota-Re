@@ -9,6 +9,7 @@ import {
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
+import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
@@ -724,7 +725,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? audioNow >= flowDeadlineAudioTime
         : rt >= noteDurationMs(target, get().bpm)
     );
-    const isCorrect = noteName === target.noteName && !isLate;
+    const outcome = judgeExerciseNote(target.midi, noteName, isLate);
+    const isCorrect = outcome === 'correct';
 
     set((s) => {
       const newTotal = s.totalAttempts + 1;
@@ -747,9 +749,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           noteIndex: activeNoteIndex,
           expectedNote: target.noteName,
           playedNote: noteName,
-          outcome: isCorrect ? 'correct' as const
-            : isLate && noteName === target.noteName ? 'late' as const
-              : 'wrong-pitch' as const,
+          outcome,
           reactionMs: Number.isFinite(rt) && rt >= 0 ? rt : null
         }],
         isExerciseFlawless: s.isExerciseFlawless && isCorrect,
