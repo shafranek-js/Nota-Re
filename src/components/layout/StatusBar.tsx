@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { audioEngine } from '../../core/audio/AudioEngine';
 import { BUILD_DETAILS } from '../../core/release/buildInfo';
+import { COURSE_CURRICULUM } from '../../data/curriculum';
 import type { ScoreRenderer } from '../../core/notation/scoreRendererPreference';
 
 interface StatusBarProps {
@@ -17,9 +18,17 @@ const MODE_LABELS: Record<string, string> = {
 export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
   const {
     midiInputsCount, audioEnabled, currentWorkspace, activeLessonId,
-    currentAppMode, currentTonality, bpm, isTwoHandPracticeOpen
+    currentAppMode, currentTonality, bpm, isTwoHandPracticeOpen,
+    selectedLessonId, totalAttempts, correctHits, currentStreak, bestStreak,
+    reactionTimes, completedExercisesCount
   } = useAppStore();
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
+  const accuracy = totalAttempts > 0 ? Math.round(100 * correctHits / totalAttempts) : null;
+  const recentReactions = reactionTimes.slice(-15);
+  const avgReaction = recentReactions.length
+    ? Math.round(recentReactions.reduce((sum, ms) => sum + ms, 0) / recentReactions.length)
+    : null;
+  const lesson = COURSE_CURRICULUM.find(item => item.id === selectedLessonId);
 
   // SoundFont load/error/output updates can occur without any Zustand change.
   useEffect(() => audioEngine.subscribeSoundFont(setSoundStatus), []);
@@ -64,6 +73,20 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Режим, тональность и темп">
               {MODE_LABELS[currentAppMode] ?? currentAppMode} · {currentTonality} · {bpm} BPM
             </span>
+            <span title="Точность попаданий за текущую сессию">
+              Точность: <span className="text-slate-300">{accuracy === null ? '—' : `${accuracy}%`} ({totalAttempts})</span>
+            </span>
+            <span title="Текущая и лучшая серия верных нот">
+              Серия: <span className="text-slate-300">{currentStreak} / рек. {bestStreak}</span>
+            </span>
+            <span title="Средний отклик по последним 15 верным ответам">
+              Отклик: <span className="text-slate-300">{avgReaction === null ? '—' : `${avgReaction} мс`}</span>
+            </span>
+            {activeLessonId !== null && lesson && (
+              <span title="Зачтённые повторы серии урока">
+                Зачёт: <span className="text-slate-300">{completedExercisesCount} / {lesson.normReps}</span>
+              </span>
+            )}
           </>
         )}
       </div>
