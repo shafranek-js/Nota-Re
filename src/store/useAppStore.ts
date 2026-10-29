@@ -11,6 +11,8 @@ import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
+import { resetNotesForRetry } from '../core/training/trainerSession';
+import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
   loadCourseProgressFromStorage, 
@@ -79,6 +81,8 @@ export interface AppState {
   attemptEvents: AttemptEvent[];
   /** Immutable outcome of the most recently finished exercise (not the session totals). */
   lastAttemptResult: AttemptSnapshot | null;
+  /** Explicit practice lifecycle, independent of rhythmic flow. */
+  trainerPhase: TrainerPhase;
 
   // Методы управления
   initApp: () => () => void;
@@ -111,6 +115,9 @@ export interface AppState {
   toggleAudioMaster: () => void;
   resetSessionStats: () => void;
   clearLastAttemptResult: () => void;
+  retryExercise: () => void;
+  returnToTrainerSetup: () => void;
+  startTrainerExercise: () => void;
   resetTrainerPreferences: () => void;
   regenerateExercise: () => void;
   handleUserTriggerNote: (noteName: string, fromMidi?: boolean) => void;
@@ -138,7 +145,7 @@ function stopFlowClock(): void {
 function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): void {
   stopFlowClock();
   const state = get();
-  if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
+  if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer' || state.trainerPhase !== 'playing') return;
   const note = state.activeExerciseNotes[state.activeNoteIndex];
   if (!note) return;
   const epoch = flowEpoch;
@@ -215,7 +222,7 @@ function finishExercise(
     assisted: state.isExerciseAssisted,
     lessonPassed: result.passed
   });
-  set({ completedExercisesCount: result.creditedRepetitions, lastAttemptResult });
+  set({ completedExercisesCount: result.creditedRepetitions, lastAttemptResult, trainerPhase: 'results' });
   if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
     const completedLessons = [...state.completedLessons, lesson.id];
     saveCourseProgressToStorage(completedLessons);
@@ -223,7 +230,8 @@ function finishExercise(
   }
 
   stopFlowClock();
-  get().regenerateExercise();
+  if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+  photoTimerId = null;
 }
 
 export const useAppStore = create<AppState>((set, get) => ({
@@ -257,6 +265,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   isExerciseFlawless: true,
   attemptEvents: [],
   lastAttemptResult: null,
+  trainerPhase: 'playing',
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
@@ -336,7 +345,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Opening a modal must not silently grade missed notes while the player
     // is checking their MIDI hardware or audio settings.
     if (opening) stopFlowClock();
-    const interruptedFlow = opening && get().isContinuousFlow;
+    const interruptedFlow = opening && get().isContinuousFlow && get().trainerPhase === 'playing';
     set({
       isSettingsOpen: opening,
       isContinuousFlow: opening ? false : get().isContinuousFlow,
@@ -472,7 +481,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   advanceFlowStep: () => {
     const state = get();
-    if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
+    if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer' || state.trainerPhase !== 'playing') return;
     const { activeNoteIndex, activeExerciseNotes } = state;
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
@@ -583,12 +592,49 @@ export const useAppStore = create<AppState>((set, get) => ({
       isExerciseAssisted: false,
       isExerciseFlawless: true,
       attemptEvents: [],
-      lastAttemptResult: null
+      lastAttemptResult: null,
+      trainerPhase: 'playing'
     });
     get().regenerateExercise();
   },
 
   clearLastAttemptResult: () => set({ lastAttemptResult: null }),
+
+  retryExercise: () => {
+    stopFlowClock();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    const notes = resetNotesForRetry(get().activeExerciseNotes);
+    if (!notes.length) {
+      set({ trainerPhase: 'playing' });
+      get().regenerateExercise();
+      return;
+    }
+    set({
+      activeExerciseNotes: notes,
+      activeNoteIndex: 0,
+      noteShownTimestamp: performance.now(),
+      lastTriggeredNote: null,
+      lastKeyResult: null,
+      isPhotoMasked: false,
+      isExerciseAssisted: false,
+      isExerciseFlawless: true,
+      attemptEvents: [],
+      lastAttemptResult: null,
+      trainerPhase: 'playing'
+    });
+    armFlowClock(get);
+    if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
+  },
+
+  returnToTrainerSetup: () => {
+    stopFlowClock();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    set({ trainerPhase: 'setup', lastAttemptResult: null, isPhotoMasked: false });
+  },
+
+  startTrainerExercise: () => get().retryExercise(),
 
   resetSessionStats: () => {
     set({
@@ -623,7 +669,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       isPhotoMasked: false,
       isExerciseAssisted: false,
       isExerciseFlawless: true,
-      attemptEvents: []
+      attemptEvents: [],
+      lastAttemptResult: null,
+      trainerPhase: get().trainerPhase === 'setup' ? 'setup' : 'playing'
     });
     armFlowClock(get);
 
@@ -634,7 +682,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Tabletop/imagined play is pedagogical practice, not a scored answer.
   advanceAssistedStep: () => {
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen || get().trainerPhase !== 'playing') return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
     const transition = advanceExerciseNoteStatuses(activeExerciseNotes, activeNoteIndex);
@@ -669,9 +717,10 @@ export const useAppStore = create<AppState>((set, get) => ({
         attemptEvents,
         lastAttemptResult
       });
-      window.setTimeout(() => {
-        if (get().activeExerciseNotes === notes) get().regenerateExercise();
-      }, 160);
+      stopFlowClock();
+      if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+      photoTimerId = null;
+      set({ trainerPhase: 'results' });
       return;
     }
     set({
@@ -693,7 +742,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleUserTriggerNote: (noteName, fromMidi = false) => {
     // The hardware must remain audible during diagnostics, but neither
     // background MIDI nor keyboard shortcuts may inflate a course result.
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen || get().trainerPhase !== 'playing') return;
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
