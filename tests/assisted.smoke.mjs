@@ -24,6 +24,9 @@ try {
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   const button = page.getByRole('button', { name: /Представил клавишу — следующий шаг/ });
   await button.waitFor();
+  // Explicitly focus the virtual piano: Space on a focused toolbar button
+  // now correctly triggers that button instead of a global training shortcut.
+  await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
   await page.keyboard.press('Space');
   assert.equal(Number(await score.getAttribute('data-active-note-index')), initialIndex + 1,
     'Space advances exactly one tabletop practice step');

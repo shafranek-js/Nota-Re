@@ -83,6 +83,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/workspaces-a11y.smoke.mjs
+      - name: Prevent photo-memory hint leaks and preserve native keyboard controls
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/photo-shortcuts.smoke.mjs
       - name: Upload browser screenshots
         if: always()
         uses: actions/upload-artifact@v4

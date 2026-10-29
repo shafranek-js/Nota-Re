@@ -8,12 +8,17 @@ export const TargetInfoBar: React.FC = () => {
     activeNoteIndex,
     lastTriggeredNote,
     currentAppMode,
+    isPhotoMasked,
     isExerciseAssisted
   } = useAppStore();
 
   const target = activeExerciseNotes[activeNoteIndex];
   const prevNote = activeNoteIndex > 0 ? activeExerciseNotes[activeNoteIndex - 1] : null;
   const intervalInfo = computeIntervalInfo(prevNote, target);
+  // Photo-memory hides the active measure on both OSMD and classic staves.
+  // Text hints must not reveal the same pitches, fingering or rhythms during
+  // the masked interval (including to assistive technology).
+  const hidePhotoHints = currentAppMode === 'photo' && isPhotoMasked;
 
   const tips: Record<string, string> = {
     reflex: 'Вижу знак на линейке ➔ палец сразу жмёт клавишу. Запретите себе называть ноту в уме!',
@@ -36,19 +41,19 @@ export const TargetInfoBar: React.FC = () => {
           </span>
         )}
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ЦЕЛЬ: <strong data-testid="active-target-note" className="text-sky-400 font-mono">{target?.noteName || '—'}</strong>
+          ЦЕЛЬ: <strong data-testid="active-target-note" className="text-sky-400 font-mono">{hidePhotoHints ? 'По памяти' : target?.noteName || '—'}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ИНТЕРВАЛ: <strong className="text-indigo-400 font-mono">{intervalInfo.name}</strong>
+          ИНТЕРВАЛ: <strong data-testid="active-target-interval" className="text-indigo-400 font-mono">{hidePhotoHints ? 'Скрыт' : intervalInfo.name}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          РИТМОСЛОГ: <strong className="text-amber-400 font-mono">{target?.syllable || 'ТА'}</strong>
+          РИТМОСЛОГ: <strong data-testid="active-target-syllable" className="text-amber-400 font-mono">{hidePhotoHints ? 'Скрыт' : target?.syllable || 'ТА'}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ПАЛЕЦ / ШТРИХ: <strong className="text-rose-400 font-mono">{target?.finger || 1} • {target?.articulation || 'legato'}</strong>
+          ПАЛЕЦ / ШТРИХ: <strong data-testid="active-target-fingering" className="text-rose-400 font-mono">{hidePhotoHints ? 'Скрыт' : `${target?.finger || 1} • ${target?.articulation || 'legato'}`}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ОТВЕТ: <strong className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
+          ОТВЕТ: <strong data-testid="last-played-note" className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
         </span>
       </div>
 

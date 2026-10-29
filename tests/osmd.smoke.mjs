@@ -32,6 +32,7 @@ try {
   // Explicitly enter ungraded tabletop mode to advance cursor in smoke
   // tests; regular Space no longer auto-enters a correct pitch.
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
+  await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
   await page.keyboard.press('Space');
   assert.ok(await svg.isVisible(), 'Notation must remain after note input');
   const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
@@ -44,6 +45,7 @@ try {
   // Lookahead should mask only notes already played, on OSMD's own SVG.
   await page.getByRole('button', { name: /3\. Бегунок/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
+  await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
   await page.keyboard.press('Space');
   await page.locator('[data-notare-masked="true"]').first().waitFor({ state: 'attached', timeout: 10000 });
   assert.ok(await page.getByTestId('osmd-score').isVisible(), 'lookahead must use OSMD');
