@@ -169,3 +169,19 @@ test('two-hand builder rejects empty and invalid input', () => {
   assert.throws(() => createScoreFromHands([note(140)], [], 'C'), /MIDI pitch/);
   assert.throws(() => createScoreFromHands([], [note(48, 'bass', 0.33)], 'C'), /sixteenth/);
 });
+
+test('OSMD hides only empty-hand filler rests, while keeping music time intact', () => {
+  const score = createScoreFromExercise([note(60), note(62), note(64), note(65)], 'C');
+  const normal = toMusicXml(score);
+  const display = toMusicXml(score, { hideInactiveStaffRests: true });
+  assert.match(normal, /<note><rest\/><duration>16<\/duration><voice>2<\/voice>/);
+  assert.match(display, /<note print-object="no"><rest\/><duration>16<\/duration><voice>2<\/voice>/);
+  assert.deepEqual(measureVoices(normal), [[16, 16]]);
+  // The display-only attribute is not an instruction to omit rhythmic rests.
+  assert.ok(display.includes('<backup><duration>16</duration></backup>'));
+  const bothHands = toMusicXml(createScoreFromExercise([
+    note(48, 'bass'), note(60), note(62), note(64)
+  ], 'C'), { hideInactiveStaffRests: true });
+  assert.ok(!bothHands.includes('print-object="no"'),
+    'staffs containing notes must retain real rhythmic rests');
+});
