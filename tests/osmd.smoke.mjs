@@ -267,13 +267,16 @@ try {
   await page.evaluate(async () => {
     const start = Number(document.querySelector('[data-testid="two-hand-practice"]').getAttribute('data-timed-start-ms'));
     await new Promise(resolve => setTimeout(resolve, Math.max(0, start - performance.now())));
+    window.__twoHandMidi.firstBeatDeltaMs = Math.round(performance.now() - start);
     window.__twoHandMidi.send([0x92, 48, 105]);
     window.__twoHandMidi.send([0x90, 60, 105]);
   });
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '2'
   );
-  assert.match(await page.getByTestId('two-hand-timed-stats').innerText(), /В долю:\s*1/);
+  assert.match(await page.getByTestId('two-hand-timed-stats').innerText(), /В долю:\s*1/,
+    'exact first chord timing; browser timer lateness: ' +
+      await page.evaluate(() => window.__twoHandMidi.firstBeatDeltaMs) + ' ms');
 
   await page.evaluate(async () => {
     const start = Number(document.querySelector('[data-testid="two-hand-practice"]').getAttribute('data-timed-start-ms'));
