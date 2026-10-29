@@ -80,19 +80,45 @@ try {
     await checkWidth(`OSMD ${width}`);
     const normal = await osmdGeometry();
     assert.ok(normal.noteheadCount > 0, `OSMD ${width}: actual rendered noteheads required`);
-    assert.ok(normal.medianHeadWidthPx >= 3, `OSMD ${width}: no microscopic noteheads`);
+    assert.ok(normal.medianHeadWidthPx >= 11.5,
+      `OSMD ${width}: preserve the approximately 12px baseline glyph size from the audited prior build`);
     await page.screenshot({ path: `${artifacts}/stage-f-osmd-${width}.png` });
+    const normalEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
     await page.getByTestId('toolbar-zen-toggle').click();
     await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    if (width >= 768) {
+      // A taller container is insufficient: require the *real* VexFlow
+      // engraving to finish its zoom-dependent rerender before measurement.
+      await page.waitForFunction(previous => {
+        const score = document.querySelector('[data-testid="osmd-score"]');
+        return Number(score?.getAttribute('data-osmd-render-epoch')) > previous;
+      }, normalEpoch, { timeout: 35000 });
+    }
     await checkWidth(`Zen ${width}`);
     const zen = await osmdGeometry();
     assert.ok(zen.noteheadCount > 0, `Zen ${width}: notes must not disappear`);
     if (width >= 768) {
       assert.ok(zen.scoreAreaHeightPx > normal.scoreAreaHeightPx + 30,
         `Zen ${width}: reclaimed vertical space expected`);
+      const minGrowth = width >= 1024 ? 1.4 : 1.10;
+      assert.ok(zen.medianHeadWidthPx >= normal.medianHeadWidthPx * minGrowth,
+        `Zen ${width}: real noteheads must grow, not just the empty container (${normal.medianHeadWidthPx} -> ${zen.medianHeadWidthPx}px)`);
+    } else {
+      assert.ok(zen.medianHeadWidthPx >= 11.5 && zen.medianHeadWidthPx >= normal.medianHeadWidthPx,
+        `Zen ${width}: phone noteheads must retain the original ~12px readability baseline`);
     }
     await page.screenshot({ path: `${artifacts}/stage-f-zen-${width}.png` });
+    const zenEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
     await page.getByTestId('zen-exit').click();
+    if (width >= 768) {
+      await page.waitForFunction(previous => {
+        const score = document.querySelector('[data-testid="osmd-score"]');
+        return Number(score?.getAttribute('data-osmd-render-epoch')) > previous;
+      }, zenEpoch, { timeout: 35000 });
+      const restored = await osmdGeometry();
+      assert.ok(Math.abs(restored.medianHeadWidthPx - normal.medianHeadWidthPx) < 1,
+        `OSMD ${width}: exit from Zen must restore normal notehead scale`);
+    }
     await page.getByRole('button', { name: 'Классический' }).click();
     const classic = page.locator('#staff-notes-layer');
     await classic.waitFor({ state: 'visible' });
