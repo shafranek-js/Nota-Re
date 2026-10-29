@@ -12,7 +12,8 @@ export const CourseWorkspace: React.FC = () => {
     completedLessons,
     toggleLessonCompleted,
     resetCourseProgress,
-    startActiveLessonInTrainer
+    startActiveLessonInTrainer,
+    startTwoHandCourseTrial
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
@@ -265,6 +266,17 @@ export const CourseWorkspace: React.FC = () => {
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
+              {(lesson.id === 11 || lesson.id === 12) && (
+                <button
+                  type="button"
+                  data-testid="course-two-hand-trial-launch"
+                  onClick={() => startTwoHandCourseTrial(lesson.id)}
+                  className="rounded-xl border border-sky-500/50 bg-sky-500/10 px-4 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-500/20"
+                  title="Учебная MIDI-практика с двумя руками, без автоматического зачёта урока"
+                >
+                  Пробное задание: две руки (без зачёта)
+                </button>
+              )}
               <button 
                 onClick={startActiveLessonInTrainer}
                 className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition"
