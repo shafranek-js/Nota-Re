@@ -26,7 +26,8 @@ try {
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.__courseTrialMidi.input.onmidimessage === 'function');
 
-  const courseProgress = page.getByText('0 / 12 (0%)', { exact: true });
+  const courseProgress = page.getByTestId('course-module-all');
+  assert.match(await courseProgress.innerText(), /0\/12/, 'compact module toolbar retains course progress');
   await courseProgress.waitFor({ state: 'visible' });
 
   // Lesson 10 must not offer a polyphonic trial: its pedagogy is different.
