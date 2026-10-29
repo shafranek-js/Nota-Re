@@ -42,6 +42,28 @@ then again on the merged `main` commit. Chrome tests cover:
   Escape, keyboard labels and vertical/horizontal scrolling.
 - Exact build SHA visible in the bottom technical status bar, including after reload and in Zen Mode.
 
+## Three destinations and Studio learning tools (Stage E)
+
+- The global header exposes exactly **Курс**, **Студия**, **База знаний**.
+  The former top-level Precheck and Lab screens are found under
+  **Студия → Подготовка** and **Студия → Лаборатория**, reusing their
+  original tonality cards, four Hanon/Czerny presets, rhythm demos and
+  articulation preview.
+- The Course **Продолжить** button is based on the first not-yet-certified
+  lesson, not on whichever card was last viewed. Selecting a historical
+  lesson does not silently increase course completion.
+- Switching from a timed Course attempt into the embedded Lab or Precheck
+  cancels rhythm deadlines and removes certification eligibility. Returning
+  to **Практика** requires a new explicit start. Previewing a rhythm sample
+  never increments graded attempts.
+- Confirm navigation with Enter and Space on 320, 375, 768, 1024, 1440px.
+  Verify the technical footer/build revision and Settings remain available
+  in every destination. With Zen enabled, embedded reference sections must
+  still show ordinary global navigation.
+- The separate in-exercise **Анализ перед игрой** checklist and optional
+  four-beat count-in remain intact; the Studio theory reference is not a
+  second scoring implementation.
+
 ## Zen / Focus mode (Stage D)
 
 - In Studio, click **Zen** while playing: the normal app header, lesson
