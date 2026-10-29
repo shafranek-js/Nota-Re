@@ -26,15 +26,21 @@ export const PianoKeyboard: React.FC = () => {
   // Обработка клавиш ПК (Z-M для баса, Q-[ для скрипичного, цифры для знаков, пробел для шага)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
-      // Settings owns the keyboard while its dialog is open. Don't turn
-      // letters typed into controls into piano notes or steal their shortcuts.
+      // Piano shortcuts are global only while the page or piano region has
+      // focus. Never steal Space / note letters from normal focused controls:
+      // otherwise Space on the "Photo" button silently advances tabletop
+      // practice instead of activating the button. A focused piano key is a
+      // special case: letters still play notes, while Space activates that
+      // exact native button via its regular click handler.
       if (useAppStore.getState().isSettingsOpen || e.ctrlKey || e.metaKey || e.altKey) return;
-      const target = e.target as HTMLElement | null;
-      const targetTag = target?.tagName?.toLowerCase();
-      if (target?.isContentEditable || targetTag === 'input' ||
-          targetTag === 'select' || targetTag === 'textarea') return;
+      const target = e.target instanceof HTMLElement ? e.target : null;
+      const isPianoKey = !!target?.closest('.piano-white-key, .piano-black-key');
+      if (target?.isContentEditable || (target?.closest(
+        'button, a[href], input, select, textarea, summary, [role="button"], [role="tab"], [role="link"], [contenteditable]'
+      ) && !isPianoKey)) return;
 
       if (e.code === 'Space') {
+        if (isPianoKey) return; // native Space activates the focused piano key
         // Space is a non-scoring imagined step only in tabletop mode.
         // Never guess the right answer in a graded keyboard exercise.
         if (!isTabletopMode || e.repeat) return;
