@@ -327,6 +327,25 @@ try {
   assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
     beforePolyAttempts, 'pattern changes and rest exercises must never award course credit');
 
+  // Complete a timed attempt with NO played notes. The assessment must
+  // show separate 0% outcomes per hand; it must never infer readiness or
+  // mutate existing lesson statistics from the metronome's own ticks.
+  await page.getByTestId('two-hand-start-tempo').click();
+  await page.getByTestId('two-hand-assessment').waitFor({
+    state: 'visible', timeout: 40000
+  });
+  assert.match(await page.getByTestId('two-hand-rh-accuracy').innerText(), /\(0%\)/);
+  assert.match(await page.getByTestId('two-hand-lh-accuracy').innerText(), /\(0%\)/);
+  assert.equal(await page.getByTestId('two-hand-assessment-verdict').innerText(),
+    'Нужна практика');
+  assert.match(await page.getByTestId('two-hand-assessment').innerText(),
+    /не зачёт урока/);
+  assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
+    beforePolyAttempts, 'finished empty practice cannot modify course results');
+  await page.getByRole('button', { name: 'Заново / Стоп' }).click();
+  assert.equal(await page.getByTestId('two-hand-assessment').count(), 0,
+    'new attempt must never reuse a previous assessment');
+
   await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
 
