@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { advanceAssistedNotes } from '../src/core/training/assistedStep.ts';
+import { advanceExerciseNoteStatuses } from '../src/core/training/assistedStep.ts';
 
 function sample() {
   return [
@@ -14,7 +14,7 @@ test('assisted step replaces only changed notes, without mutating frozen input',
   const notes = sample();
   for (const item of notes) Object.freeze(item);
   Object.freeze(notes);
-  const next = advanceAssistedNotes(notes, 0);
+  const next = advanceExerciseNoteStatuses(notes, 0);
   assert.ok(next);
   assert.notEqual(next.notes, notes);
   assert.deepEqual(next.notes.map(n => n.status), ['done', 'current', 'pending']);
@@ -27,9 +27,9 @@ test('assisted step replaces only changed notes, without mutating frozen input',
 });
 
 test('final assisted note is committed in a new array before regeneration timer', () => {
-  const first = advanceAssistedNotes(sample(), 0);
-  const second = advanceAssistedNotes(first.notes, 1);
-  const third = advanceAssistedNotes(second.notes, 2);
+  const first = advanceExerciseNoteStatuses(sample(), 0);
+  const second = advanceExerciseNoteStatuses(first.notes, 1);
+  const third = advanceExerciseNoteStatuses(second.notes, 2);
   assert.equal(third.finished, true);
   assert.equal(third.nextIndex, 3);
   assert.deepEqual(third.notes.map(n => n.status), ['done', 'done', 'done']);
@@ -40,7 +40,7 @@ test('final assisted note is committed in a new array before regeneration timer'
 
 test('out-of-range and malformed indices are safe no-ops, not free answers', () => {
   for (const index of [-1, 3, 1.1, NaN, Infinity]) {
-    assert.equal(advanceAssistedNotes(sample(), index), null);
+    assert.equal(advanceExerciseNoteStatuses(sample(), index), null);
   }
-  assert.equal(advanceAssistedNotes([], 0), null);
+  assert.equal(advanceExerciseNoteStatuses([], 0), null);
 });
