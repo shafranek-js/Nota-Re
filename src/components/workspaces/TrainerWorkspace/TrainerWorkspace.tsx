@@ -19,7 +19,7 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, startTrainerExercise, openTrainerPrecheck } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard } = useAppStore();
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
@@ -40,11 +40,7 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
       {!isTwoHandPracticeOpen && <TrainerToolbar />}
       {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-2" role="status" data-testid="trainer-setup">
-          <p className="text-sm text-sky-100">Настройте упражнение и начните игру. Ноты пока не оцениваются.</p>
-          <button type="button" onClick={startTrainerExercise}
-            className="rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-sm text-slate-950 hover:bg-emerald-400">
-            Начать упражнение
-          </button>
+          <p className="text-sm text-sky-100">Настройте упражнение и нажмите «Начать упражнение» на панели. Ноты пока не оцениваются.</p>
         </div>
       )}
       {!isTwoHandPracticeOpen && (
@@ -55,16 +51,15 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
           </button>
         </div>
       )}
-      <div className="shrink-0 flex items-center gap-2 px-1">
-        <button type="button" aria-pressed={isTwoHandPracticeOpen} onClick={toggleTwoHandPractice}
-          className={'rounded-lg border px-3 py-1 text-xs font-semibold ' +
-            (isTwoHandPracticeOpen
-              ? 'bg-sky-500/20 border-sky-400 text-sky-100'
-              : 'bg-slate-900 border-slate-700 text-sky-300')}>
-          {isTwoHandPracticeOpen ? 'Вернуться к тренажёру' : 'Две руки одновременно · MIDI (бета)'}
-        </button>
-        {isTwoHandPracticeOpen && <span className="text-xs text-amber-300">Без зачёта урока</span>}
-      </div>
+      {isTwoHandPracticeOpen && (
+        <div className="shrink-0 flex items-center gap-2 px-1">
+          <button type="button" onClick={toggleTwoHandPractice}
+            className="rounded-lg border px-3 py-1 text-xs font-semibold bg-sky-500/20 border-sky-400 text-sky-100">
+            Вернуться к тренажёру
+          </button>
+          <span className="text-xs text-amber-300">Без зачёта урока</span>
+        </div>
+      )}
 
       {isTwoHandPracticeOpen ? (
         <Suspense fallback={<div role="status" className="flex-1 rounded-xl bg-slate-900 p-4 text-slate-300">Загрузка двухручного MIDI-практикума…</div>}>
@@ -115,7 +110,9 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
         <TargetInfoBar />
       </div>
 
-      <PianoKeyboard />
+      <div className={showVirtualKeyboard ? 'shrink-0' : 'hidden'} aria-hidden={!showVirtualKeyboard}>
+        <PianoKeyboard />
+      </div>
       </>}
     </section>
   );
