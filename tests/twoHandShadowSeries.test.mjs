@@ -3,10 +3,10 @@ import assert from 'node:assert/strict';
 import { createLessonTwoHandScore } from '../src/core/training/lessonTwoHandScore.ts';
 import { initialTimedPractice, reduceTimedPractice, ticksToMs } from '../src/core/training/tempoTwoHand.ts';
 import { getTwoHandShadowPolicy, evaluateTwoHandShadowAttempt,
-  appendShadowAttempt, initialShadowSeries } from '../src/core/training/twoHandShadowSeries.ts';
+  appendShadowAttempt, initialShadowSeries, nextTwoHandShadowStudy } from '../src/core/training/twoHandShadowSeries.ts';
 
-function performance(lessonId) {
-  const { score, steps } = createLessonTwoHandScore(lessonId, 'C');
+function performance(lessonId, studyIndex = 0) {
+  const { score, steps } = createLessonTwoHandScore(lessonId, 'C', studyIndex);
   const plan = { startMs: 10000, bpm: lessonId === 11 ? 58 : 68,
     windowMs: 160, overlapMs: 140, holdGraceMs: 120 };
   const events = score.notes.flatMap(n => {
@@ -27,9 +27,9 @@ function performance(lessonId) {
     { type: 'tick', receivedAtMs: plan.startMs + ticksToMs(end, plan.bpm) + 161 });
   return { score, steps, plan, timed };
 }
-const evaluate = id => {
-  const { score, steps, plan, timed } = performance(id);
-  return evaluateTwoHandShadowAttempt(id, score, steps, timed, plan);
+const evaluate = (id, studyIndex = 0) => {
+  const { score, steps, plan, timed } = performance(id, studyIndex);
+  return evaluateTwoHandShadowAttempt(id, score, steps, timed, plan, studyIndex);
 };
 
 test('rubric inherits lesson repeats and publishes reaction targets WITHOUT conflating BPM', () => {
@@ -92,42 +92,88 @@ test('wrong score, onset map, key or generous timing cannot masquerade as course
     { ...plan, windowMs: 1000 }).reasons.includes('invalid-tempo'));
 });
 
-test('lesson 11 requires 15 clean studies IN A ROW, aborted/failed attempts reset streak', () => {
-  let s = initialShadowSeries(11);
-  const good = evaluate(11);
-  const bad = { ...good, accepted: false, reasons: ['onset-or-pitch'] };
-  for (let id = 1; id <= 14; id++) s = appendShadowAttempt(s, 11, id, good);
-  assert.equal(s.cleanStreak, 14);
-  assert.equal(s.practiceTargetReached, false);
-  const before = s;
-  assert.equal(appendShadowAttempt(s, 11, 14, good), before, 'duplicate callback');
-  s = appendShadowAttempt(s, 11, 15, bad);
-  assert.equal(s.cleanStreak, 0);
-  assert.equal(s.accepted, 14);
-  s = appendShadowAttempt(s, 11, 16, null);
-  assert.equal(s.aborted, 1);
-  for (let id = 17; id <= 31; id++) s = appendShadowAttempt(s, 11, id, good);
-  assert.equal(s.cleanStreak, 15);
-  assert.equal(s.accepted, 29);
-  assert.equal(s.attempts, 31);
-  assert.equal(s.practiceTargetReached, true);
-  assert.equal(s.lastVerdict.officialCourseCredit, false);
+test('lesson 11 requires 15 DISTINCT clean studies in a row; errors reset the current sequence', () => {
+  let state = initialShadowSeries(11);
+  for (let index = 0; index < 14; index++) {
+    assert.equal(nextTwoHandShadowStudy(state), index);
+    state = appendShadowAttempt(state, 11, index + 1, evaluate(11, index));
+  }
+  assert.equal(state.cleanStreak, 14);
+  assert.equal(state.successfulStudies.length, 14);
+  assert.equal(state.practiceTargetReached, false);
+  const before = state;
+  assert.equal(appendShadowAttempt(state, 11, 14, evaluate(11, 13)), before,
+    'duplicate timer callback cannot record another attempt');
+  const failed = { ...evaluate(11, 14), accepted: false, reasons: ['onset-or-pitch'] };
+  state = appendShadowAttempt(state, 11, 15, failed);
+  assert.equal(state.cleanStreak, 0);
+  assert.deepEqual(state.successfulStudies, [], 'failure invalidates consecutive course practice');
+  assert.equal(nextTwoHandShadowStudy(state), 0);
+  state = appendShadowAttempt(state, 11, 16, null);
+  assert.equal(state.aborted, 1);
+  for (let index = 0; index < 15; index++) {
+    state = appendShadowAttempt(state, 11, 17 + index, evaluate(11, index));
+  }
+  assert.equal(state.cleanStreak, 15);
+  assert.equal(state.successfulStudies.length, 15);
+  assert.equal(state.accepted, 29);
+  assert.equal(state.attempts, 31);
+  assert.equal(state.practiceTargetReached, true);
+  assert.equal(nextTwoHandShadowStudy(state), null);
+  assert.equal(state.lastVerdict.officialCourseCredit, false);
 });
 
-test('lesson 12 needs 20 clean repeats total; failures do not erase cumulative practice', () => {
-  let s = initialShadowSeries(12);
-  const good = evaluate(12);
-  const bad = { ...good, accepted: false, reasons: ['release-or-articulation'] };
-  for (let id = 1; id <= 19; id++) s = appendShadowAttempt(s, 12, id, good);
-  s = appendShadowAttempt(s, 12, 20, bad);
-  assert.equal(s.practiceTargetReached, false);
-  assert.equal(s.cleanStreak, 0);
-  s = appendShadowAttempt(s, 12, 21, good);
-  assert.equal(s.accepted, 20);
-  assert.equal(s.practiceTargetReached, true);
-  assert.equal(appendShadowAttempt(s, 11, 22, good), s);
-  assert.equal(appendShadowAttempt(s, 12, -1, good), s);
-  assert.equal(appendShadowAttempt(s, 12, 21, good), s);
+test('replaying same study cannot inflate either distinct-study counter', () => {
+  for (const id of [11, 12]) {
+    let state = appendShadowAttempt(initialShadowSeries(id), id, 1, evaluate(id, 0));
+    state = appendShadowAttempt(state, id, 2, evaluate(id, 0));
+    assert.equal(state.accepted, 1);
+    assert.equal(state.rejected, 1);
+    assert.equal(state.lastVerdict.accepted, false);
+    assert.deepEqual(state.lastVerdict.reasons, ['duplicate-study']);
+    assert.equal(state.practiceTargetReached, false);
+    if (id === 11) {
+      assert.deepEqual(state.successfulStudies, []);
+      assert.equal(state.cleanStreak, 0);
+      assert.equal(nextTwoHandShadowStudy(state), 0);
+    } else {
+      assert.deepEqual(state.successfulStudies, [0]);
+      assert.equal(nextTwoHandShadowStudy(state), 1);
+    }
+  }
+});
+
+test('lesson 12 requires 20 distinct studies cumulatively; failed run cannot inflate count', () => {
+  let state = initialShadowSeries(12);
+  for (let index = 0; index < 19; index++) {
+    assert.equal(nextTwoHandShadowStudy(state), index);
+    state = appendShadowAttempt(state, 12, index + 1, evaluate(12, index));
+  }
+  const bad = { ...evaluate(12, 19), accepted: false, reasons: ['release-or-articulation'] };
+  state = appendShadowAttempt(state, 12, 20, bad);
+  assert.equal(state.practiceTargetReached, false);
+  assert.equal(state.cleanStreak, 0);
+  assert.equal(nextTwoHandShadowStudy(state), 19);
+  state = appendShadowAttempt(state, 12, 21, evaluate(12, 19));
+  assert.equal(state.successfulStudies.length, 20);
+  assert.equal(state.accepted, 20);
+  assert.equal(state.practiceTargetReached, true);
+  assert.equal(nextTwoHandShadowStudy(state), null);
+  assert.equal(appendShadowAttempt(state, 11, 22, evaluate(11, 0)), state);
+  assert.equal(appendShadowAttempt(state, 12, -1, evaluate(12, 0)), state);
+  assert.equal(appendShadowAttempt(state, 12, 21, evaluate(12, 0)), state);
   assert.equal(initialShadowSeries(12).attempts, 0);
-  assert.equal('completedLessons' in s, false);
+  assert.equal('completedLessons' in state, false);
+});
+
+test('score from one mini-study never validates as another mini-study', () => {
+  for (const id of [11, 12]) {
+    const { score, steps, plan, timed } = performance(id, 1);
+    assert.equal(evaluateTwoHandShadowAttempt(id, score, steps, timed, plan, 1).accepted, true);
+    for (const other of [0, 2, -1, 999, NaN]) {
+      const result = evaluateTwoHandShadowAttempt(id, score, steps, timed, plan, other);
+      assert.equal(result.accepted, false);
+      assert.ok(result.reasons.includes('invalid-score'));
+    }
+  }
 });
