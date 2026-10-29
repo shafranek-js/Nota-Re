@@ -50,7 +50,7 @@ export const CourseWorkspace: React.FC = () => {
   return (
     <section className="flex-1 min-h-full lg:min-h-0 w-full p-3 sm:p-3.5 overflow-visible lg:overflow-hidden flex flex-col gap-3">
       {/* Компактная панель курса: без дублирования глобального прогресса. */}
-      <div data-testid="course-toolbar" className="shrink-0 min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2 flex items-center gap-3">
+      <div data-testid="course-toolbar" className="shrink-0 min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2 flex flex-wrap sm:flex-nowrap items-center gap-2 sm:gap-3">
         <div className="shrink-0 flex items-center gap-2 min-w-0">
           <h1 className="text-sm sm:text-base font-semibold text-white whitespace-nowrap">Программа чтения с листа</h1>
           <details className="relative group">
@@ -63,7 +63,7 @@ export const CourseWorkspace: React.FC = () => {
             </div>
           </details>
         </div>
-        <nav aria-label="Фильтр модулей курса" className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap custom-scroll py-0.5">
+        <nav aria-label="Фильтр модулей курса" className="order-3 basis-full sm:order-none sm:basis-auto min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap custom-scroll py-0.5">
           <button type="button" data-testid="course-filter-all" aria-pressed={moduleFilter === 'all'}
             onClick={() => filterByModule('all')}
             className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === 'all' ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`}>
@@ -175,7 +175,7 @@ export const CourseWorkspace: React.FC = () => {
                 </h2>
               </div>
               <div className="flex flex-wrap items-center justify-end gap-2">
-                <button type="button" data-testid="course-start-selected" onClick={startActiveLessonInTrainer}
+                <button type="button" data-testid="course-start-selected" aria-label={`Запустить этот урок в тренажёре: урок ${lesson.id}`} onClick={startActiveLessonInTrainer}
                   className="rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 inline-flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
                   <Play aria-hidden="true" className="w-3.5 h-3.5" /> Запустить урок {lesson.id} (Студия)
                 </button>
