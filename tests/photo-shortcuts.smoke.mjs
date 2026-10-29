@@ -45,7 +45,8 @@ try {
 
   // The same text guard applies in the classic renderer; switching the
   // engraving engine must not reveal the memorized target.
-  await page.getByRole('button', { name: 'Классический', exact: true }).click();
+  await page.getByTestId('toolbar-trigger-view').click();
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'Классический', exact: true }).click();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
   assert.equal((await target.innerText()).trim(), 'По памяти');
   await page.getByTestId('toolbar-trigger-mode').click();

@@ -240,19 +240,22 @@ try {
 
   // Explicit Classic choice still works on narrow screens even in Hanon.
   await page.setViewportSize({ width: 375, height: 900 });
-  await page.getByRole('button', { name: 'Классический', exact: true }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'Классический', exact: true }).click();
   const classicSvg = page.locator('svg[viewBox="0 0 1720 305"]');
   await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
   const classicBox = await classicSvg.boundingBox();
   assert.ok(classicBox && classicBox.height > 80 && classicBox.width > 0,
     'Classic staff must retain actual drawing area on 375px phones');
-  await page.getByRole('button', { name: 'OSMD', exact: true }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'OSMD', exact: true }).click();
   await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
 
   // F3 and G2 landmarks must overlay OSMD's true bass stave and must not
   // force the old renderer or trigger a new MusicXML engraving.
   const beforeLandmarks = await epoch();
-  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: /Маяки баса/ }).click();
   const bassMarks = page.locator('[data-notare-bass-landmark="true"]');
   await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
   assert.ok(await bassMarks.count() >= 2, 'both bass landmarks should be visible');
@@ -285,10 +288,12 @@ try {
   await waitForOverlayRender('[data-notare-bass-landmark="true"]', beforeBassResize);
   assert.ok(await bassMarks.count() >= 2, 'landmarks follow OSMD layout after responsive resize');
 
-  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: /Маяки баса/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-bass-landmark="true"]').length === 0);
   assert.ok(await page.getByTestId('osmd-score').isVisible(), 'disabling landmarks keeps OSMD visible');
-  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: /Маяки баса/ }).click();
   await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
 
   // A mode switch with landmarks enabled retains OSMD and recreates the guides.
@@ -298,17 +303,20 @@ try {
   await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
   await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
   assert.equal(await renderError.count(), 0, 'bass landmarks must never show OSMD renderer errors');
-  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: /Маяки баса/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-bass-landmark="true"]').length === 0);
 
   await openPanel('mode');
   await openPanel('mode');
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
-  await page.getByRole('button', { name: 'Классический', exact: true }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'Классический', exact: true }).click();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
 
-  await page.getByRole('button', { name: 'OSMD', exact: true }).click();
+  await openPanel('view');
+  await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'OSMD', exact: true }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
 
   // Experimental two-hand MIDI practice: the RH and LH scores start together,
