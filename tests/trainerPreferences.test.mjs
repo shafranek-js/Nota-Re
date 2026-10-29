@@ -26,7 +26,7 @@ test('trainer settings validate known modes and ranges field by field', () => {
     selectedLessonId: 8, currentAppMode: 'photo',
     currentFilter: 'treble_oct2', currentTonality: 'F', currentHanonType: 'groups4',
     speechSuppressor: 'solfege', bpm: 88, scoreNoteCount: 8,
-    photoExposureMs: 1100, showScaleHighlight: true,
+    photoExposureMs: 1100, showScaleHighlight: true, zenModeEnabled: true,
     isBlindfolded: true, isTabletopMode: true, audioEnabled: false
   });
   assert.equal(result.selectedLessonId, 8);
@@ -36,6 +36,7 @@ test('trainer settings validate known modes and ranges field by field', () => {
   assert.equal(result.photoExposureMs, 1100);
   assert.equal(result.audioEnabled, false);
   assert.equal(result.showScaleHighlight, true);
+  assert.equal(result.zenModeEnabled, true);
   assert.equal(result.currentHanonType, 'groups4');
   assert.equal(result.scoreNoteCount, 8);
 });
@@ -46,7 +47,7 @@ test('malformed values never crash or override defaults with invalid data', () =
   const p = validateTrainerPreferences({
     selectedLessonId: -1, bpm: Infinity, scoreNoteCount: 10000,
     currentAppMode: 'admin', currentTonality: '__proto__', photoExposureMs: -8,
-    isBlindfolded: 'true', audioEnabled: 0,
+    isBlindfolded: 'true', zenModeEnabled: 'true', audioEnabled: 0,
     currentFilter: 'bass' // preserve valid independent fields
   });
   assert.equal(p.selectedLessonId, 1);
@@ -56,6 +57,7 @@ test('malformed values never crash or override defaults with invalid data', () =
   assert.equal(p.currentTonality, 'C');
   assert.equal(p.photoExposureMs, 1800);
   assert.equal(p.isBlindfolded, false);
+  assert.equal(p.zenModeEnabled, false);
   assert.equal(p.audioEnabled, true);
   assert.equal(p.currentFilter, 'bass');
 });
@@ -66,7 +68,7 @@ test('saved envelope is versioned and excludes flow/grades/MIDI runtime', () => 
     globalThis.localStorage = store;
     const snapshot = selectTrainerPreferences({
       ...DEFAULT_TRAINER_PREFERENCES,
-      currentTonality: 'G', bpm: 100,
+      currentTonality: 'G', bpm: 100, zenModeEnabled: true,
       isContinuousFlow: true, totalAttempts: 250, completedLessons: [1, 2]
     });
     saveTrainerPreferences(snapshot);
@@ -75,6 +77,7 @@ test('saved envelope is versioned and excludes flow/grades/MIDI runtime', () => 
     assert.equal(envelope.version, 1);
     assert.equal(envelope.preferences.bpm, 100);
     assert.equal(envelope.preferences.currentTonality, 'G');
+    assert.equal(envelope.preferences.zenModeEnabled, true);
     assert.equal('isContinuousFlow' in envelope.preferences, false);
     assert.equal('totalAttempts' in envelope.preferences, false);
     assert.equal('completedLessons' in envelope.preferences, false);
