@@ -29,9 +29,9 @@ export const TrainerWorkspace: React.FC = () => {
     try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
   };
 
-  // Lookahead and photo use OSMD's actual note geometry. Other specialty
-  // modes still need separate guidance overlays; keep classic fallback.
-  const requiresLegacy = ['intervals', 'gpattern', 'hanon'].includes(currentAppMode) ||
+  // Interval guides now derive their anchor positions from OSMD's engraving.
+  // G-pattern, Hanon and bass landmarks still need legacy overlays.
+  const requiresLegacy = ['gpattern', 'hanon'].includes(currentAppMode) ||
     showBassLandmarks;
   const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
 

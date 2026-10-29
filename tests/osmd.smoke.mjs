@@ -62,8 +62,19 @@ try {
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'hidden', timeout: 5000 });
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-masked="true"]').length === 0);
 
-  // Remaining custom teaching overlays deliberately use the classic renderer.
+  // Interval guides are anchored to OSMD's own engraved note positions.
   await page.getByRole('button', { name: /5\. Интервалы/ }).click();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
+  const arc = page.locator('[data-notare-interval-overlay="true"]');
+  await arc.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await arc.count() > 0, 'interval guides must attach to OSMD SVG notes');
+  assert.equal(await renderError.count(), 0, 'OSMD interval guides should not fail');
+  await page.setViewportSize({ width: 768, height: 900 });
+  await arc.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await arc.count() > 0, 'interval guides remain after responsive resize');
+
+  // G-pattern still requires a special overlay and retains Classic.
+  await page.getByRole('button', { name: /6\. Буква «Г»/ }).click();
   await page.getByText(/временно использует классический стан/).waitFor();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
 
