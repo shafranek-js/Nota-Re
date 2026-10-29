@@ -1,53 +1,16 @@
 import React from 'react';
 import { useAppStore, WorkspaceTab } from '../../store/useAppStore';
-import { COURSE_CURRICULUM } from '../../data/curriculum';
 import { Settings, Volume2, VolumeX, Music } from 'lucide-react';
-import { BUILD_DETAILS } from '../../core/release/buildInfo';
 
 export const Header: React.FC = () => {
   const {
     currentWorkspace,
     switchWorkspace,
     completedLessons,
-    selectedLessonId,
-    currentAppMode,
-    currentFilter,
-    totalAttempts,
-    correctHits,
-    currentStreak,
-    bestStreak,
-    reactionTimes,
-    completedExercisesCount,
-    midiInputsCount,
     audioEnabled,
     toggleAudioMaster,
     toggleSettingsDrawer
   } = useAppStore();
-
-  const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
-  const accuracy = totalAttempts > 0 ? Math.round((correctHits / totalAttempts) * 100) : null;
-  const recentSpeeds = reactionTimes.slice(-15);
-  const avgSpeed = recentSpeeds.length > 0
-    ? Math.round(recentSpeeds.reduce((a, b) => a + b, 0) / recentSpeeds.length)
-    : null;
-
-  const modeLabels: Record<string, string> = {
-    reflex: 'Рефлекс',
-    rhythm: 'Ритмослоги',
-    lookahead: 'Бегунок (+1)',
-    photo: 'Фото-память',
-    intervals: 'Интервалы',
-    gpattern: 'Буква «Г»',
-    blind: 'Вслепую',
-    hanon: 'Ганон & Штрихи'
-  };
-
-  const filterLabels: Record<string, string> = {
-    treble: '200 упр. (C4-G4)',
-    treble_oct2: '2-я окт. (C4-D5)',
-    bass: 'Литовко (Бас)',
-    both: '2 руки (Буква Г)'
-  };
 
   const tabs: { id: WorkspaceTab; icon: string; label: string; badge?: string }[] = [
     { id: 'course', icon: '🎓', label: 'Курс (12 уроков)' },
@@ -71,18 +34,10 @@ export const Header: React.FC = () => {
               Курс: {completedLessons.length} / 12 уроков
             </span>
           </div>
-          <p className="text-[10px] text-slate-400 flex flex-wrap items-center gap-x-1">
-            <span data-testid="build-version" className="font-mono text-sky-300" title="Версия и ревизия кода, из которого собран интерфейс">
-              {BUILD_DETAILS}
-            </span>
-            <span className="hidden sm:inline">
-              · Урок {lesson.id} • {modeLabels[currentAppMode] || currentAppMode} • {filterLabels[currentFilter]}
-            </span>
-          </p>
         </div>
       </div>
 
-      {/* Центральный переключатель 5 рабочих пространств */}
+      {/* Центральный переключатель рабочих пространств */}
       <nav aria-label="Рабочие пространства" className="order-3 xl:order-none w-full xl:w-auto min-w-0 max-w-full flex items-center overflow-x-auto bg-slate-950 p-1 rounded-xl border border-slate-800 custom-scroll">
         {tabs.map(tab => {
           const isActive = currentWorkspace === tab.id;
@@ -109,43 +64,8 @@ export const Header: React.FC = () => {
         })}
       </nav>
 
-      {/* Правый блок: Телеметрия + MIDI + Звук + Настройки */}
+      {/* Правый блок: управление звуком и настройками */}
       <div className="flex items-center gap-2 shrink-0">
-        <div className="hidden 2xl:flex items-center gap-2.5 bg-slate-950/90 border border-slate-800 px-3 py-1 rounded-lg text-xs">
-          <div className="flex items-center gap-1" title="Точность попаданий в текущей сессии">
-            <span className="text-slate-500">Точность:</span>
-            <span className="font-mono font-bold text-emerald-400">{accuracy === null ? '—' : `${accuracy}%`}</span>
-            <span className="text-[10px] text-slate-500">({totalAttempts})</span>
-          </div>
-          <div className="w-px h-3.5 bg-slate-800"></div>
-          <div className="flex items-center gap-1" title="Непрерывная серия верных нот">
-            <span className="text-slate-500">Серия:</span>
-            <span className="font-mono font-bold text-sky-400">{currentStreak}</span>
-            <span className="text-[10px] text-slate-500">рек: {bestStreak}</span>
-          </div>
-          <div className="w-px h-3.5 bg-slate-800"></div>
-          <div className="flex items-center gap-1" title="Средняя скорость реакции (порог автоматизма < 550 мс)">
-            <span className="text-slate-500">Отклик:</span>
-            <span className="font-mono font-bold text-amber-400">{avgSpeed === null ? '—' : `${avgSpeed} ms`}</span>
-          </div>
-          <div className="w-px h-3.5 bg-slate-800"></div>
-          <div className="flex items-center gap-1" title="Сыграно однотипных номеров в серии">
-            <span className="text-slate-500">Номеров:</span>
-            <span className="font-mono font-bold text-purple-400">
-              {completedExercisesCount} / {lesson.normReps}
-            </span>
-          </div>
-        </div>
-
-        {/* MIDI Индикатор */}
-        <div 
-          className="hidden 2xl:flex items-center gap-1.5 px-2 py-1 rounded-lg bg-slate-950 border border-slate-800 text-[11px] font-mono text-slate-400"
-          title={midiInputsCount > 0 ? "MIDI-клавиатура подключена" : "MIDI-устройства не обнаружены"}
-        >
-          <span className={`w-2 h-2 rounded-full ${midiInputsCount > 0 ? 'bg-emerald-400 animate-pulse' : 'bg-slate-600'}`}></span>
-          <span>MIDI: {midiInputsCount}</span>
-        </div>
-
         {/* Звук кнопка */}
         <button
           onClick={toggleAudioMaster}
