@@ -16,6 +16,8 @@ import { useAppStore } from '../../../store/useAppStore';
 import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
+import { createLessonTwoHandScore } from '../../../core/training/lessonTwoHandScore';
+import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
@@ -69,8 +71,10 @@ export const TwoHandPractice: React.FC = () => {
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
   const exercise = useMemo(
-    () => createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
-    [practiceTonality, scoreNoteCount, pattern]
+    () => courseTrial
+      ? createLessonTwoHandScore(courseTrial.lessonId, practiceTonality)
+      : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
+    [courseTrial?.lessonId, practiceTonality, scoreNoteCount, pattern]
   );
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
@@ -312,6 +316,10 @@ export const TwoHandPractice: React.FC = () => {
       : null,
     [plan, timed, exercise]
   );
+  const releases = useMemo(() =>
+    assessment && courseTrial ? assessLessonReleases(exercise.score, timed) : null,
+    [assessment, courseTrial?.lessonId, exercise, timed]
+  );
   const restNow = plan !== null && !timed.finished &&
     clockMs >= plan.startMs &&
     !exercise.score.notes.some(note =>
@@ -340,6 +348,13 @@ export const TwoHandPractice: React.FC = () => {
               {pattern !== courseTrial.pattern && ' Выбран другой ритмический рисунок для дополнительной практики.'}
             </div>
           )}
+          {courseTrial && (
+            <p data-testid="two-hand-lesson-score" className="text-xs text-sky-300">
+              {courseTrial.lessonId === 11
+                ? 'Учебная партитура: бас на первую долю двух тактов; правая рука вступает на вторую.'
+                : 'Учебная партитура: правая рука — legato восьмыми; левая — staccato четвертями.'}
+            </p>
+          )}
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -353,7 +368,7 @@ export const TwoHandPractice: React.FC = () => {
           <label htmlFor="two-hand-pattern" className="text-xs text-slate-300">Ритмический рисунок</label>
           <select id="two-hand-pattern" data-testid="two-hand-pattern"
             aria-label="Ритмический рисунок двух рук"
-            disabled={!!plan && !timed.finished}
+            disabled={!!courseTrial || (!!plan && !timed.finished)}
             value={pattern}
             onChange={event => {
               resetTrial();
@@ -401,6 +416,21 @@ export const TwoHandPractice: React.FC = () => {
               : 'Диагностика: есть пункты для повторной тренировки'}
           </p>
           <p className="text-slate-300">Это диагностическая проверка, а не зачёт урока. Прогресс курса не изменяется.</p>
+          {releases && (
+            <div data-testid="two-hand-release-evidence" className="mt-2 border-t border-slate-600 pt-2 space-y-1">
+              <p>Физические отпускания: <strong>{releases.observed}/{releases.expected}</strong> ·
+                legato <strong>{releases.legato.observed}/{releases.legato.expected}</strong> ·
+                staccato <strong>{releases.staccato.observed}/{releases.staccato.expected}</strong></p>
+              <p data-testid="two-hand-release-verdict" className={releases.validated
+                ? 'text-emerald-300' : 'text-amber-300'}>
+                {releases.validated
+                  ? 'Длительность удержания по указанным штрихам проверена по NoteOff.'
+                  : 'Не все отпускания и длительности подтверждены MIDI.'}
+              </p>
+              <p className="text-slate-400">MIDI не распознаёт номера пальцев и не доказывает музыкальную выразительность legato.
+                Автоматический зачёт по этой проверке отключён.</p>
+            </div>
+          )}
           <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
             <span data-testid="two-hand-rh-accuracy">Правая рука: <strong>{assessment.right.matched}/{assessment.right.expected} ({assessment.right.accuracyPercent}%)</strong></span>
             <span data-testid="two-hand-lh-accuracy">Левая рука: <strong>{assessment.left.matched}/{assessment.left.expected} ({assessment.left.accuracyPercent}%)</strong></span>

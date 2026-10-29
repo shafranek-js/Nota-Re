@@ -37,6 +37,6 @@ export function getTwoHandCourseTrialPreset(lessonId: number | null): TwoHandCou
         pattern: 'eighth-rests',
         tonality: lesson.preset.tonality,
         bpm: lesson.preset.bpm,
-        description: 'Восьмые, удержания и паузы тренируют независимость рук. Штрихи Ганона и аппликатура здесь ещё не оцениваются.'
+        description: 'Короткий этюд: левая рука играет staccato четвертями, правая — legato восьмыми. MIDI проверяет время атак и отпусканий, но не подтверждает аппликатуру и выразительность.'
       };
 }

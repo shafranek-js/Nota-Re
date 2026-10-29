@@ -15,7 +15,13 @@ export interface TimedPracticeState {
   readonly held: readonly { note: number; channel: number }[];
   readonly captured: readonly { note: number; channel: number; atMs: number }[];
   /** Expected keys whose note-off is still pending; sustain CC64 does not count. */
-  readonly sustained: readonly { note: number; channel: number; untilMs: number }[];
+  readonly sustained: readonly {
+    note: number; channel: number; onsetTicks: number;
+    /** Minimum and maximum permitted physical key-hold times. */
+    minReleaseMs: number; untilMs: number
+  }[];
+  /** Successful key releases, keyed to the original score onset and pitch. */
+  readonly releasedNotes: readonly { onsetTicks: number; midi: number; atMs: number }[];
   readonly hits: number;
   readonly misses: number;
   readonly earlyReleases: number;
@@ -57,7 +63,7 @@ export function ticksToMs(ticks: number, bpm: number): number {
 
 export function initialTimedPractice(): TimedPracticeState {
   return {
-    stepIndex: 0, held: [], captured: [], sustained: [], hits: 0,
+    stepIndex: 0, held: [], captured: [], sustained: [], releasedNotes: [], hits: 0,
     misses: 0, earlyReleases: 0, overheldNotes: 0, wrongPitches: 0,
     offBeatNotes: 0, interruptions: 0, acceptedAttacks: [],
     hitOnsets: [], onsetDeviationsMs: [],
@@ -107,10 +113,17 @@ export function reduceTimedPractice(
     // Note-off has no device timestamp in the original event. The caller
     // may pass a receivedAtMs from the same MIDI arrival clock.
     const releasedAtMs = 'receivedAtMs' in event ? event.receivedAtMs : NaN;
-    const early = typeof releasedAtMs === 'number' && Number.isFinite(releasedAtMs) ?
-      releases.filter(k => releasedAtMs < k.untilMs - plan.holdGraceMs).length : 0;
+    const validRelease = typeof releasedAtMs === 'number' && Number.isFinite(releasedAtMs);
+    const early = validRelease
+      ? releases.filter(k => releasedAtMs < k.minReleaseMs - plan.holdGraceMs).length : 0;
+    const releasedNotes = validRelease ? [
+      ...currentState.releasedNotes,
+      ...releases.map(key => ({
+        onsetTicks: key.onsetTicks, midi: key.note, atMs: releasedAtMs
+      }))
+    ] : currentState.releasedNotes;
     return {
-      ...currentState, held, captured,
+      ...currentState, held, captured, releasedNotes,
       sustained: currentState.sustained.filter(k => k.note !== event.note || k.channel !== event.channel),
       earlyReleases: currentState.earlyReleases + early,
       feedback: early ? 'released-early' : currentState.feedback
@@ -194,9 +207,18 @@ export function reduceTimedPractice(
   for (const key of captured) {
     const scoreNote = score.notes.find(n => n.midi === key.note && n.onsetTicks === step.onsetTicks);
     if (scoreNote) {
+      const nominalStart = plan.startMs + ticksToMs(scoreNote.onsetTicks, plan.bpm);
+      const nominalDuration = ticksToMs(scoreNote.durationTicks, plan.bpm);
+      // A staccato quarter still occupies a quarter in MusicXML, but its
+      // physical key release must be earlier than a legato quarter.
+      // Allow a short sounding duration (20–65% of the written note)
+      // with the same hardware tolerance used for other note releases.
+      const staccato = scoreNote.articulation === 'staccato';
       sustained.push({
         note: key.note, channel: key.channel,
-        untilMs: plan.startMs + ticksToMs(scoreNote.onsetTicks + scoreNote.durationTicks, plan.bpm)
+        onsetTicks: scoreNote.onsetTicks,
+        minReleaseMs: nominalStart + nominalDuration * (staccato ? 0.2 : 1),
+        untilMs: nominalStart + nominalDuration * (staccato ? 0.65 : 1)
       });
     }
   }
