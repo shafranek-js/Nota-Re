@@ -1,4 +1,5 @@
-import React, { Suspense, useState } from 'react';
+import React, { Suspense } from 'react';
+import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
 import { useAppStore } from '../../../store/useAppStore';
 import { TrainerBanner } from './TrainerBanner';
 import { TrainerToolbar } from './TrainerToolbar';
@@ -10,29 +11,17 @@ import { PianoKeyboard } from './PianoKeyboard';
 const OsmdStaff = React.lazy(() => import('./OsmdStaff').then(m => ({ default: m.OsmdStaff })));
 const TwoHandPractice = React.lazy(() => import('./TwoHandPractice').then(m => ({ default: m.TwoHandPractice })));
 
-type ScoreRenderer = 'osmd' | 'legacy';
-const RENDERER_STORAGE_KEY = 'notare-score-renderer-v1';
-
-function getInitialRenderer(): ScoreRenderer {
-  try {
-    return localStorage.getItem(RENDERER_STORAGE_KEY) === 'legacy' ? 'legacy' : 'osmd';
-  } catch {
-    return 'osmd';
-  }
+interface TrainerWorkspaceProps {
+  renderer: ScoreRenderer;
+  onSelectRenderer: (renderer: ScoreRenderer) => void;
 }
 
-export const TrainerWorkspace: React.FC = () => {
+export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
   const { isTwoHandPracticeOpen, toggleTwoHandPractice } = useAppStore();
-  const [preferredRenderer, setPreferredRenderer] = useState<ScoreRenderer>(getInitialRenderer);
-
-  const selectRenderer = (next: ScoreRenderer) => {
-    setPreferredRenderer(next);
-    try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
-  };
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
-  const renderOsmd = preferredRenderer === 'osmd';
+  const renderOsmd = renderer === 'osmd';
 
   return (
     <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-y-auto lg:overflow-hidden">
@@ -60,10 +49,10 @@ export const TrainerWorkspace: React.FC = () => {
             <span className="text-slate-400 mr-1">Ноты:</span>
             <button
               type="button"
-              aria-pressed={preferredRenderer === 'osmd'}
-              onClick={() => selectRenderer('osmd')}
+              aria-pressed={renderer === 'osmd'}
+              onClick={() => onSelectRenderer('osmd')}
               className={'px-2 py-1 rounded border transition ' +
-                (preferredRenderer === 'osmd'
+                (renderer === 'osmd'
                   ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
                   : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white')}
             >
@@ -71,10 +60,10 @@ export const TrainerWorkspace: React.FC = () => {
             </button>
             <button
               type="button"
-              aria-pressed={preferredRenderer === 'legacy'}
-              onClick={() => selectRenderer('legacy')}
+              aria-pressed={renderer === 'legacy'}
+              onClick={() => onSelectRenderer('legacy')}
               className={'px-2 py-1 rounded border transition ' +
-                (preferredRenderer === 'legacy'
+                (renderer === 'legacy'
                   ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
                   : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white')}
             >
@@ -90,7 +79,7 @@ export const TrainerWorkspace: React.FC = () => {
               Подключение нотного движка…
             </div>
           }>
-            <OsmdStaff onRequestLegacy={() => selectRenderer('legacy')} />
+            <OsmdStaff onRequestLegacy={() => onSelectRenderer('legacy')} />
           </Suspense>
         ) : (
           <GrandStaffSvg />

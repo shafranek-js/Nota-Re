@@ -79,6 +79,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/release-version.smoke.mjs
+      - name: Verify technical status bar, renderer persistence and modal isolation
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/status-bar.smoke.mjs
       - name: Check five-workspace responsive and keyboard navigation
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
