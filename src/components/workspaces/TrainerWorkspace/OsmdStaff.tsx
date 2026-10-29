@@ -9,7 +9,7 @@ import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
-import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries } from '../../../core/notation/osmdGeometryAdapter';
+import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
