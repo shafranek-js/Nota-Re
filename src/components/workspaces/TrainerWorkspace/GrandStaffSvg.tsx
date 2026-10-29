@@ -117,7 +117,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
         <svg 
           viewBox="0 0 1720 305" 
           preserveAspectRatio={zen ? 'xMidYMid meet' : 'none'} 
-          className={zen ? 'w-full h-full max-h-[440px] select-none' : 'w-full h-full max-h-[370px] select-none'}
+          className={zen ? 'w-full h-full max-h-[440px] select-none' : 'w-full h-full max-h-[370px] lg:max-h-[325px] select-none'}
         >
           <defs>
             <linearGradient id="curtainGrad" x1="0" y1="0" x2="1" y2="0">
