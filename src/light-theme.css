@@ -178,8 +178,11 @@
   fill: #475569 !important;
 }
 :root[data-theme='light'] [data-notare-pedagogy='measure'],
-:root[data-theme='light'] [data-notare-pedagogy='syllable'] {
+:root[data-theme='light'] [data-notare-pedagogy='syllable']:not([data-notare-active='true']) {
   color: #475569 !important;
+}
+:root[data-theme='light'] [data-notare-pedagogy='syllable'][data-notare-active='true'] {
+  color: #0369a1 !important;
 }
 :root[data-theme='light'] [data-notare-pedagogy='finger'] {
   color: #be123c !important;
