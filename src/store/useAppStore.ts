@@ -44,6 +44,8 @@ export interface AppState {
   isContinuousFlow: boolean;
   isBlindfolded: boolean;
   isTabletopMode: boolean;
+  /** Dedicated, ungraded physical-MIDI polyphonic practice. */
+  isTwoHandPracticeOpen: boolean;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   photoExposureMs: number;
@@ -94,6 +96,7 @@ export interface AppState {
   toggleContinuousFlow: () => void;
   toggleBlindfoldKeys: () => void;
   toggleTabletopMode: () => void;
+  toggleTwoHandPractice: () => void;
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
   setPhotoExposure: (ms: number) => void;
@@ -214,6 +217,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedLessons: [],
   activeLessonId: null,
   isContinuousFlow: false,
+  isTwoHandPracticeOpen: false,
   isPhotoMasked: false,
   midiInputsCount: 0,
 
@@ -299,6 +303,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (tab !== 'trainer') stopFlowClock();
     set(state => ({
       currentWorkspace: tab,
+      isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
       activeLessonId: tab === 'trainer' ? state.activeLessonId : null
     }));
@@ -371,6 +376,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentAppMode: lesson.preset.mode,
       currentWorkspace: 'trainer',
       activeLessonId: lesson.id,
+      isTwoHandPracticeOpen: false,
       isTabletopMode: false
     });
 
@@ -390,7 +396,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setAppMode: (mode) => {
-    set({ currentAppMode: mode, activeLessonId: null });
+    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false });
     get().regenerateExercise();
   },
 
@@ -490,6 +496,19 @@ export const useAppStore = create<AppState>((set, get) => ({
     set((s) => ({ isTabletopMode: !s.isTabletopMode, activeLessonId: null }));
   },
 
+  toggleTwoHandPractice: () => {
+    const opening = !get().isTwoHandPracticeOpen;
+    // Never continue a timed course or credit an imagined MIDI trial.
+    stopFlowClock();
+    set({
+      isTwoHandPracticeOpen: opening,
+      isContinuousFlow: false,
+      activeLessonId: null,
+      completedExercisesCount: 0,
+      isExerciseFlawless: false
+    });
+  },
+
   toggleBassLandmarks: () => {
     set((s) => ({ showBassLandmarks: !s.showBassLandmarks, activeLessonId: null }));
   },
@@ -529,6 +548,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       ...DEFAULT_TRAINER_PREFERENCES,
       isContinuousFlow: false,
+      isTwoHandPracticeOpen: false,
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseAssisted: false,
@@ -578,7 +598,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Tabletop/imagined play is pedagogical practice, not a scored answer.
   advanceAssistedStep: () => {
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
     if (!target) return;
@@ -610,7 +630,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleUserTriggerNote: (noteName, fromMidi = false) => {
     // The hardware must remain audible during diagnostics, but neither
     // background MIDI nor keyboard shortcuts may inflate a course result.
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen) return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
