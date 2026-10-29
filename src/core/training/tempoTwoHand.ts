@@ -118,7 +118,7 @@ export function reduceTimedPractice(
   }
   const held = [...current.held, { note: event.note, channel: event.channel }];
   const step = steps[current.stepIndex];
-  if (!step || now < plan.startMs) return { ...current, held, feedback: 'count-in' };
+  if (!step || now < plan.startMs - plan.windowMs) return { ...current, held, feedback: 'count-in' };
 
   const expectedAtMs = plan.startMs + ticksToMs(step.onsetTicks, plan.bpm);
   const deviation = now - expectedAtMs;
