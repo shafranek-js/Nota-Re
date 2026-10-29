@@ -63,7 +63,7 @@ async function measureOne(browser, viewport) {
   try {
     await page.goto(PREVIEW_URL, { waitUntil: 'domcontentloaded', timeout: 30000 });
     const before = await page.evaluate(() => performance.now());
-    await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+    await page.getByRole('button', { name: /^Студия$/ }).click();
     const score = page.getByTestId('osmd-score');
     await score.waitFor({ state: 'visible', timeout: 45000 });
     await page.waitForFunction(() => {
