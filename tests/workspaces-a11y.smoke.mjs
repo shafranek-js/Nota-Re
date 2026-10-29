@@ -69,6 +69,7 @@ try {
       await page.keyboard.press('Enter');
       assert.equal(await nav.getByRole('button', { name: /Тренажёр-Студия/ })
         .getAttribute('aria-current'), 'page');
+      await page.getByTestId('toolbar-trigger-material').click();
       assert.equal(await page.locator('select').filter({
         has: page.locator('option[value="F"]')
       }).inputValue(), 'F');
@@ -89,6 +90,7 @@ try {
       await page.keyboard.press('Enter');
       assert.equal(await nav.getByRole('button', { name: /Тренажёр-Студия/ })
         .getAttribute('aria-current'), 'page');
+      await page.getByTestId('toolbar-trigger-mode').click();
       assert.ok(await page.getByRole('button', { name: /8\. Ганон/ }).count() > 0);
 
       // Library still scrolls and has no document-level horizontal overflow.
