@@ -483,7 +483,34 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       rect.setAttribute('fill-opacity', '0.35');
       stave.root.insertBefore(rect, stave.root.firstChild);
     }
-    return clear;
+    // Full-height piano-system barlines, matching the Classic grand staff.
+    // Native short barlines remain under these guides; genuine systems are
+    // joined, but unrelated instruments and independent staves are untouched.
+    const starts = getTrebleMeasureStarts(renderer, mount);
+    for (const measure of starts) {
+      const upperIndex = treble.findIndex(stave =>
+        stave.root === measure.root && Math.abs(stave.lineY(0) - measure.top) < 2
+      );
+      if (upperIndex < 0) continue;
+      const upper = treble[upperIndex];
+      const lower = bass[upperIndex];
+      if (!lower || lower.root !== measure.root) continue;
+      const line = document.createElementNS(svgNS, 'line');
+      line.setAttribute('data-notare-connected-barline', String(measure.number));
+      line.setAttribute('aria-hidden', 'true');
+      line.setAttribute('pointer-events', 'none');
+      line.setAttribute('x1', String(measure.x));
+      line.setAttribute('x2', String(measure.x));
+      line.setAttribute('y1', String(upper.lineY(0)));
+      line.setAttribute('y2', String(lower.lineY(4)));
+      line.setAttribute('stroke', '#475569');
+      line.setAttribute('stroke-width', '1.5');
+      measure.root.appendChild(line);
+    }
+    return () => {
+      clear();
+      mount.querySelectorAll('[data-notare-connected-barline]').forEach(el => el.remove());
+    };
   }, [loadState, renderEpoch]);
 
   // HTML overlay is intentionally OUTSIDE OSMD's generated SVG viewport:
