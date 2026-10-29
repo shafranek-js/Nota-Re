@@ -95,3 +95,32 @@ body {
   background: #334155; 
   border-radius: 3px; 
 }
+
+/* Scoped OSMD 2.2.1/VexFlow dark score. Never affect the Classic SVG or
+   separate two-hand MIDI practice. Note colors are applied by musical time. */
+.osmd-dark-theme,
+.osmd-dark-theme svg {
+  background: #0b1120 !important;
+  color: #f8fafc;
+}
+
+.osmd-dark-theme svg .vf-staveline path,
+.osmd-dark-theme svg .vf-stavebarline path {
+  stroke: #334155 !important;
+  fill: #334155 !important;
+}
+
+.osmd-dark-theme svg .vf-staveconnector path {
+  stroke: #475569 !important;
+  fill: #475569 !important;
+}
+
+.osmd-dark-theme svg .vf-timesignature path {
+  fill: #64748b !important;
+}
+
+.osmd-dark-theme svg .vf-fingering text,
+.osmd-dark-theme svg .vf-lyrics text {
+  font-family: 'JetBrains Mono', monospace;
+  fill: #94a3b8;
+}

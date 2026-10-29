@@ -42,6 +42,8 @@ export interface XmlOptions {
   /** Optional pedagogical labels, off by default to keep engraving clean. */
   readonly includeFingering?: boolean;
   readonly includeSyllables?: boolean;
+  /** Suppress only filler rests on a staff that has no notes anywhere in the score. */
+  readonly hideInactiveStaffRests?: boolean;
 }
 
 const FIFTHS: Record<SupportedKey, number> = { C: 0, G: 1, F: -1, D: 2 };
@@ -241,10 +243,10 @@ function midiPitch(midi: number, fifths: number): string {
     '<octave>' + octave + '</octave></pitch>';
 }
 
-function renderRest(durationTicks: number, staff: StaffNumber): string {
+function renderRest(durationTicks: number, staff: StaffNumber, hidden = false): string {
   let xml = '';
   for (const part of chunks(durationTicks)) {
-    xml += '<note><rest/><duration>' + part.duration + '</duration><voice>' + staff +
+    xml += (hidden ? '<note print-object="no">' : '<note>') + '<rest/><duration>' + part.duration + '</duration><voice>' + staff +
       '</voice><type>' + part.type + '</type>' +
       (part.dotted ? '<dot/>' : '') + '<staff>' + staff + '</staff></note>';
   }
@@ -318,6 +320,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
     }
 
     for (const staff of [1, 2] as const) {
+      const silentStaff = !!options.hideInactiveStaffRests && !score.notes.some(note => note.staff === staff);
       if (staff === 2) xml += '<backup><duration>' + TICKS_PER_BAR + '</duration></backup>';
       let cursor = begin;
       const staffNotes = score.notes.filter(n => n.staff === staff &&
@@ -341,7 +344,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         const start = Math.max(begin, event.onsetTicks);
         const finish = Math.min(end, event.onsetTicks + event.durationTicks);
         if (start < cursor) throw new Error('Overlapping notes in one staff are not supported yet.');
-        if (start > cursor) xml += renderRest(start - cursor, staff);
+        if (start > cursor) xml += renderRest(start - cursor, staff, silentStaff);
         let segmentStart = start;
         for (const part of chunks(finish - start)) {
           const segmentEnd = segmentStart + part.duration;
@@ -353,7 +356,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         }
         cursor = finish;
       }
-      if (cursor < end) xml += renderRest(end - cursor, staff);
+      if (cursor < end) xml += renderRest(end - cursor, staff, silentStaff);
     }
     xml += '</measure>';
   }

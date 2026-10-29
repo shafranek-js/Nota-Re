@@ -79,10 +79,26 @@ export function getEngravedNotePoint(
   return null;
 }
 
+/** Five-line treble staves for positioning measure labels above OSMD systems. */
+export function getTrebleStaveGeometries(
+  renderer: OpenSheetMusicDisplay,
+  mount: HTMLElement
+): BassStaveGeometry[] {
+  return getPianoStaveGeometries(renderer, mount, 0);
+}
+
 /** Verified five-line bass staves, one span per OSMD music system. */
 export function getBassStaveGeometries(
   renderer: OpenSheetMusicDisplay,
   mount: HTMLElement
+): BassStaveGeometry[] {
+  return getPianoStaveGeometries(renderer, mount, 1);
+}
+
+function getPianoStaveGeometries(
+  renderer: OpenSheetMusicDisplay,
+  mount: HTMLElement,
+  staffIndex: 0 | 1
 ): BassStaveGeometry[] {
   type VexStave = {
     getX: () => number;
@@ -98,9 +114,9 @@ export function getBassStaveGeometries(
     page.MusicSystems.forEach(system => {
       // MusicXML two-staff piano layout: treble 0, bass 1.
       if (system.StaffLines.length !== 2) return;
-      const bass = system.StaffLines[1];
-      if (bass.ParentStaff.StafflineCount !== 5) return;
-      const measures = bass.Measures;
+      const stave = system.StaffLines[staffIndex];
+      if (stave.ParentStaff.StafflineCount !== 5) return;
+      const measures = stave.Measures;
       if (!measures.length) return;
       const first = (measures[0] as VexMeasure).getVFStave?.();
       const last = (measures[measures.length - 1] as VexMeasure).getVFStave?.();

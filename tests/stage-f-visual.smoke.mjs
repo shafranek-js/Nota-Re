@@ -75,8 +75,16 @@ try {
   });
 
   for (const width of sizes) {
+    const previousWidthEpoch = Number(await page.getByTestId('osmd-score')
+      .getAttribute('data-osmd-render-epoch'));
     await page.setViewportSize({ width, height: width <= 375 ? 720 : 900 });
     await ready();
+    // A previous SVG can remain visible while ResizeObserver queues a fresh
+    // engraving. Measure only the actual engraving at the requested width.
+    await page.waitForFunction(previous => {
+      const score = document.querySelector('[data-testid="osmd-score"]');
+      return Number(score?.getAttribute('data-osmd-render-epoch')) > previous;
+    }, previousWidthEpoch, { timeout: 35000 });
     await checkWidth(`OSMD ${width}`);
     const normal = await osmdGeometry();
     assert.ok(normal.noteheadCount > 0, `OSMD ${width}: actual rendered noteheads required`);
@@ -100,9 +108,11 @@ try {
     if (width >= 768) {
       assert.ok(zen.scoreAreaHeightPx > normal.scoreAreaHeightPx + 30,
         `Zen ${width}: reclaimed vertical space expected`);
-      const minGrowth = width >= 1024 ? 1.4 : 1.10;
+      // Normal Studio now grows to 1.45 at wide widths, close to Zen's
+      // 1.5 cap; the former 40% Zen growth requirement is no longer valid.
+      const minGrowth = width >= 1400 ? 1.0 : width >= 1024 ? 1.20 : 1.10;
       assert.ok(zen.medianHeadWidthPx >= normal.medianHeadWidthPx * minGrowth,
-        `Zen ${width}: real noteheads must grow, not just the empty container (${normal.medianHeadWidthPx} -> ${zen.medianHeadWidthPx}px)`);
+        `Zen ${width}: preserve true engraved scale at both sizes (${normal.medianHeadWidthPx} -> ${zen.medianHeadWidthPx}px)`);
     } else {
       assert.ok(zen.medianHeadWidthPx >= 11.5 && zen.medianHeadWidthPx >= normal.medianHeadWidthPx,
         `Zen ${width}: phone noteheads must retain the original ~12px readability baseline`);

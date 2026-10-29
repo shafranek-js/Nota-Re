@@ -45,6 +45,27 @@ try {
 
   const renderError = page.getByText('Ошибка нотного движка:', { exact: false });
   assert.equal(await renderError.count(), 0, 'OSMD must not show an error on first load');
+
+  // Real rendered dark-theme parity: no paper viewport, native cursor
+  // hidden, correct musical-state colors, matching lesson labels.
+  await page.waitForFunction(() =>
+    document.querySelector('[data-notare-note-state="active"]') &&
+    document.querySelector('[data-notare-active-ring="true"]') &&
+    document.querySelector('[data-notare-pedagogy="syllable"]'));
+  const score = page.getByTestId('osmd-score');
+  assert.equal(await score.locator('.bg-white').count(), 0,
+    'OSMD must not render a white paper container');
+  assert.match(await score.innerText(), /Такт:\s*1\s*\/\s*\d+/);
+  assert.match(await score.innerText(), /Фокус:\s*Прямой рефлекс/);
+  assert.equal(await score.getByText('OSMD · MusicXML').count(), 0,
+    'technical labels must not displace lesson information');
+  assert.equal(await score.locator('[data-notare-active-ring="true"]').count(), 1);
+  assert.ok(await score.locator('[data-notare-pedagogy="measure"]').count() >= 1);
+  assert.equal(await svg.evaluate(node => getComputedStyle(node).backgroundColor), 'rgb(11, 17, 32)');
+  assert.equal(await score.locator('[data-notare-note-state="active"] .vf-notehead path')
+    .first().evaluate(node => node.style.fill), 'rgb(245, 158, 11)',
+    'active notehead must be amber rather than VexFlow default black');
+
   // OSMD may clear and rebuild its SVG asynchronously after a resize.
   // Wait for a NEW completed engraving epoch plus a restored overlay, rather
   // than observing the old overlay just before it disappears.
