@@ -46,14 +46,10 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
         ? <CourseLessonControls />
         : <><TrainerBanner /><TrainerToolbar /></>)}
       {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-2" role="status" data-testid="trainer-setup">
-          <p className="text-sm text-sky-100">Настройте упражнение и нажмите «Начать упражнение» на панели. Ноты пока не оцениваются.</p>
-        </div>
-      )}
-      {!zenActive && !isTwoHandPracticeOpen && !courseLessonActive && (
-        <div className="shrink-0 flex items-center px-1">
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-1.5" data-testid="trainer-setup">
+          <p className="text-xs text-sky-100">Упражнение готово · Ноты пока не оцениваются</p>
           <button type="button" onClick={openTrainerPrecheck}
-            className="rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1 text-xs text-sky-300 hover:bg-sky-900/40">
+            className="shrink-0 rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
             Анализ перед игрой
           </button>
         </div>
