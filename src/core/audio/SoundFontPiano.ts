@@ -42,7 +42,6 @@ function savePreference(key: string, value: string): void {
  */
 export class SoundFontPiano {
   private synth: WorkletSynthesizer | null = null;
-  private context: AudioContext | null = null;
   private generation = 0;
   private loading: Promise<void> | null = null;
   private status: SoundFontStatus = {
@@ -88,7 +87,6 @@ export class SoundFontPiano {
     if (this.loading) return this.loading;
     if (this.status.phase === 'error' && !retry) return Promise.resolve();
     const generation = ++this.generation;
-    this.context = context;
     const source = this.status.source;
     this.report({ phase: 'loading', error: null });
     const work = (async () => {
