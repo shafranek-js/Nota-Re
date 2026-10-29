@@ -92,6 +92,27 @@ test('saved envelope is versioned and excludes flow/grades/MIDI runtime', () => 
   }
 });
 
+test('older automatic keyboard labels migrate to note names without losing user choices', () => {
+  const store = memoryStorage();
+  try {
+    globalThis.localStorage = store;
+    const saved = { ...DEFAULT_TRAINER_PREFERENCES, keyboardLabelMode: 'auto', bpm: 85 };
+    store.setItem(TRAINER_PREFERENCES_KEY,
+      JSON.stringify({ version: 1, preferences: saved }));
+    assert.equal(loadTrainerPreferences().keyboardLabelMode, 'notes');
+    assert.equal(loadTrainerPreferences().bpm, 85, 'unrelated saved preferences survive migration');
+    for (const mode of ['notes', 'off', 'pc']) {
+      saved.keyboardLabelMode = mode;
+      store.setItem(TRAINER_PREFERENCES_KEY,
+        JSON.stringify({ version: 1, preferences: saved }));
+      assert.equal(loadTrainerPreferences().keyboardLabelMode, mode,
+        'explicit user selection must be preserved');
+    }
+  } finally {
+    globalThis.localStorage = originalStorage;
+  }
+});
+
 test('course progress filters invalid and duplicate lesson IDs', () => {
   assert.deepEqual(validateCompletedLessons([1, '2', 2, 2, 13, 0, -1, 3.5, {}, 12]),
     [1, 2, 12]);
