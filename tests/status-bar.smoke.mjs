@@ -37,7 +37,7 @@ try {
       assert.ok(bounds.buildRight <= bounds.viewportWidth + 1, 'build identity must remain visible on small screens');
 
       await page.getByRole('navigation', { name: 'Рабочие пространства' })
-        .getByRole('button', { name: /Тренажёр-Студия/ }).click();
+        .getByRole('button', { name: /^Студия$/ }).click();
       await page.getByRole('button', { name: 'Классический' }).click();
       assert.match(await status.getByTestId('status-renderer').innerText(), /SVG/);
       await page.reload({ waitUntil: 'domcontentloaded' });

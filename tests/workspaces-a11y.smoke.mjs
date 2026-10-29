@@ -62,12 +62,14 @@ try {
 
       // Tonality cards should be keyboard focusable and launch the selected
       // pitch in the trainer, not silently ignore Enter/Space.
-      await nav.getByRole('button', { name: /Доигровой анализ/ }).click();
+      await nav.getByRole('button', { name: /^Студия$/ }).click();
+      const studioNav = page.getByRole('navigation', { name: 'Разделы Студии' });
+      await studioNav.getByRole('button', { name: 'Подготовка' }).click();
       await assertPageWidth('precheck');
       const tone = page.getByTestId('precheck-tonality-F');
       await tone.focus();
       await page.keyboard.press('Enter');
-      assert.equal(await nav.getByRole('button', { name: /Тренажёр-Студия/ })
+      assert.equal(await nav.getByRole('button', { name: /^Студия$/ })
         .getAttribute('aria-current'), 'page');
       await page.getByTestId('toolbar-trigger-material').click();
       assert.equal(await page.locator('select').filter({
@@ -76,25 +78,25 @@ try {
 
       // Hanon and rhythm options must use native buttons, and activating
       // a Hanon card should load its exact preset.
-      await nav.getByRole('button', { name: /Лаборатория/ }).click();
+      await studioNav.getByRole('button', { name: 'Лаборатория' }).click();
       await assertPageWidth('lab');
       assert.equal(await page.locator('[data-testid^="lab-hanon-"]').count(), 4);
       assert.equal(await page.locator('[data-testid^="lab-rhythm-"]').count(), 4);
       const rhythm = page.getByTestId('lab-rhythm-ta');
       await rhythm.focus();
       await page.keyboard.press('Space');
-      assert.equal(await nav.getByRole('button', { name: /Лаборатория/ })
+      assert.equal(await studioNav.getByRole('button', { name: 'Лаборатория' })
         .getAttribute('aria-current'), 'page', 'rhythm audio preview must not navigate');
       const hanon = page.getByTestId('lab-hanon-groups4');
       await hanon.focus();
       await page.keyboard.press('Enter');
-      assert.equal(await nav.getByRole('button', { name: /Тренажёр-Студия/ })
+      assert.equal(await nav.getByRole('button', { name: /^Студия$/ })
         .getAttribute('aria-current'), 'page');
       await page.getByTestId('toolbar-trigger-mode').click();
       assert.ok(await page.getByRole('button', { name: /8\. Ганон/ }).count() > 0);
 
       // Library still scrolls and has no document-level horizontal overflow.
-      await nav.getByRole('button', { name: /Библиотека/ }).click();
+      await nav.getByRole('button', { name: /^База знаний$/ }).click();
       await assertPageWidth('library');
       assert.ok(await page.getByText(/Каталог пособий/).count() > 0);
       if (viewport.width <= 375) {
@@ -105,15 +107,15 @@ try {
       }
 
       // Trainer must remain usable when navigating back after any of these.
-      await nav.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+      await nav.getByRole('button', { name: /^Студия$/ }).click();
       await assertPageWidth('trainer');
       assert.equal(await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).count(), 1);
     } finally {
       await page.close();
     }
   }
-  assert.deepEqual(errors, [], 'no uncaught Chrome errors during five-workspace navigation');
-  console.log('Five-workspace responsive UAT passed: 320/375/768/1024/1440 widths, course/tonality/Hanon/rhythm keyboard controls.');
+  assert.deepEqual(errors, [], 'no uncaught Chrome errors during three destinations and Studio sections');
+  console.log('Three-destination + embedded Studio responsive UAT passed: 320/375/768/1024/1440 widths, course/tonality/Hanon/rhythm keyboard controls.');
 } finally {
   await browser.close();
 }

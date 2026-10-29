@@ -88,13 +88,13 @@ export const PrecheckWorkspace: React.FC = () => {
               <span className="text-xs font-mono uppercase px-2.5 py-0.5 rounded bg-sky-500/15 text-sky-300 border border-sky-500/30 font-semibold">
                 Видео 1 (VCwxNO_LGj4) • Таймкод 01:33 – 03:30
               </span>
-              <span className="text-xs text-slate-400">Обязательный доигровой протокол</span>
+              <span className="text-xs text-slate-400">Рекомендованная подготовка</span>
             </div>
             <h2 className="text-lg font-bold text-white mb-1">
               🧭 5-шаговый алгоритм подготовки к чтению новой пьесы
             </h2>
             <p className="text-xs text-slate-300 mb-4 leading-relaxed">
-              Профессиональное чтение с листа начинается за 30 секунд до первого звука. Пройдите 5 шагов визуального сканирования:
+              Этот методический справочник помогает подготовиться к новой пьесе. Он не подменяет интерактивный Precheck текущего упражнения; для практики анализ добровольный.
             </p>
 
             <div className="space-y-2.5 text-xs">

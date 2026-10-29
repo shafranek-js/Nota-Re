@@ -47,7 +47,7 @@ try {
   assert.equal(await page.evaluate(() => window.__soundFontProbe.connections), 1,
     'SpessaSynth worklet must connect its main stereo output to the browser');
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.evaluate(() => {
     const probe = window.__soundFontProbe;
     probe.peakRms = 0;

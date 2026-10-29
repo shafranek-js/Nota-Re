@@ -69,7 +69,7 @@ try {
     'correctly played slot must not be counted again as missed at its deadline');
 
   // Leaving the trainer stops the clock and prevents background misses.
-  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
+  await page.getByRole('button', { name: /^Курс$/ }).click();
   const stoppedAt = await attempts();
   await page.waitForTimeout(1800);
   assert.equal(await attempts(), stoppedAt, 'navigation away cancels background flow');
@@ -103,7 +103,7 @@ try {
 
   // Entering imagined/tabletop practice while flow runs must cancel the
   // audio clock; otherwise missed notes continue behind the practice overlay.
-  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
+  await page.getByRole('button', { name: /^Курс$/ }).click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await running.waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');

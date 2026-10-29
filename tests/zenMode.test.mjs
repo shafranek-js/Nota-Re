@@ -4,6 +4,7 @@ import { isZenActive } from '../src/core/training/zenMode.ts';
 
 const base = {
   currentWorkspace: 'trainer',
+  studioSection: 'practice',
   trainerPhase: 'playing',
   isTwoHandPracticeOpen: false,
   zenModeEnabled: true
@@ -15,6 +16,8 @@ test('Zen only activates in a live single-staff training phase', () => {
     assert.equal(isZenActive({ ...base, trainerPhase: phase }), false, phase);
   }
   assert.equal(isZenActive({ ...base, currentWorkspace: 'course' }), false);
+  assert.equal(isZenActive({ ...base, studioSection: 'lab' }), false);
+  assert.equal(isZenActive({ ...base, studioSection: 'precheck' }), false);
   assert.equal(isZenActive({ ...base, isTwoHandPracticeOpen: true }), false);
   assert.equal(isZenActive({ ...base, zenModeEnabled: false }), false);
 });

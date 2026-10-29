@@ -51,6 +51,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/zen-mode.smoke.mjs
+      - name: Verify three destinations, Course continuation and embedded Studio tools
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/studio-navigation.smoke.mjs
       - name: Exercise OSMD with real browser
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

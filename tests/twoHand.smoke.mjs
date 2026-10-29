@@ -25,7 +25,7 @@ try {
 
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.__twoHandMidi.input.onmidimessage === 'function');
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   const attempts = async () => {
     const value = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
     return Number(/\((\d+)\)/.exec(value)?.[1]);

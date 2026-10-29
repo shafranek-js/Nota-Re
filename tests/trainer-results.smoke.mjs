@@ -17,7 +17,7 @@ try {
     try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       await page.getByRole('navigation', { name: 'Рабочие пространства' })
-        .getByRole('button', { name: /Тренажёр-Студия/ }).click();
+        .getByRole('button', { name: /^Студия$/ }).click();
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
       // The default score contains 16 notes; the density button selects 8.
       await page.getByTestId('toolbar-trigger-material').click();

@@ -48,7 +48,7 @@ try {
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
   // Only an active trainer grades notes; MIDI in course/settings remains
   // audible but is intentionally ignored by lesson certification.
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
 
   const attempts = async () => {
     const text = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
