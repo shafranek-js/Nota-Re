@@ -25,6 +25,9 @@ export interface TimedPracticeState {
   readonly offBeatNotes: number;
   /** MIDI disconnect/panic prevents treating a run as independently verified. */
   readonly interruptions: number;
+  /** Every physically correct on-time NoteOn, independently of whether
+   * the other hand completed the chord. Deduplicated by onset and pitch. */
+  readonly acceptedAttacks: readonly { onsetTicks: number; midi: number; atMs: number }[];
   /** A completed onset represents every required pitch on both staves. */
   readonly hitOnsets: readonly number[];
   /** Worst absolute deviation among all attacks in each successful onset. */
@@ -56,7 +59,8 @@ export function initialTimedPractice(): TimedPracticeState {
   return {
     stepIndex: 0, held: [], captured: [], sustained: [], hits: 0,
     misses: 0, earlyReleases: 0, overheldNotes: 0, wrongPitches: 0,
-    offBeatNotes: 0, interruptions: 0, hitOnsets: [], onsetDeviationsMs: [],
+    offBeatNotes: 0, interruptions: 0, acceptedAttacks: [],
+    hitOnsets: [], onsetDeviationsMs: [],
     lastDeviationMs: null, feedback: 'count-in', finished: false
   };
 }
@@ -166,6 +170,15 @@ export function reduceTimedPractice(
   if (current.captured.some(k => k.note === event.note)) {
     return { ...current, held };
   }
+  // Attribute note accuracy to its OWN staff, even if the other hand
+  // fails a simultaneous chord. The chord still requires all pitches
+  // overlapping before the musical onset is considered successful.
+  const acceptedAttacks = current.acceptedAttacks.some(key =>
+    key.onsetTicks === step.onsetTicks && key.midi === event.note)
+    ? current.acceptedAttacks
+    : [...current.acceptedAttacks, {
+        onsetTicks: step.onsetTicks, midi: event.note, atMs: now
+      }];
   const first = Math.min(now, ...current.captured.map(k => k.atMs));
   const captured = now - first > plan.overlapMs
     ? [{ note: event.note, channel: event.channel, atMs: now }]
@@ -173,7 +186,7 @@ export function reduceTimedPractice(
   const matches = step.expectedMidi.every(pitch =>
     captured.some(k => k.note === pitch &&
       held.some(h => h.note === pitch && h.channel === k.channel)));
-  if (!matches) return { ...current, held, captured, feedback: 'partial' };
+  if (!matches) return { ...current, held, captured, acceptedAttacks, feedback: 'partial' };
 
   // Hold targets are anchored at the SCORE's actual duration, not at the next
   // right-hand attack. The LH half-note must survive the intermediate beat.
@@ -189,7 +202,7 @@ export function reduceTimedPractice(
   }
   const stepIndex = current.stepIndex + 1;
   return {
-    ...current, held, captured: [], sustained,
+    ...current, held, captured: [], sustained, acceptedAttacks,
     stepIndex, hits: current.hits + 1,
     hitOnsets: [...current.hitOnsets, step.onsetTicks],
     onsetDeviationsMs: [...current.onsetDeviationsMs,
