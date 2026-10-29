@@ -12,12 +12,10 @@ export const Header: React.FC = () => {
     toggleSettingsDrawer
   } = useAppStore();
 
-  const tabs: { id: WorkspaceTab; icon: string; label: string; badge?: string }[] = [
-    { id: 'course', icon: '🎓', label: 'Курс (12 уроков)' },
-    { id: 'trainer', icon: '🎹', label: 'Тренажёр-Студия' },
-    { id: 'precheck', icon: '🧭', label: 'Доигровой анализ & Круг' },
-    { id: 'lab', icon: '💪', label: 'Лаборатория', badge: 'Ганон & Ритм' },
-    { id: 'theory', icon: '📚', label: 'Библиотека (60+ книг)' }
+  const tabs: { id: WorkspaceTab; label: string }[] = [
+    { id: 'course', label: 'Курс' },
+    { id: 'trainer', label: 'Студия' },
+    { id: 'theory', label: 'База знаний' }
   ];
 
   return (
@@ -52,13 +50,7 @@ export const Header: React.FC = () => {
                   : 'text-slate-400 hover:text-white'
               }`}
             >
-              <span>{tab.icon}</span>
               <span>{tab.label}</span>
-              {tab.badge && (
-                <span className="hidden xl:inline text-[10px] px-1.5 py-0.2 rounded bg-rose-500/20 text-rose-300 border border-rose-500/30">
-                  {tab.badge}
-                </span>
-              )}
             </button>
           );
         })}
