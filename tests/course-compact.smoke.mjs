@@ -23,7 +23,7 @@ try {
       const toolbar = page.getByTestId('course-toolbar');
       const tabs = page.getByRole('navigation', { name: 'Модули курса' });
       const launch = page.getByTestId('course-launch-selected');
-      const list = page.getByTestId('course-lesson-list');
+      const list = page.getByTestId('course-list-scroll');
       assert.equal(await tabs.getByRole('button').count(), 5);
       assert.match(await page.getByTestId('course-module-all').innerText(), /2\/12/);
       assert.match(await page.getByTestId('course-module-I').innerText(), /2\/3/);
@@ -36,7 +36,7 @@ try {
         document: document.documentElement.scrollWidth,
         toolbarHeight: document.querySelector('[data-testid="course-toolbar"]').getBoundingClientRect().height,
         visibleLessons: (() => {
-          const area = document.querySelector('[data-testid="course-lesson-list"]').getBoundingClientRect();
+          const area = document.querySelector('[data-testid="course-list-scroll"]').getBoundingClientRect();
           return [...document.querySelectorAll('[data-testid^="course-lesson-"]')]
             .filter(el => el.getBoundingClientRect().bottom <= area.bottom + 1).length;
         })()
@@ -83,7 +83,7 @@ try {
         // above it, not move behind the bottom of a long lesson.
         await page.getByTestId('course-detail-scroll').evaluate(el => { el.scrollTop = el.scrollHeight; });
         const rect = await launch.boundingBox();
-        const card = await page.getByTestId('course-lesson-panel').boundingBox();
+        const card = await page.getByTestId('course-detail-panel').boundingBox();
         assert.ok(rect && card && rect.y >= card.y && rect.y + rect.height <= card.y + card.height,
           'start stays inside the selected card when its contents scroll');
       }
