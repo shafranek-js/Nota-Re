@@ -70,9 +70,15 @@ then again on the merged `main` commit. Chrome tests cover:
   banner and setup toolbar are replaced by a compact **Back / progress /
   tempo / audio / Settings / Stop / Exit** strip. Focus is opt-in and
   persisted; toggling it never changes the MIDI/audio/grading clock.
-- Check both OSMD and Classic on 320, 375, 768, 1440 and 1920px screens.
-  Confirm the actual *staves and noteheads* remain readable, not merely that
-  the score container becomes taller. Verify that the piano remains usable.
+- Check both OSMD and Classic on 320, 375, 768, 1024, 1440 and 1920px.
+  In OSMD Zen, the notation renderer uses a responsive engraving zoom rather
+  than a fixed 0.8 scale in a large blank white canvas. The screenshot matrix
+  records physical notehead widths **before / during / after Zen** and fails
+  if real glyphs do not grow at 768px+ or do not return to their standard
+  size on exit. The zoom is unchanged at phone widths.
+- Verify the *actual staves, clefs, accidentals, noteheads, pedagogical guides
+  and keyboard* remain readable and scrollable after the change. Automated
+  dimensions cannot replace the real display legibility inspection.
 - In Photo Mode, the mask must still hide target pitches from all captions,
   with the **Вспышка такта** action available while in Zen.
   In Rhythm mode, the relevant sample and speech options remain reachable.
