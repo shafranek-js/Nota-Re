@@ -13,6 +13,9 @@ const completed = (overrides = {}) => ({
   finished: true,
   hits: steps.length,
   hitOnsets: steps.map(step => step.onsetTicks),
+  acceptedAttacks: score.notes.map(n => ({
+    onsetTicks: n.onsetTicks, midi: n.midi, atMs: 10000 + n.onsetTicks * 250
+  })),
   onsetDeviationsMs: steps.map(() => 45),
   ...overrides
 });
@@ -34,17 +37,23 @@ test('a missed concurrent attack loses credit separately in both affected staves
   const missing = steps.find(step => step.expectedMidi.length === 2);
   assert.ok(missing, 'test rhythm needs at least one simultaneous attack');
   const hitOnsets = steps.map(x => x.onsetTicks).filter(tick => tick !== missing.onsetTicks);
+  // Bass entered correctly at the shared onset; treble did not.
+  const acceptedAttacks = score.notes
+    .filter(n => n.onsetTicks !== missing.onsetTicks || n.staff === 2)
+    .map(n => ({ onsetTicks: n.onsetTicks, midi: n.midi,
+      atMs: 10000 + n.onsetTicks * 250 }));
   const result = assessPolyphonicPractice(score, steps, completed({
     hits: hitOnsets.length, misses: 1,
-    hitOnsets, onsetDeviationsMs: hitOnsets.map(() => 20)
+    hitOnsets, acceptedAttacks, onsetDeviationsMs: hitOnsets.map(() => 20)
   }));
   assert.equal(result.complete, true);
   assert.equal(result.clean, false);
   assert.equal(result.readyForCourseTrial, false);
   assert.ok(result.right.matched < result.right.expected);
-  assert.ok(result.left.matched < result.left.expected);
+  assert.equal(result.left.matched, result.left.expected,
+    'a correct bass note must not be blamed for a missing treble note');
   assert.ok(result.recommendations.some(s => s.includes('правой')));
-  assert.ok(result.recommendations.some(s => s.includes('левой')));
+  assert.ok(!result.recommendations.some(s => s.includes('левой')));
 });
 
 test('one-hand-only hit cannot earn the other hand credit by silence or held notes', () => {
@@ -54,7 +63,10 @@ test('one-hand-only hit cannot earn the other hand credit by silence or held not
   const onsets = onlyLeft.map(step => step.onsetTicks);
   const result = assessPolyphonicPractice(score, steps, completed({
     hits: onsets.length, misses: steps.length - onsets.length,
-    hitOnsets: onsets, onsetDeviationsMs: onsets.map(() => 10)
+    hitOnsets: onsets,
+    acceptedAttacks: score.notes.filter(n => n.staff === 2 && onsets.includes(n.onsetTicks))
+      .map(n => ({ onsetTicks: n.onsetTicks, midi: n.midi, atMs: 10000 + n.onsetTicks * 250 })),
+    onsetDeviationsMs: onsets.map(() => 10)
   }));
   assert.equal(result.right.matched, 0);
   assert.ok(result.left.matched > 0);
@@ -83,7 +95,9 @@ test('incomplete, inconsistent, duplicated or tampered evidence is never accepte
     { hitOnsets: steps.map(() => 0) },
     { onsetDeviationsMs: [10] },
     { hitOnsets: [...steps.map(x => x.onsetTicks), 999] },
-    { onsetDeviationsMs: steps.map(() => NaN) }
+    { onsetDeviationsMs: steps.map(() => NaN) },
+    { acceptedAttacks: [] },
+    { acceptedAttacks: [...completed().acceptedAttacks, completed().acceptedAttacks[0]] }
   ];
   for (const changes of variants) {
     const result = assessPolyphonicPractice(score, steps, completed(changes));
@@ -91,4 +105,23 @@ test('incomplete, inconsistent, duplicated or tampered evidence is never accepte
   }
   assert.throws(() => assessPolyphonicPractice(score, steps, completed(), NaN));
   assert.throws(() => assessPolyphonicPractice(score, [], completed()), /Invalid/);
+});
+
+test('a lone correct bass NoteOn is reported independently when right-hand chord fails', async () => {
+  const { createTwoHandPractice } = await import('../src/core/training/twoHandPractice.ts');
+  const { reduceTimedPractice } = await import('../src/core/training/tempoTwoHand.ts');
+  const sample = createTwoHandPractice('C', 8, 'steady');
+  const plan = { startMs: 10000, bpm: 60, windowMs: 160, overlapMs: 140, holdGraceMs: 120 };
+  let trial = reduceTimedPractice(initialTimedPractice(), sample.score, sample.steps, plan,
+    { type: 'note-on', note: 48, channel: 2, receivedAtMs: 10005 });
+  assert.equal(trial.hits, 0, 'the simultaneous chord did not complete');
+  assert.deepEqual(trial.acceptedAttacks.map(x => x.midi), [48]);
+  trial = reduceTimedPractice(trial, sample.score, sample.steps, plan,
+    { type: 'tick', receivedAtMs: 10161 });
+  trial = reduceTimedPractice(trial, sample.score, sample.steps, plan,
+    { type: 'tick', receivedAtMs: 10000 + 8000 + 200 });
+  const result = assessPolyphonicPractice(sample.score, sample.steps, trial);
+  assert.equal(result.left.matched, 1);
+  assert.equal(result.right.matched, 0);
+  assert.equal(result.readyForCourseTrial, false);
 });
