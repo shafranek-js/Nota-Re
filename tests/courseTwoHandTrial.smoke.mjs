@@ -68,6 +68,15 @@ try {
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'eighth-rests');
   assert.match(await page.getByTestId('two-hand-lesson-score').innerText(), /staccato четвертями/);
   assert.equal(await page.getByTestId('two-hand-pattern').isDisabled(), true);
+  // No physical MIDI activity means that the complete two-bar lesson
+  // contains zero verified NoteOff events, and never awards course credit.
+  await page.getByTestId('two-hand-start-tempo').click();
+  await page.getByTestId('two-hand-release-evidence')
+    .waitFor({ state: 'visible', timeout: 25000 });
+  assert.match(await page.getByTestId('two-hand-release-evidence').innerText(),
+    /Физические отпускания:\s*0\/24/);
+  assert.match(await page.getByTestId('two-hand-release-verdict').innerText(),
+    /Не все отпускания/);
   await page.getByTestId('two-hand-back-to-course').click();
   await courseProgress.waitFor({ state: 'visible' });
 
