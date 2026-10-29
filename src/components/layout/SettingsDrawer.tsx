@@ -67,7 +67,7 @@ export const SettingsDrawer: React.FC = () => {
     // Keep background controls inaccessible to pointer and assistive-tech
     // navigation while the modal is open, not just behind a visual overlay.
     const background = [...(dialogRef.current?.parentElement?.querySelectorAll<HTMLElement>(
-      ':scope > header, :scope > main'
+      ':scope > header, :scope > main, :scope > footer'
     ) ?? [])].map(node => ({
       node, wasInert: node.inert, ariaHidden: node.getAttribute('aria-hidden')
     }));
