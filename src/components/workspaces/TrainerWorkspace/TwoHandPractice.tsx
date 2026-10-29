@@ -15,6 +15,7 @@ import {
 import { useAppStore } from '../../../store/useAppStore';
 import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
+import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
@@ -296,6 +297,12 @@ export const TwoHandPractice: React.FC = () => {
 
   const expected = currentStep?.expectedMidi
     .map(midi => MIDI_NAMES.get(midi) ?? String(midi)).join(' + ') ?? 'Готово';
+  const assessment = useMemo(() =>
+    plan && timed.finished
+      ? assessPolyphonicPractice(exercise.score, exercise.steps, timed)
+      : null,
+    [plan, timed, exercise]
+  );
   const restNow = plan !== null && !timed.finished &&
     clockMs >= plan.startMs &&
     !exercise.score.notes.some(note =>
@@ -363,7 +370,32 @@ export const TwoHandPractice: React.FC = () => {
       {!plan && pattern !== 'steady' && <p className="text-xs text-slate-400">
         В свободной практике паузы отображаются в нотах. Контроль их длительности работает при игре с метрономом.
       </p>}
-      {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>}
+      {assessment && (
+        <div data-testid="two-hand-assessment" className="rounded-lg border border-slate-600 bg-slate-800/70 p-3 text-xs text-slate-100" role="region" aria-label="Диагностика двухручного исполнения">
+          <p className="font-semibold text-sm">
+            {assessment.readyForCourseTrial
+              ? 'Чистое исполнение — готовность к пробным заданиям'
+              : 'Диагностика: есть пункты для повторной тренировки'}
+          </p>
+          <p className="text-slate-300">Это диагностическая проверка, а не зачёт урока. Прогресс курса не изменяется.</p>
+          <div className="mt-2 flex flex-wrap gap-x-4 gap-y-1">
+            <span data-testid="two-hand-rh-accuracy">Правая рука: <strong>{assessment.right.matched}/{assessment.right.expected} ({assessment.right.accuracyPercent}%)</strong></span>
+            <span data-testid="two-hand-lh-accuracy">Левая рука: <strong>{assessment.left.matched}/{assessment.left.expected} ({assessment.left.accuracyPercent}%)</strong></span>
+            <span>Совпавшие вступления: <strong>{assessment.matchedOnsets}/{assessment.totalOnsets}</strong></span>
+            <span>Среднее отклонение: <strong>{assessment.meanAbsoluteDeviationMs === null
+              ? 'нет данных' : assessment.meanAbsoluteDeviationMs + ' мс'}</strong></span>
+            <span>Вне ритма: <strong>{assessment.errors.offBeatNotes}</strong></span>
+            <span>Сбои MIDI: <strong>{assessment.errors.interruptions}</strong></span>
+          </div>
+          <p data-testid="two-hand-assessment-verdict" className="mt-2 font-semibold">
+            {assessment.readyForCourseTrial ? 'Готов к пробному заданию' : 'Нужна практика'}
+          </p>
+          <ul className="mt-1 list-disc list-inside text-slate-300">
+            {assessment.recommendations.map(text => <li key={text}>{text}</li>)}
+          </ul>
+        </div>
+      )}
+      {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>
       <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? timedFeedbackText[timed.feedback] : feedbackText[trial.feedback]}</p>
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
         <div ref={mountRef} aria-label="Независимые партии двух рук OpenSheetMusicDisplay"
