@@ -12,6 +12,7 @@ test('lesson 11 and 12 examples inherit curriculum tempo but have separate RH/LH
   for (const trial of [lesson11, lesson12]) {
     const lesson = COURSE_CURRICULUM.find(x => x.id === trial.lessonId);
     assert.equal(trial.bpm, lesson.preset.bpm);
+    assert.equal(trial.tonality, lesson.preset.tonality);
     assert.ok(trial.description.includes('не ') || trial.description.includes('ещё не'));
     assert.equal('creditedRepetitions' in trial, false);
     assert.equal('completedLessons' in trial, false);
