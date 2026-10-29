@@ -105,17 +105,27 @@ body {
 }
 
 .osmd-dark-theme svg .vf-staveline path,
+.osmd-dark-theme svg .vf-stavebarline,
 .osmd-dark-theme svg .vf-stavebarline path,
-.osmd-dark-theme svg .vf-stavebarline rect {
+.osmd-dark-theme svg .vf-stavebarline rect,
+.osmd-dark-theme svg .vf-stavebarline line {
   stroke: #334155 !important;
   fill: #334155 !important;
 }
 
-/* The initial brace stays visible but quiet; don't hide the piano grouping. */
+/* A piano grand staff normally retains its connecting brace; mute rather
+   than remove this meaningful engraving symbol. */
+.osmd-dark-theme svg .vf-staveconnector,
 .osmd-dark-theme svg .vf-staveconnector path,
 .osmd-dark-theme svg .vf-staveconnector rect {
   stroke: #475569 !important;
   fill: #475569 !important;
+}
+
+/* G-pattern is a sequential eye-training exercise, not two independent
+   simultaneous voices. Suppress only its technical engraving-rest glyphs. */
+.osmd-dark-theme[data-gpattern="true"] svg .vf-rest {
+  visibility: hidden !important;
 }
 
 .osmd-dark-theme svg .vf-timesignature path {

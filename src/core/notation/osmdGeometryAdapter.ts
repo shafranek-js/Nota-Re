@@ -79,6 +79,71 @@ export function getEngravedNotePoint(
   return null;
 }
 
+/** Exact SVG-local notehead edges for trajectories and collision-free labels. */
+export interface EngravedNoteBounds extends EngravedPoint {
+  left: number;
+  right: number;
+  top: number;
+  bottom: number;
+}
+
+/**
+ * Read the actual VexFlow notehead box. Other-staff rests do not qualify.
+ * Transform both corners back into SVG units; this also works at non-1 zoom.
+ */
+export function getEngravedNoteBounds(
+  renderer: OpenSheetMusicDisplay,
+  mount: HTMLElement,
+  onsetTicks: number,
+  expectedStaff?: 1 | 2
+): EngravedNoteBounds | null {
+  positionCursorAtTicks(renderer, onsetTicks);
+  for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+    if (graphicalNote.sourceNote.isRest()) continue;
+    // Staff position is supplied by the source note when available; avoid
+    // assumptions about the DOM order of two-staff or chord notes.
+    const source = graphicalNote.sourceNote as typeof graphicalNote.sourceNote & {
+      ParentStaff?: { Id?: number };
+    };
+    if (expectedStaff && source.ParentStaff &&
+        typeof source.ParentStaff.Id === 'number' &&
+        source.ParentStaff.Id !== expectedStaff - 1) {
+      continue;
+    }
+    const vex = graphicalNote as typeof graphicalNote & {
+      getSVGGElement?: () => SVGElement | undefined;
+    };
+    const group = vex.getSVGGElement?.();
+    if (!group || !mount.contains(group)) continue;
+    const head = group.querySelector<SVGGraphicsElement>(NOTEHEAD_SELECTOR);
+    if (!head) continue;
+    const rect = head.getBoundingClientRect();
+    const root = group.closest('svg') as SVGSVGElement | null;
+    const matrix = root?.getScreenCTM();
+    if (!root || !matrix || !validEngravedRect(rect)) continue;
+    try {
+      const first = root.createSVGPoint();
+      first.x = rect.left;
+      first.y = rect.top;
+      const last = root.createSVGPoint();
+      last.x = rect.right;
+      last.y = rect.bottom;
+      const a = first.matrixTransform(matrix.inverse());
+      const b = last.matrixTransform(matrix.inverse());
+      const left = Math.min(a.x, b.x);
+      const right = Math.max(a.x, b.x);
+      const top = Math.min(a.y, b.y);
+      const bottom = Math.max(a.y, b.y);
+      if (![left, right, top, bottom].every(Number.isFinite)) continue;
+      return { root, x: (left + right) / 2, y: (top + bottom) / 2,
+        left, right, top, bottom };
+    } catch {
+      continue;
+    }
+  }
+  return null;
+}
+
 /** Five-line treble staves for positioning measure labels above OSMD systems. */
 export function getTrebleStaveGeometries(
   renderer: OpenSheetMusicDisplay,

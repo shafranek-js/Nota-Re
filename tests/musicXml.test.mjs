@@ -185,3 +185,42 @@ test('OSMD hides only empty-hand filler rests, while keeping music time intact',
   assert.ok(!bothHands.includes('print-object="no"'),
     'staffs containing notes must retain real rhythmic rests');
 });
+
+test('G-pattern uses hidden timing rests and upward bass stems without touching default MusicXML', () => {
+  const score = createScoreFromExercise([
+    note(48, 'bass'), note(60), note(62), note(64),
+    note(50, 'bass'), note(62), note(64), note(65)
+  ], 'C');
+  const standard = toMusicXml(score);
+  const teaching = toMusicXml(score, {
+    hideInactiveStaffRests: true, hideGeneratedRests: true, bassStemsUp: true
+  });
+  const restCount = (standard.match(/<rest\/>/g) || []).length;
+  assert.ok(restCount > 0, 'each hand has silent beats requiring timing rests');
+  assert.equal((teaching.match(/<note print-object="no"><rest\/>/g) || []).length, restCount);
+  assert.ok(!standard.includes('print-object="no"'),
+    'standard and exported MusicXML retain notated rests');
+  assert.ok(!standard.includes('<stem>up</stem>'),
+    'other modes keep the score engraver stem rules');
+  assert.equal((teaching.match(/<stem>up<\/stem>/g) || []).length, 2,
+    'only the two bass downbeats explicitly face up');
+  assert.ok(/<type>quarter<\/type><stem>up<\/stem><staff>2<\/staff>/.test(teaching),
+    'MusicXML stem must precede staff per the note element order');
+  assert.deepEqual(
+    Array.from(teaching.matchAll(/<measure number="\d+">([\s\S]*?)<\/measure>/g),
+      match => match[1].includes('<backup><duration>16</duration></backup>')),
+    [true, true]
+  );
+  // Hidden printed objects are still proper timed MusicXML notes (not removed).
+  for (const match of teaching.matchAll(/<note print-object="no">([\s\S]*?)<\/note>/g)) {
+    assert.match(match[1], /<duration>\d+<\/duration>/);
+    assert.match(match[1], /<voice>[12]<\/voice>/);
+  }
+});
+
+test('G-pattern flags do not affect independent simultaneous two-hand scores unless explicitly requested', () => {
+  const score = createScoreFromHands([note(60), note(62)], [note(48), note(50)], 'C');
+  const xml = toMusicXml(score, { hideInactiveStaffRests: true });
+  assert.equal((xml.match(/print-object="no"/g) || []).length, 0);
+  assert.equal((xml.match(/<stem>up<\/stem>/g) || []).length, 0);
+});
