@@ -36,7 +36,7 @@ try {
   await page.getByTitle('Открыть настройки').click();
   await page.getByRole('button', { name: 'Синтезатор', exact: true }).click();
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
   await page.getByTestId('toolbar-trigger-actions').click();
