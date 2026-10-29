@@ -16,6 +16,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
+import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
@@ -57,8 +58,15 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  * the course's sequential activeNoteIndex, attempts, or certifications.
  */
 export const TwoHandPractice: React.FC = () => {
-  const { currentTonality, scoreNoteCount, midiInputsCount, bpm } = useAppStore();
-  const [pattern, setPattern] = useState<TwoHandPattern>('steady');
+  const { currentTonality, scoreNoteCount, midiInputsCount, bpm,
+    twoHandTrialLessonId, switchWorkspace } = useAppStore();
+  const courseTrial = getTwoHandCourseTrialPreset(twoHandTrialLessonId);
+  // A course trial uses the actual lesson's BPM without altering persistent
+  // trainer preferences or the official per-lesson grade.
+  const practiceBpm = courseTrial?.bpm ?? bpm;
+  const [pattern, setPattern] = useState<TwoHandPattern>(
+    () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
+  );
   const exercise = useMemo(
     () => createTwoHandPractice(currentTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
     [currentTonality, scoreNoteCount, pattern]
@@ -111,12 +119,12 @@ export const TwoHandPractice: React.FC = () => {
       setTempoError('');
       // Anchor both the metronome and the incoming MIDI events to one
       // reference instant, with four full beats before the first attack.
-      const beatSeconds = 60 / bpm;
+      const beatSeconds = 60 / practiceBpm;
       const leadSeconds = 4 * beatSeconds + 0.20;
       const audioStart = context.currentTime + leadSeconds;
       const startMs = performance.now() + leadSeconds * 1000;
       const nextPlan: TempoPlan = {
-        startMs, bpm, windowMs: 160, overlapMs: 140, holdGraceMs: 120
+        startMs, bpm: practiceBpm, windowMs: 160, overlapMs: 140, holdGraceMs: 120
       };
       timedRef.current = initialTimedPractice();
       setTimed(timedRef.current);
@@ -323,10 +331,24 @@ export const TwoHandPractice: React.FC = () => {
     <section data-testid="two-hand-practice" data-timed-start-ms={plan?.startMs ?? ""} className="flex-1 min-h-[380px] w-full flex flex-col gap-2 rounded-xl bg-slate-900 border border-slate-700 p-3">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-100">Две руки — одновременная игра (MIDI)</h2>
+          <h2 className="text-base font-semibold text-slate-100">{courseTrial?.title ?? 'Две руки — одновременная игра (MIDI)'}</h2>
+          {courseTrial && (
+            <div data-testid="two-hand-trial-context" className="text-xs text-sky-200">
+              Урок {courseTrial.lessonId} · Темп <strong data-testid="two-hand-active-bpm">{practiceBpm}</strong> BPM.
+              {' '}{courseTrial.description}
+              {pattern !== courseTrial.pattern && ' Выбран другой ритмический рисунок для дополнительной практики.'}
+            </div>
+          )}
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          {courseTrial && (
+            <button type="button" data-testid="two-hand-back-to-course"
+              onClick={() => switchWorkspace('course')}
+              className="rounded border border-sky-600 px-3 py-1.5 text-xs text-sky-200">
+              К уроку {courseTrial.lessonId}
+            </button>
+          )}
           <label htmlFor="two-hand-pattern" className="text-xs text-slate-300">Ритмический рисунок</label>
           <select id="two-hand-pattern" data-testid="two-hand-pattern"
             aria-label="Ритмический рисунок двух рук"
@@ -374,7 +396,7 @@ export const TwoHandPractice: React.FC = () => {
         <div data-testid="two-hand-assessment" className="rounded-lg border border-slate-600 bg-slate-800/70 p-3 text-xs text-slate-100" role="region" aria-label="Диагностика двухручного исполнения">
           <p className="font-semibold text-sm">
             {assessment.readyForCourseTrial
-              ? 'Чистое исполнение — готовность к пробным заданиям'
+              ? (courseTrial ? 'Чистое исполнение пробного ритмического задания' : 'Чистое исполнение — готовность к пробным заданиям')
               : 'Диагностика: есть пункты для повторной тренировки'}
           </p>
           <p className="text-slate-300">Это диагностическая проверка, а не зачёт урока. Прогресс курса не изменяется.</p>
