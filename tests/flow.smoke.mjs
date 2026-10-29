@@ -107,6 +107,7 @@ try {
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await running.waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+  await page.getByTestId('toolbar-trigger-view').click();
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Практика без зачёта');
