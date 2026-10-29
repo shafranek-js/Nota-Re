@@ -39,6 +39,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/trainer-results.smoke.mjs
+      - name: Preplay checklist, four-beat count-in and cancellation
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/preplay-countin.smoke.mjs
       - name: Exercise OSMD with real browser
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
