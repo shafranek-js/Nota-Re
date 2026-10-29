@@ -74,6 +74,7 @@ function addLayerLabel(
 ): void {
   const node = document.createElement('span');
   node.dataset.notarePedagogy = kind;
+  if (active) node.dataset.notareActive = 'true';
   node.setAttribute('aria-hidden', 'true');
   node.className = 'absolute whitespace-nowrap font-mono pointer-events-none';
   node.style.left = `${x}px`;
