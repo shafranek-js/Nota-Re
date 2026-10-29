@@ -21,6 +21,12 @@ try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       const nav = page.getByRole('navigation', { name: 'Рабочие пространства' });
       await nav.waitFor({ state: 'visible' });
+      if (viewport.width <= 375) {
+        const brand = await page.getByTestId('header-brand').boundingBox();
+        const midi = await page.getByTestId('header-midi-diagnostics').boundingBox();
+        assert.ok(brand && midi && Math.abs(brand.y - midi.y) < 20,
+          'compact mobile header keeps branding and MIDI access on a single control row');
+      }
 
       const metrics = await page.evaluate(() => ({
         viewport: document.documentElement.clientWidth,
