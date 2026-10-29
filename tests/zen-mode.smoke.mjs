@@ -27,7 +27,7 @@ try {
     try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       await page.getByRole('navigation', { name: 'Рабочие пространства' })
-        .getByRole('button', { name: /Тренажёр-Студия/ }).click();
+        .getByRole('button', { name: /^Студия$/ }).click();
       const score = page.getByTestId('studio-score-area');
       const status = page.getByTestId('status-bar');
       const build = status.getByTestId('build-version');
