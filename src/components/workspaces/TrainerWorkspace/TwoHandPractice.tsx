@@ -396,7 +396,7 @@ export const TwoHandPractice: React.FC = () => {
         <div className="flex flex-wrap gap-2 items-center">
           {courseTrial && (
             <button type="button" data-testid="two-hand-next-study"
-              disabled={!!plan && !timed.finished || suggestedStudy === null}
+              disabled={(!!plan && !timed.finished) || suggestedStudy === null}
               onClick={() => {
                 if (suggestedStudy === null) return;
                 resetTrial();
@@ -414,6 +414,26 @@ export const TwoHandPractice: React.FC = () => {
               className="rounded border border-sky-600 px-3 py-1.5 text-xs text-sky-200">
               К уроку {courseTrial.lessonId}
             </button>
+          )}
+          {courseTrial && (
+            <>
+              <label htmlFor="two-hand-study-select" className="text-xs text-slate-300">
+                Учебный этюд
+              </label>
+              <select id="two-hand-study-select" data-testid="two-hand-study-select"
+                aria-label="Выбрать другой двухручный этюд"
+                value={studyIndex}
+                disabled={!!plan && !timed.finished}
+                onChange={event => {
+                  resetTrial();
+                  setStudyIndex(Number(event.target.value));
+                }}
+                className="rounded border border-sky-600/60 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                {Array.from({ length: lessonTwoHandStudyCount(courseTrial.lessonId) }, (_, index) =>
+                  <option key={index} value={index}>Этюд {index + 1}</option>
+                )}
+              </select>
+            </>
           )}
           <label htmlFor="two-hand-pattern" className="text-xs text-slate-300">Ритмический рисунок</label>
           <select id="two-hand-pattern" data-testid="two-hand-pattern"
