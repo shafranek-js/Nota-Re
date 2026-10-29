@@ -80,6 +80,60 @@ export function createScoreFromExercise(
   return { title, fifths: FIFTHS[tonality], beats: 4, beatType: 4, divisions: 4, notes };
 }
 
+/**
+ * Build a truly simultaneous two-hand score from independent monophonic
+ * timelines. Each hand starts at tick zero and advances by its own durations.
+ * The lower staff is not delayed by the notes in the upper staff.
+ *
+ * Chords within one hand can be supplied directly as explicit ScoreEvents;
+ * this adapter deliberately keeps the existing ExercisePitch input simple.
+ */
+export function createScoreFromHands(
+  rightHand: readonly ExercisePitch[],
+  leftHand: readonly ExercisePitch[],
+  tonality: SupportedKey,
+  title = 'Nota-Re two-hand exercise'
+): ExerciseScore {
+  if (!rightHand.length && !leftHand.length) {
+    throw new Error('Cannot export an empty exercise.');
+  }
+  if (!(tonality in FIFTHS)) throw new Error('Unsupported tonality.');
+
+  function collect(hand: readonly ExercisePitch[], staff: StaffNumber): ScoreEvent[] {
+    let onsetTicks = 0;
+    return hand.map(item => {
+      const durationTicks = item.durMultiplier * 4;
+      if (!Number.isSafeInteger(durationTicks) || durationTicks <= 0) {
+        throw new Error('Durations must be positive multiples of a sixteenth note.');
+      }
+      if (!Number.isInteger(item.midi) || item.midi < 0 || item.midi > 127) {
+        throw new Error('Invalid MIDI pitch.');
+      }
+      const event: ScoreEvent = {
+        midi: item.midi,
+        staff,
+        onsetTicks,
+        durationTicks,
+        finger: item.finger,
+        articulation: item.articulation,
+        syllable: item.syllable
+      };
+      onsetTicks += durationTicks;
+      return event;
+    });
+  }
+
+  return {
+    title,
+    fifths: FIFTHS[tonality],
+    beats: 4,
+    beatType: 4,
+    divisions: 4,
+    notes: [...collect(rightHand, 1), ...collect(leftHand, 2)]
+      .sort((a, b) => a.onsetTicks - b.onsetTicks || a.staff - b.staff)
+  };
+}
+
 const DURATIONS: readonly [number, string, boolean][] = [
   [16, 'whole', false],
   [12, 'half', true],
