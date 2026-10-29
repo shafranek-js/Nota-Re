@@ -101,12 +101,16 @@ try {
   assert.equal(await page.getByTestId('course-credit-mode').innerText(),
     'Практика без зачёта', 'returning to the tab cannot silently re-enable a graded lesson');
 
-  // Entering imagined/tabletop practice while flow runs must cancel the
-  // audio clock; otherwise missed notes continue behind the practice overlay.
+  // An active course preset has no free-practice editing controls. Leaving
+  // it for user-configurable practice explicitly cancels graded deadlines.
   await page.getByRole('button', { name: /^Курс$/ }).click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await running.waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+  assert.equal(await page.getByTestId('trainer-toolbar').count(), 0);
+  await page.getByTestId('course-to-free-setup').click();
+  await page.getByTestId('trainer-setup').waitFor({ state: 'visible' });
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Практика без зачёта');
   await page.getByTestId('toolbar-trigger-view').click();
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
