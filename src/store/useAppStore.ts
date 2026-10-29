@@ -407,6 +407,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentAppMode: lesson.preset.mode,
       currentWorkspace: 'trainer',
       activeLessonId: lesson.id,
+      trainerPhase: 'playing',
       isTwoHandPracticeOpen: false,
       isTabletopMode: false
     });
