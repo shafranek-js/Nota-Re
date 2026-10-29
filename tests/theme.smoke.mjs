@@ -38,6 +38,9 @@ try {
       assert.equal(await score.getAttribute('data-theme-lock'), 'dark',
         'OSMD notes retain their proven high-contrast score palette');
       assert.equal(await page.getByRole('button', { name: 'Клавиша C3' }).isVisible(), true);
+      // Screenshots should contain the engraved notes, not a loading placeholder.
+      await page.locator('[aria-label="Нотная партитура OpenSheetMusicDisplay"] svg')
+        .first().waitFor({ state: 'visible', timeout: 30000 });
       // Capture the real rendered light UI for human visual acceptance.
       await mkdir('artifacts', { recursive: true });
       await page.screenshot({ path: `artifacts/theme-light-studio-${width}.png`, fullPage: true });
