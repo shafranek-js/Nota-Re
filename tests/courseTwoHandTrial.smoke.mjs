@@ -92,7 +92,9 @@ try {
   // New run is independent; explicit Stop is an aborted attempt, never a
   // successful repetition. Reset affects this session only.
   await page.getByTestId('two-hand-start-tempo').click();
-  await page.getByTestId('two-hand-mode').getByText('Ритм · метроном').waitFor();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-mode"]')?.textContent?.trim() === 'Ритм · метроном'
+  );
   await page.getByRole('button', { name: 'Заново / Стоп' }).click();
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="two-hand-shadow-series"]')?.textContent?.includes('прервано: 1')
