@@ -109,7 +109,7 @@ export const CourseWorkspace: React.FC = () => {
             </button>
           </div>
 
-          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-1 pr-0.5 pt-1.5">
+          <div data-testid="course-lesson-list" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-1 pr-0.5 pt-1.5">
             {filteredLessons.map(item => {
               const isSelected = item.id === selectedLessonId;
               const itemDone = completedLessons.includes(item.id);
@@ -168,9 +168,9 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Карточка выбранного урока */}
-        <div className="lg:col-span-7 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2.5 lg:overflow-hidden lg:min-h-0">
+        <div data-testid="course-lesson-panel" className="lg:col-span-7 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2.5 lg:overflow-hidden lg:min-h-0">
             {/* Шапка карточки */}
-            <div className="relative z-10 -mx-3 -mt-2.5 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900">
+            <div data-testid="course-selected-header" className="relative z-10 -mx-3 -mt-2.5 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
@@ -203,7 +203,7 @@ export const CourseWorkspace: React.FC = () => {
               </div>
             </div>
 
-          <div className="flex-1 min-h-0 lg:overflow-y-auto custom-scroll space-y-2.5 pt-2">
+          <div data-testid="course-detail-scroll" className="flex-1 min-h-0 lg:overflow-y-auto custom-scroll space-y-2.5 pt-2">
             {/* Методическое обоснование */}
             <div>
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1">
