@@ -1,4 +1,4 @@
-import { NoteDefinition } from '../types/music';
+import type { NoteDefinition } from '../types/music';
 
 // Полная 3-октавная карта клавиш (C3 - B5)
 export const MIDI_NOTE_MAP: Record<string, NoteDefinition> = {
