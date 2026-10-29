@@ -91,10 +91,16 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/photo-shortcuts.smoke.mjs
-      - name: Upload browser screenshots
+      - name: Measure real OSMD loading and production bundle sizes
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/performance-baseline.smoke.mjs
+      - name: Upload browser diagnostics and screenshots
         if: always()
         uses: actions/upload-artifact@v4
         with:
-          name: osmd-smoke-screenshots
-          path: artifacts/*.png
+          name: osmd-browser-diagnostics
+          path: |
+            artifacts/*.png
+            artifacts/performance-baseline.json
           if-no-files-found: ignore
