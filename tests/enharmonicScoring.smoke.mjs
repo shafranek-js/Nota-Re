@@ -26,6 +26,7 @@ try {
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.__enharmonicMidi.input.onmidimessage);
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByTestId('toolbar-trigger-material').click();
   await page.getByRole('button', { name: /2-я окт/ }).click();
   await page.locator('select').filter({ has: page.locator('option[value="F"]') })
     .first().selectOption('F');
@@ -51,6 +52,7 @@ try {
 
   // Re-create the same score and send the MIDI 70 NoteOn, which must use
   // exactly the same pitch judgment as a clicked black piano key.
+  await page.getByTestId('toolbar-trigger-actions').click();
   await page.getByRole('button', { name: 'Новый', exact: true }).click();
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="active-target-note"]')?.textContent?.trim() === 'Bb4'

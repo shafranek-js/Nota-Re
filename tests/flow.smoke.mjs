@@ -57,7 +57,7 @@ try {
   const attemptsBeforeCorrect = await attempts();
   await page.getByRole('button', { name: 'Поток: Пауза' }).click();
   await running.waitFor();
-  await page.locator('button.piano-white-key').filter({ hasText: expectedNote }).click();
+  await page.getByRole('button', { name: `Клавиша ${expectedNote}`, exact: true }).click();
   assert.equal(Number(await score.getAttribute('data-active-note-index')), beforeCorrect,
     'correct strike must not accelerate the musical clock');
   assert.equal(await attempts(), attemptsBeforeCorrect + 1);
@@ -107,6 +107,7 @@ try {
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await running.waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+  await page.getByTestId('toolbar-trigger-view').click();
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Практика без зачёта');

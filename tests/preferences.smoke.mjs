@@ -20,7 +20,9 @@ try {
     localStorage.setItem('notare_course_completed_v3', '[1,2]')
   );
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
+  await page.getByTestId('toolbar-trigger-material').click();
   await page.locator('select').filter({ has: page.locator('option[value="F"]') }).selectOption('F');
   await page.locator('input[type="range"]').first().evaluate(input => {
     // HTML range elements cannot be filled as ordinary text inputs; invoke
@@ -31,6 +33,7 @@ try {
     input.dispatchEvent(new Event('change', { bubbles: true }));
   });
   await page.getByRole('button', { name: /16 нот/ }).click();
+  await page.getByTestId('toolbar-trigger-view').click();
   await page.getByRole('button', { name: /Тактильная ширма/ }).click();
   await page.getByRole('button', { name: 'Поток: Пауза' }).click();
   await page.getByTitle('Выключить звук').click();
@@ -59,7 +62,9 @@ try {
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
-  assert.equal(await page.getByRole('button', { name: /2\. Ритмослоги/ }).getAttribute('class').then(x => x.includes('bg-emerald-500')), true);
+  await page.getByTestId('toolbar-trigger-mode').click();
+  assert.equal(await page.getByRole('button', { name: /2\. Ритмослоги/ }).getAttribute('aria-pressed'), 'true');
+  await page.getByTestId('toolbar-trigger-material').click();
   assert.equal(await page.locator('select').filter({ has: page.locator('option[value="F"]') }).inputValue(), 'F');
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '88');
   assert.match(await page.getByRole('button', { name: /8 нот/ }).innerText(), /8 нот/);
@@ -99,6 +104,7 @@ try {
   assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/i);
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
+  await page.getByTestId('toolbar-trigger-material').click();
   assert.equal(await page.locator('select').filter({ has: page.locator('option[value="F"]') }).inputValue(), 'F');
   assert.deepEqual(errors, [], 'no browser errors on reload/reset/invalid preferences');
   console.log('Settings Chrome smoke passed: saved setup, safe flow restart, reset and invalid storage.');

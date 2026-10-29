@@ -15,6 +15,7 @@ import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
 import { resetNotesForRetry } from '../core/training/trainerSession';
+import type { KeyboardLabelMode } from '../core/storage/trainerPreferences';
 import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } from '../core/training/countInTiming';
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
@@ -59,6 +60,8 @@ export interface AppState {
   twoHandTrialLessonId: number | null;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
+  showVirtualKeyboard: boolean;
+  keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   isPhotoMasked: boolean;
 
@@ -122,6 +125,9 @@ export interface AppState {
   toggleTwoHandPractice: () => void;
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
+  toggleVirtualKeyboard: () => void;
+  setKeyboardLabelMode: (mode: KeyboardLabelMode) => void;
+  stopTrainerExercise: () => void;
   setPhotoExposure: (ms: number) => void;
   triggerPhotoFlash: () => void;
   toggleAudioMaster: () => void;
@@ -725,6 +731,28 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleScaleHighlight: () => {
     set((s) => ({ showScaleHighlight: !s.showScaleHighlight }));
+  },
+
+  toggleVirtualKeyboard: () => set((s) => ({
+    showVirtualKeyboard: !s.showVirtualKeyboard
+  })),
+
+  setKeyboardLabelMode: (keyboardLabelMode) => set({ keyboardLabelMode }),
+
+  stopTrainerExercise: () => {
+    const current = get();
+    if (current.trainerPhase === 'countIn') current.cancelTrainerCountIn();
+    stopFlowClock();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    set({
+      trainerPhase: 'setup',
+      activeLessonId: null,
+      completedExercisesCount: 0,
+      isExerciseFlawless: false,
+      isPhotoMasked: false,
+      lastKeyResult: null
+    });
   },
 
   setPhotoExposure: (ms) => {

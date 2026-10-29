@@ -37,8 +37,10 @@ try {
   await page.getByRole('button', { name: 'Синтезатор', exact: true }).click();
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
-  await page.getByRole('button', { name: 'Петь' }).click();
+  await page.getByTestId('toolbar-trigger-actions').click();
+  await page.getByRole('button', { name: /Петь/ }).click();
 
   await page.waitForFunction(
     () => window.__scheduledAudioStarts.filter(entry => entry.type === 'triangle').length >= 4,
@@ -86,7 +88,8 @@ try {
   await panel.getByText('Звуковой банк готов к воспроизведению.')
     .waitFor({ timeout: 120000 });
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
-  await page.getByRole('button', { name: 'Петь' }).click();
+  await page.getByTestId('toolbar-trigger-actions').click();
+  await page.getByRole('button', { name: /Петь/ }).click();
   const oscillatorCountBefore = await page.evaluate(() =>
     window.__scheduledAudioStarts.filter(e => e.type === 'triangle').length
   );

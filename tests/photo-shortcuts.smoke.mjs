@@ -27,6 +27,7 @@ try {
   assert.match((await target.innerText()).trim(), /^[A-G][#b]?[0-9]$/,
     'the active note is visible in ordinary exercises');
 
+  await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /4\. Фото-память/ }).click();
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'visible', timeout: 10000 });
   assert.equal((await target.innerText()).trim(), 'По памяти');
@@ -47,11 +48,13 @@ try {
   await page.getByRole('button', { name: 'Классический', exact: true }).click();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
   assert.equal((await target.innerText()).trim(), 'По памяти');
+  await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   assert.match((await target.innerText()).trim(), /^[A-G][#b]?[0-9]$/);
 
   const scoreBefore = await page.getByTestId('active-target-note').innerText();
   assert.equal((await played.innerText()).trim(), '—');
+  await page.getByTestId('toolbar-trigger-view').click();
   const tabletopToggle = page.getByRole('button', { name: /Режим «Стол»/ });
   await tabletopToggle.focus();
   await page.keyboard.press('z');
