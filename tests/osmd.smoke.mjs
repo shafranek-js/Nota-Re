@@ -59,8 +59,12 @@ try {
   // tests; regular Space no longer auto-enters a correct pitch.
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
+  const beforeAssistedStatusChange = await epoch();
   await page.keyboard.press('Space');
   assert.ok(await svg.isVisible(), 'Notation must remain after note input');
+  await page.waitForTimeout(180);
+  assert.equal(await epoch(), beforeAssistedStatusChange,
+    'immutable note status updates must not re-engrave unchanged MusicXML');
   const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
   assert.equal(indexAfter, indexBefore + 1, 'exercise should advance exactly one step');
 
