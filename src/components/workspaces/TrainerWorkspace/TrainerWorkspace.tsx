@@ -29,18 +29,17 @@ export const TrainerWorkspace: React.FC = () => {
     try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
   };
 
-  // Interval guides now derive their anchor positions from OSMD's engraving.
-  // G-pattern, Hanon and bass landmarks still need legacy overlays.
-  const requiresLegacy = ['gpattern', 'hanon'].includes(currentAppMode) ||
-    showBassLandmarks;
+  // Interval and G-pattern guides derive their geometry from OSMD notes.
+  // Hanon blocks and bass landmarks still require legacy overlays.
+  const requiresLegacy = currentAppMode === 'hanon' || showBassLandmarks;
   const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
 
   return (
-    <section className="flex-1 min-h-[650px] lg:min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-hidden">
+    <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-y-auto lg:overflow-hidden">
       <TrainerBanner />
       <TrainerToolbar />
 
-      <div className="flex-1 min-h-0 w-full flex flex-col justify-between overflow-hidden gap-1">
+      <div className="flex-none min-h-[380px] lg:flex-1 lg:min-h-0 w-full flex flex-col justify-between overflow-hidden gap-1">
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]">
           <div className="flex items-center gap-1" role="group" aria-label="Способ отображения нот">
             <span className="text-slate-400 mr-1">Ноты:</span>

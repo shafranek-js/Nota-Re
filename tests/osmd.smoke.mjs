@@ -27,6 +27,18 @@ try {
 
   const renderError = page.getByText('Ошибка нотного движка:', { exact: false });
   assert.equal(await renderError.count(), 0, 'OSMD must not show an error on first load');
+  // OSMD may clear and rebuild its SVG asynchronously after a resize.
+  // Wait for a NEW completed engraving epoch plus a restored overlay, rather
+  // than observing the old overlay just before it disappears.
+  const epoch = async () => Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
+  const waitForOverlayRender = async (selector, previousEpoch) => {
+    await page.waitForFunction(({ selector, previousEpoch }) => {
+      const score = document.querySelector('[data-testid="osmd-score"]');
+      return Number(score?.getAttribute('data-osmd-render-epoch')) > previousEpoch &&
+        Boolean(score?.querySelector(selector));
+    }, { selector, previousEpoch }, { timeout: 20000 });
+  };
+
   const indexBefore = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
 
   // Explicitly enter ungraded tabletop mode to advance cursor in smoke
@@ -69,14 +81,41 @@ try {
   await arc.first().waitFor({ state: 'attached', timeout: 15000 });
   assert.ok(await arc.count() > 0, 'interval guides must attach to OSMD SVG notes');
   assert.equal(await renderError.count(), 0, 'OSMD interval guides should not fail');
+  const beforeIntervalResize = await epoch();
   await page.setViewportSize({ width: 768, height: 900 });
-  await arc.first().waitFor({ state: 'attached', timeout: 15000 });
+  await waitForOverlayRender('[data-notare-interval-overlay="true"]', beforeIntervalResize);
   assert.ok(await arc.count() > 0, 'interval guides remain after responsive resize');
 
-  // G-pattern still requires a special overlay and retains Classic.
+  // G-pattern uses the real OSMD staff with bass-to-treble gaze paths.
   await page.getByRole('button', { name: /6\. Буква «Г»/ }).click();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
+  const gaze = page.locator('[data-notare-gaze-overlay="true"]');
+  await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await gaze.count() > 0, 'G-pattern must draw gaze paths on OSMD notes');
+  const firstPath = gaze.first().locator('path');
+  const firstPathD = await firstPath.getAttribute('d');
+  assert.match(firstPathD, /^M [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+$/);
+  const coords = firstPathD.match(/-?\d+(?:\.\d+)?/g).map(Number);
+  assert.ok(coords[1] > coords[3], 'gaze starts at lower bass and travels up to treble');
+  assert.ok(coords[4] > coords[2], 'gaze then travels right toward treble melody');
+  assert.equal(await renderError.count(), 0, 'G-pattern should not show OSMD renderer errors');
+  const beforeGazeResize = await epoch();
+  await page.setViewportSize({ width: 375, height: 900 });
+  await waitForOverlayRender('[data-notare-gaze-overlay="true"]', beforeGazeResize);
+  assert.ok(await gaze.count() > 0, 'G-pattern must reanchor after narrow viewport rerender');
+  const beforeRegenerate = await epoch();
+  await page.getByRole('button', { name: 'Новый', exact: true }).click();
+  await waitForOverlayRender('[data-notare-gaze-overlay="true"]', beforeRegenerate);
+  assert.ok(await gaze.count() > 0, 'G-pattern must survive regenerating notes');
+
+  // Hanon still has instructional block overlays only in Classic.
+  await page.getByRole('button', { name: /8\. Ганон/ }).click();
   await page.getByText(/временно использует классический стан/).waitFor();
-  assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
+  const classicSvg = page.locator('svg[viewBox="0 0 1720 305"]');
+  await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
+  const classicBox = await classicSvg.boundingBox();
+  assert.ok(classicBox && classicBox.height > 80 && classicBox.width > 0,
+    'Classic staff must retain actual drawing area on 375px phones');
 
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });

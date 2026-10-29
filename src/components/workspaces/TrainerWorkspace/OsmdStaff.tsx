@@ -5,6 +5,7 @@ import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
 import { getMaskedNoteIndices, getNoteOnsets, TICKS_PER_MEASURE } from '../../../core/notation/scoreMasks';
 import { getIntervalGuides } from '../../../core/notation/intervalGuides';
+import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -39,6 +40,43 @@ function currentOnsetTicks(): number {
   const { activeExerciseNotes, activeNoteIndex } = useAppStore.getState();
   return activeExerciseNotes.slice(0, activeNoteIndex)
     .reduce((sum, note) => sum + note.durMultiplier * 4, 0);
+}
+
+type EngravedPoint = { x: number; y: number; root: SVGSVGElement };
+
+/** Coordinates of OSMD's own notehead in the SVG's local coordinate space. */
+function getEngravedNotePoint(
+  renderer: OpenSheetMusicDisplay,
+  mount: HTMLDivElement,
+  onsetTicks: number
+): EngravedPoint | null {
+  positionCursorAtTicks(renderer, onsetTicks);
+  for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+    // The piano score contains rests in the inactive staff. They are
+    // graphical cursor entries too, but are NOT the pitch anchor for a
+    // bass-to-treble reading path (nor for interval guides).
+    if (graphicalNote.sourceNote.isRest()) continue;
+    const vexflowNote = graphicalNote as typeof graphicalNote & {
+      getSVGGElement?: () => SVGElement | undefined;
+    };
+    const element = vexflowNote.getSVGGElement?.();
+    if (!element || !mount.contains(element)) continue;
+    const root = element.closest('svg') as SVGSVGElement | null;
+    if (!root) continue;
+    const head = element.querySelector<SVGGraphicsElement>(
+      '.vf-notehead, [class*="notehead"], [id*="notehead"]'
+    ) ?? element;
+    const rect = head.getBoundingClientRect();
+    const matrix = root.getScreenCTM();
+    if (!matrix || rect.width < 1 || rect.height < 1) continue;
+    const center = root.createSVGPoint();
+    center.x = rect.left + rect.width / 2;
+    center.y = rect.top + rect.height / 2;
+    const local = center.matrixTransform(matrix.inverse());
+    if (!Number.isFinite(local.x) || !Number.isFinite(local.y)) continue;
+    return { x: local.x, y: local.y, root };
+  }
+  return null;
 }
 
 interface OsmdStaffProps {
@@ -264,35 +302,12 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     const guides = getIntervalGuides(activeExerciseNotes);
     if (!guides.length) return;
     const svgNS = 'http://www.w3.org/2000/svg';
-    type Point = { x: number; y: number; root: SVGSVGElement };
-    const points = new Map<number, Point>();
+    const points = new Map<number, EngravedPoint>();
 
     try {
       for (const index of new Set(guides.flatMap(g => [g.fromIndex, g.toIndex]))) {
-        positionCursorAtTicks(renderer, noteOnsets[index]);
-        for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
-          const vexflowNote = graphicalNote as typeof graphicalNote & {
-            getSVGGElement?: () => SVGElement | undefined;
-          };
-          const element = vexflowNote.getSVGGElement?.();
-          if (!element || !mount.contains(element)) continue;
-          const root = element.closest('svg') as SVGSVGElement | null;
-          if (!root) continue;
-          // VexFlow notehead groups are preferable to the complete note
-          // bounding box, which can include the stem, ledger and flags.
-          const head = element.querySelector<SVGGraphicsElement>(
-            '.vf-notehead, [class*="notehead"], [id*="notehead"]'
-          ) ?? element;
-          const rect = head.getBoundingClientRect();
-          const matrix = root.getScreenCTM();
-          if (!matrix || rect.width < 1 || rect.height < 1) continue;
-          const point = root.createSVGPoint();
-          point.x = rect.left + rect.width / 2;
-          point.y = rect.top + rect.height / 2;
-          const local = point.matrixTransform(matrix.inverse());
-          points.set(index, { x: local.x, y: local.y, root });
-          break;
-        }
+        const point = getEngravedNotePoint(renderer, mount, noteOnsets[index]);
+        if (point) points.set(index, point);
       }
 
       for (const guide of guides) {
@@ -343,8 +358,78 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     };
   }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
 
+
+  // A reading trajectory, not a polyphonic performance overlay: the legacy
+  // generator still emits bass downbeat followed by treble notes in sequence.
+  // Anchor the vertical-then-horizontal "Г" path to actual engraved notes.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    const selector = '[data-notare-gaze-overlay="true"]';
+    const clear = () => mount.querySelectorAll(selector).forEach(el => el.remove());
+    clear();
+    if (loadState !== 'ready' || currentAppMode !== 'gpattern' || !osmdRef.current) return;
+
+    const renderer = osmdRef.current;
+    const guides = getGazeGuides(activeExerciseNotes);
+    if (!guides.length) {
+      setErrorMessage('Не удалось определить басовые опоры тактов. Используйте классический стан.');
+      setLoadState('error');
+      return;
+    }
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    try {
+      for (const guide of guides) {
+        const from = getEngravedNotePoint(renderer, mount, noteOnsets[guide.fromIndex]);
+        const to = getEngravedNotePoint(renderer, mount, noteOnsets[guide.toIndex]);
+        // SVG pages can differ. Never join notes across unrelated viewports.
+        if (!from || !to || from.root !== to.root) continue;
+        const group = document.createElementNS(svgNS, 'g');
+        group.setAttribute('data-notare-gaze-overlay', 'true');
+        group.setAttribute('data-notare-gaze-measure', String(guide.measure));
+        group.setAttribute('aria-hidden', 'true');
+        group.setAttribute('pointer-events', 'none');
+
+        const path = document.createElementNS(svgNS, 'path');
+        // Begin above the bass notehead. Travel vertically toward the treble
+        // staff then right to the melody, as the method teaches.
+        const elbowY = to.y - 14;
+        path.setAttribute('d',
+          `M ${from.x} ${from.y - 12} L ${from.x} ${elbowY} L ${to.x - 12} ${elbowY}`);
+        path.setAttribute('stroke', '#b45309');
+        path.setAttribute('stroke-width', '2.3');
+        path.setAttribute('stroke-dasharray', '5 3');
+        path.setAttribute('fill', 'none');
+
+        const label = document.createElementNS(svgNS, 'text');
+        label.textContent = 'Г ➔';
+        label.setAttribute('x', String(from.x - 11));
+        label.setAttribute('y', String(elbowY - 8));
+        label.setAttribute('text-anchor', 'end');
+        label.setAttribute('font-size', '11');
+        label.setAttribute('font-weight', 'bold');
+        label.setAttribute('fill', '#92400e');
+
+        group.append(path, label);
+        from.root.appendChild(group);
+      }
+      if (!mount.querySelector(selector)) {
+        setErrorMessage('Не удалось разместить траекторию «Г» на нотах OSMD. Используйте классический стан.');
+        setLoadState('error');
+      }
+    } catch (error) {
+      console.error('OSMD gaze guides failed', error);
+      setErrorMessage('Не удалось разместить траекторию «Г» на нотах OSMD. Используйте классический стан.');
+      setLoadState('error');
+    } finally {
+      positionCursorAtTicks(renderer, currentOnsetTicks());
+    }
+    return clear;
+  }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
+
   return (
-    <div data-testid="osmd-score" data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
+    <div data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         <div className="flex items-center flex-wrap gap-2.5">
           <span className="text-slate-400">Такт: <strong className="text-white">{actualBar}</strong></span>
