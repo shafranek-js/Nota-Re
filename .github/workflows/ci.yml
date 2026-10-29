@@ -17,3 +17,9 @@ jobs:
       - run: npm ci
       - run: npm test
       - run: npm run build
+      - name: Validate GitHub Pages build and bundled audio assets
+        env:
+          NOTARE_PUBLIC_BASE: /Nota-Re/
+        run: |
+          npm run build
+          node scripts/verify-pages-build.mjs
