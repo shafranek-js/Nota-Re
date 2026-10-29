@@ -2,10 +2,9 @@ import type { ExerciseNote } from '../../types/music';
 
 /**
  * Phase is separate from the rhythmic "continuous flow" switch.
- * Precheck and count-in will become explicit phases in follow-up PRs;
- * they are not simulated with arbitrary delays in this iteration.
+ * Precheck is optional; count-in exists only for explicit rhythmic starts.\n * They are separate from the musical flow timing and from graded results.
  */
-export type TrainerPhase = 'setup' | 'playing' | 'results';
+export type TrainerPhase = 'setup' | 'precheck' | 'countIn' | 'playing' | 'results';
 
 /** Retry the exact displayed exercise, keeping its notes and music. */
 export function resetNotesForRetry(notes: readonly ExerciseNote[]): ExerciseNote[] {
