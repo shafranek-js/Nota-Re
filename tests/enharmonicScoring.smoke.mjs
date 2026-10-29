@@ -25,7 +25,7 @@ try {
 
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => !!window.__enharmonicMidi.input.onmidimessage);
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.getByTestId('toolbar-trigger-material').click();
   await page.getByRole('button', { name: /2-я окт/ }).click();
   await page.locator('select').filter({ has: page.locator('option[value="F"]') })
