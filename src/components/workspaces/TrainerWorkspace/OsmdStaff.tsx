@@ -104,7 +104,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       }
       rendering = true;
       try {
-        // The historical 0.8 zoom rendered tiny notation in a much taller
+        // The historical effective 1.0 zoom rendered tiny notation in a much taller
         // Zen canvas. Use OSMD's own engraving zoom, not a CSS-scaled SVG.
         // Re-evaluate on width changes and on entering/exiting focus.
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
