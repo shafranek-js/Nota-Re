@@ -31,6 +31,7 @@ try {
     return Number(/\((\d+)\)/.exec(value)?.[1]);
   };
   assert.equal(await attempts(), 0);
+  await page.getByTestId('toolbar-trigger-rhythm').click();
   await page.getByRole('button', { name: /Две руки одновременно · MIDI/ }).click();
 
   const score = page.getByTestId('two-hand-practice');
