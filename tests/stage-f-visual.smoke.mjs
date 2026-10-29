@@ -131,14 +131,18 @@ try {
       assert.ok(Math.abs(restored.medianHeadWidthPx - normal.medianHeadWidthPx) < 1,
         `OSMD ${width}: exit from Zen must restore normal notehead scale`);
     }
-    await page.getByRole('button', { name: 'Классический' }).click();
+    await page.getByTestId('toolbar-trigger-view').click();
+    await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'Классический', exact: true }).click();
+    await page.getByTestId('toolbar-trigger-view').click();
     const classic = page.locator('#staff-notes-layer');
     await classic.waitFor({ state: 'visible' });
     await checkWidth(`Classic ${width}`);
     assert.ok(await classic.locator('g').count() >= 8, `Classic ${width}: notes visible`);
     await page.screenshot({ path: `${artifacts}/stage-f-classic-${width}.png` });
     metrics.push({ width, osmd: normal, zen });
-    await page.getByRole('button', { name: 'OSMD', exact: true }).click();
+    await page.getByTestId('toolbar-trigger-view').click();
+    await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'OSMD', exact: true }).click();
+    await page.getByTestId('toolbar-trigger-view').click();
     await ready();
   }
 
