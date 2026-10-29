@@ -73,8 +73,24 @@ try {
   await arc.first().waitFor({ state: 'attached', timeout: 15000 });
   assert.ok(await arc.count() > 0, 'interval guides remain after responsive resize');
 
-  // G-pattern still requires a special overlay and retains Classic.
+  // G-pattern uses the real OSMD staff with bass-to-treble gaze paths.
   await page.getByRole('button', { name: /6\. Буква «Г»/ }).click();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
+  const gaze = page.locator('[data-notare-gaze-overlay="true"]');
+  await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await gaze.count() > 0, 'G-pattern must draw gaze paths on OSMD notes');
+  const firstPath = gaze.first().locator('path');
+  assert.match(await firstPath.getAttribute('d'), /^M [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+$/);
+  assert.equal(await renderError.count(), 0, 'G-pattern should not show OSMD renderer errors');
+  await page.setViewportSize({ width: 375, height: 900 });
+  await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await gaze.count() > 0, 'G-pattern must reanchor after narrow viewport rerender');
+  await page.getByRole('button', { name: 'Новый', exact: true }).click();
+  await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await gaze.count() > 0, 'G-pattern must survive regenerating notes');
+
+  // Hanon still has instructional block overlays only in Classic.
+  await page.getByRole('button', { name: /8\. Ганон/ }).click();
   await page.getByText(/временно использует классический стан/).waitFor();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
 
