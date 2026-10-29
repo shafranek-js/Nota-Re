@@ -51,6 +51,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/zen-mode.smoke.mjs
+      - name: Verify focused graded course controls, MusicXML and explicit ungraded setup
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/course-focus.smoke.mjs
       - name: Verify three destinations, Course continuation and embedded Studio tools
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
