@@ -9,6 +9,8 @@ import {
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
+import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
+import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
   loadCourseProgressFromStorage, 
@@ -73,6 +75,10 @@ export interface AppState {
   // Assisted/imagined steps cannot be used as evidence for course certification.
   isExerciseAssisted: boolean;
   isExerciseFlawless: boolean;
+  /** Physical MIDI/PC judgments, rhythmic misses and assisted actions for this exercise only. */
+  attemptEvents: AttemptEvent[];
+  /** Immutable outcome of the most recently finished exercise (not the session totals). */
+  lastAttemptResult: AttemptSnapshot | null;
 
   // Методы управления
   initApp: () => () => void;
@@ -104,6 +110,7 @@ export interface AppState {
   triggerPhotoFlash: () => void;
   toggleAudioMaster: () => void;
   resetSessionStats: () => void;
+  clearLastAttemptResult: () => void;
   resetTrainerPreferences: () => void;
   regenerateExercise: () => void;
   handleUserTriggerNote: (noteName: string, fromMidi?: boolean) => void;
@@ -196,7 +203,19 @@ function finishExercise(
     lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId)
   });
 
-  set({ completedExercisesCount: result.creditedRepetitions });
+  // Snapshot the completed score before regenerating its notes.
+  const lastAttemptResult = createAttemptSnapshot({
+    mode: state.currentAppMode,
+    tonality: state.currentTonality,
+    bpm: state.bpm,
+    lessonId: lesson?.id === state.selectedLessonId ? lesson.id : null,
+    noteCount: state.activeExerciseNotes.length,
+    events: state.attemptEvents,
+    clean: state.isExerciseFlawless,
+    assisted: state.isExerciseAssisted,
+    lessonPassed: result.passed
+  });
+  set({ completedExercisesCount: result.creditedRepetitions, lastAttemptResult });
   if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
     const completedLessons = [...state.completedLessons, lesson.id];
     saveCourseProgressToStorage(completedLessons);
@@ -236,6 +255,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   noteShownTimestamp: performance.now(),
   isExerciseAssisted: false,
   isExerciseFlawless: true,
+  attemptEvents: [],
+  lastAttemptResult: null,
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
@@ -470,6 +491,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       activeExerciseNotes: nextNotes,
       totalAttempts: state.totalAttempts + (unanswered ? 1 : 0),
+      attemptEvents: unanswered ? [...state.attemptEvents, {
+        noteIndex: activeNoteIndex,
+        expectedNote: target.noteName,
+        playedNote: null,
+        outcome: 'missed' as const,
+        reactionMs: null
+      }] : state.attemptEvents,
       currentStreak: unanswered ? 0 : state.currentStreak,
       completedExercisesCount: unanswered ? 0 : state.completedExercisesCount,
       isExerciseFlawless: state.isExerciseFlawless && !unanswered,
@@ -553,10 +581,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseAssisted: false,
-      isExerciseFlawless: true
+      isExerciseFlawless: true,
+      attemptEvents: [],
+      lastAttemptResult: null
     });
     get().regenerateExercise();
   },
+
+  clearLastAttemptResult: () => set({ lastAttemptResult: null }),
 
   resetSessionStats: () => {
     set({
@@ -566,7 +598,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       completedExercisesCount: 0,
       reactionTimes: [],
       lastTriggeredNote: null,
-      lastKeyResult: null
+      lastKeyResult: null,
+      attemptEvents: [],
+      lastAttemptResult: null
     });
   },
 
@@ -588,7 +622,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       noteShownTimestamp: performance.now(),
       isPhotoMasked: false,
       isExerciseAssisted: false,
-      isExerciseFlawless: true
+      isExerciseFlawless: true,
+      attemptEvents: []
     });
     armFlowClock(get);
 
@@ -606,12 +641,33 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (!target || !transition) return;
     audioEngine.playPianoTone(target.freq, 0.25, target.articulation === 'staccato');
     const { notes, nextIndex, finished } = transition;
+    const attemptEvents: AttemptEvent[] = [...get().attemptEvents, {
+      noteIndex: activeNoteIndex,
+      expectedNote: target.noteName,
+      playedNote: null,
+      outcome: 'assisted',
+      reactionMs: null
+    }];
     if (finished) {
+      const state = get();
+      const lastAttemptResult = createAttemptSnapshot({
+        mode: state.currentAppMode,
+        tonality: state.currentTonality,
+        bpm: state.bpm,
+        lessonId: null,
+        noteCount: notes.length,
+        events: attemptEvents,
+        clean: false,
+        assisted: true,
+        lessonPassed: false
+      });
       set({
         activeExerciseNotes: notes,
         isExerciseAssisted: true,
         isExerciseFlawless: false,
-        completedExercisesCount: 0
+        completedExercisesCount: 0,
+        attemptEvents,
+        lastAttemptResult
       });
       window.setTimeout(() => {
         if (get().activeExerciseNotes === notes) get().regenerateExercise();
@@ -624,7 +680,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       noteShownTimestamp: performance.now(),
       isExerciseAssisted: true,
       isExerciseFlawless: false,
-      completedExercisesCount: 0
+      completedExercisesCount: 0,
+      attemptEvents
     });
     if (get().isContinuousFlow) armFlowClock(get);
     if (get().currentAppMode === 'photo' &&
@@ -667,9 +724,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? audioNow >= flowDeadlineAudioTime
         : rt >= noteDurationMs(target, get().bpm)
     );
-    // Spelling is a notational property: Bb and A# are the SAME MIDI key.
-    // Grade physical pitch, not the key-name alias used by a UI/MIDI device.
-    const isCorrect = played?.midi === target.midi && !isLate;
+    const isCorrect = noteName === target.noteName && !isLate;
 
     set((s) => {
       const newTotal = s.totalAttempts + 1;
@@ -688,6 +743,15 @@ export const useAppStore = create<AppState>((set, get) => ({
         reactionTimes: newReactionTimes,
         lastTriggeredNote: noteName,
         lastKeyResult: { noteName, isCorrect },
+        attemptEvents: [...s.attemptEvents, {
+          noteIndex: activeNoteIndex,
+          expectedNote: target.noteName,
+          playedNote: noteName,
+          outcome: isCorrect ? 'correct' as const
+            : isLate && noteName === target.noteName ? 'late' as const
+              : 'wrong-pitch' as const,
+          reactionMs: Number.isFinite(rt) && rt >= 0 ? rt : null
+        }],
         isExerciseFlawless: s.isExerciseFlawless && isCorrect,
         completedExercisesCount: !isCorrect ? 0 : s.completedExercisesCount
       };
