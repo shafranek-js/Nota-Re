@@ -71,7 +71,7 @@ export const CourseWorkspace: React.FC = () => {
           </details>
         </div>
         <nav aria-label="Модули курса" data-testid="course-module-nav"
-          className="flex-1 min-w-0 max-w-full flex items-center gap-1 overflow-x-auto whitespace-nowrap custom-scroll">
+          className="w-full lg:w-auto lg:flex-1 min-w-0 max-w-full flex items-center gap-1 overflow-x-auto whitespace-nowrap custom-scroll">
           <button type="button" data-testid="course-module-all" aria-pressed={moduleFilter === 'all'}
             onClick={() => selectModule('all')}
             className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === 'all'
