@@ -33,7 +33,7 @@ try {
   page.on('pageerror', error => errors.push(error.message));
 
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   const openPanel = async (name) => {
     const button = page.getByTestId(`toolbar-trigger-${name}`);
     if (await button.getAttribute('aria-expanded') !== 'true') await button.click();
