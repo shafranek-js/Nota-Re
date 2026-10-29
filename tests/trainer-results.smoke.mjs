@@ -20,6 +20,7 @@ try {
         .getByRole('button', { name: /Тренажёр-Студия/ }).click();
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
       // The default score contains 16 notes; the density button selects 8.
+      await page.getByTestId('toolbar-trigger-material').click();
       await page.getByRole('button', { name: /16 нот/ }).click();
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
       const firstNote = (await page.getByTestId('active-target-note').innerText()).trim();
@@ -53,6 +54,7 @@ try {
       assert.equal(retried, firstNote, 'retry keeps the same starting note');
 
       // Now complete an exercise entirely through tabletop assistance.
+      await page.getByTestId('toolbar-trigger-view').click();
       await page.getByRole('button', { name: /Режим «Стол»/ }).click();
       const imagined = page.getByRole('button', { name: /Представил клавишу — следующий шаг/ });
       for (let step = 0; step < 8; step += 1) await imagined.click();
