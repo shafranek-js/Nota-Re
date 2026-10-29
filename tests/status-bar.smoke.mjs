@@ -38,7 +38,8 @@ try {
 
       await page.getByRole('navigation', { name: 'Рабочие пространства' })
         .getByRole('button', { name: /^Студия$/ }).click();
-      await page.getByRole('button', { name: 'Классический' }).click();
+      await page.getByTestId('toolbar-trigger-view').click();
+      await page.getByTestId('toolbar-panel-view').getByRole('button', { name: 'Классический', exact: true }).click();
       assert.match(await status.getByTestId('status-renderer').innerText(), /SVG/);
       await page.reload({ waitUntil: 'domcontentloaded' });
       assert.match(await page.getByTestId('status-renderer').innerText(), /SVG/, 'renderer preference survives reload');
