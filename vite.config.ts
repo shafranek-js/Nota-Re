@@ -11,7 +11,7 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 // Cloudflare provide their checkout SHA; local dev uses the current git HEAD.
 // Do not use a time/random build ID: those cannot be traced back to code.
 function getBuildRevision(): string {
-  const ciRevision = process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
+  const ciRevision = process.env.NOTARE_BUILD_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
   if (ciRevision && /^[a-f0-9]{7,40}$/i.test(ciRevision)) return ciRevision.slice(0, 7);
   try {
     const gitRevision = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
@@ -25,6 +25,8 @@ function getBuildRevision(): string {
 }
 
 export default defineConfig({
+  // GitHub Pages is hosted under /Nota-Re/; local dev and other hosts stay at /.
+  base: process.env.NOTARE_PUBLIC_BASE || '/',
   plugins: [react()],
   define: {
     __NOTARE_APP_VERSION__: JSON.stringify(version),
