@@ -10,7 +10,7 @@ import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
 import { osmdZoomForWidth } from '../../../core/notation/osmdZoom';
-import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
+import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, getTrebleStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -26,6 +26,24 @@ const collectionNames: Record<string, string> = {
   bass: 'М. Литовко (Бас C3–B3)',
   both: 'Две руки (Буква «Г»)'
 };
+
+function positionTeachingCursor(renderer: OpenSheetMusicDisplay, ticks: number): void {
+  positionCursorAtTicks(renderer, ticks);
+  // Keep the OSMD iterator for masks and teaching geometry, but hide the
+  // default paper-style vertical rectangle. Nota-Re highlights actual notes.
+  renderer.cursor.hide();
+}
+
+function styleClefs(mount: HTMLElement): void {
+  // VexFlow emits treble and bass clefs in score order for every piano system.
+  mount.querySelectorAll<SVGGElement>('.vf-clef').forEach((clef, index) => {
+    const color = index % 2 === 0 ? '#38bdf8' : '#a855f7';
+    clef.querySelectorAll<SVGElement>('path').forEach(path => {
+      path.style.fill = color;
+      path.style.stroke = color;
+    });
+  });
+}
 
 function currentOnsetTicks(): number {
   const { activeExerciseNotes, activeNoteIndex } = useAppStore.getState();
@@ -77,7 +95,8 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     const score = createScoreFromExercise(activeExerciseNotes, currentTonality);
     return toMusicXml(score, {
       includeFingering: currentAppMode === 'hanon',
-      includeSyllables: currentAppMode === 'hanon'
+      includeSyllables: currentAppMode === 'hanon',
+      hideInactiveStaffRests: true
     });
     // Equivalent musical input produces an identical score and XML even after
     // immutable status/index changes; intentionally omit array reference.
@@ -110,9 +129,10 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.render();
         if (!cancelled) {
+          styleClefs(container);
           setLoadState('ready');
           osmdRef.current = renderer;
-          positionCursorAtTicks(renderer, currentOnsetTicks());
+          positionTeachingCursor(renderer, currentOnsetTicks());
           setRenderEpoch(epoch => epoch + 1);
         }
       } catch (error) {
@@ -136,6 +156,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         if (cancelled) return;
         renderer = new OSMD(container, {
           backend: 'svg',
+          darkMode: true,
           autoResize: false,
           drawingParameters: 'compacttight',
           drawTitle: false,
@@ -143,6 +164,26 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
           drawComposer: false,
           cursorsOptions: [{ type: 0, color: '#f59e0b', alpha: 0.34, follow: false }]
         });
+        // Set OSMD's real engraving rules before loading: a dark piano
+        // score with the final system stretched to the available width.
+        const rules = renderer.EngravingRules;
+        rules.StretchLastSystemLine = true;
+        rules.RenderSingleHorizontalStaffline = false;
+        rules.RenderMeasureNumbers = false;
+        rules.PageBackgroundColor = '#0b1120';
+        rules.DefaultColorMusic = '#f8fafc';
+        rules.DefaultColorNotehead = '#f8fafc';
+        rules.DefaultColorStem = '#f8fafc';
+        rules.DefaultColorRest = '#94a3b8';
+        rules.DefaultColorLabel = '#94a3b8';
+        rules.StaffLineColor = '#334155';
+        rules.PageTopMargin = 1.5;
+        rules.PageBottomMargin = 1.5;
+        rules.PageLeftMargin = 1.5;
+        rules.PageRightMargin = 1.5;
+        rules.SystemLeftMargin = 0;
+        rules.SystemRightMargin = 0;
+        rules.StaffDistance = 4.5;
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.load(xml);
         if (cancelled) return;
@@ -201,7 +242,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   // per exercise note would drift. Match the cursor's musical timestamp instead.
   const noteOnsets = useMemo(() => getNoteOnsets(activeExerciseNotes), [activeExerciseNotes]);
   const onsetTicks = noteOnsets[activeNoteIndex] ?? 0;
-  const actualBar = Math.floor(onsetTicks / TICKS_PER_MEASURE) + 1;
+  const lastTick = activeExerciseNotes.reduce((sum, note) => sum + note.durMultiplier * 4, 0);
+  const totalBars = Math.max(1, Math.ceil(lastTick / TICKS_PER_MEASURE));
+  const actualBar = Math.min(totalBars, Math.floor(onsetTicks / TICKS_PER_MEASURE) + 1);
 
   useEffect(() => {
     if (loadState !== 'ready' || !osmdRef.current) return;
@@ -246,7 +289,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       }
 
       for (const ticks of [...positions].sort((a, b) => a - b)) {
-        positionCursorAtTicks(renderer, ticks);
+        positionTeachingCursor(renderer, ticks);
         for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
           // getSVGGElement is implemented by OSMD's VexFlowGraphicalNote,
           // but not declared on the abstract GraphicalNote base type.
@@ -266,7 +309,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       setErrorMessage('Не удалось скрыть ноты. Используйте классический стан.');
     } finally {
       // Mask inspection walks the iterator: always restore actual training spot.
-      positionCursorAtTicks(renderer, currentOnsetTicks());
+      positionTeachingCursor(renderer, currentOnsetTicks());
     }
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
 
@@ -331,7 +374,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       setErrorMessage('Не удалось разместить интервальные подсказки. Используйте классический стан.');
       setLoadState('error');
     } finally {
-      positionCursorAtTicks(renderer, currentOnsetTicks());
+      positionTeachingCursor(renderer, currentOnsetTicks());
     }
 
     return () => {
@@ -404,7 +447,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       setErrorMessage('Не удалось разместить траекторию «Г» на нотах OSMD. Используйте классический стан.');
       setLoadState('error');
     } finally {
-      positionCursorAtTicks(renderer, currentOnsetTicks());
+      positionTeachingCursor(renderer, currentOnsetTicks());
     }
     return clear;
   }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
@@ -486,7 +529,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       setErrorMessage('Не удалось разместить блоки Ганона. Используйте классический стан.');
       setLoadState('error');
     } finally {
-      positionCursorAtTicks(renderer, currentOnsetTicks());
+      positionTeachingCursor(renderer, currentOnsetTicks());
     }
     return clear;
   }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
@@ -566,9 +609,13 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
       <div data-testid={zen ? 'zen-score-actions' : undefined} className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         {!zen && <div className="flex items-center flex-wrap gap-2.5">
-          <span className="text-slate-400">Такт: <strong className="text-white">{actualBar}</strong></span>
+          <span className="flex items-center gap-1.5 font-mono text-slate-300 bg-slate-950/90 px-2.5 py-0.5 rounded-md border border-slate-800">
+            <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
+            Такт: <strong className="text-white">{actualBar} / {totalBars}</strong>
+          </span>
           <span className="text-slate-400">Сборник: <strong className="text-sky-400">{collectionNames[currentFilter]}</strong></span>
-          <span className="text-emerald-300">OSMD · MusicXML</span>
+          <span className="hidden md:inline text-slate-600">•</span>
+          <span className="hidden md:inline text-slate-400">Фокус: <strong className="text-emerald-400">Прямой рефлекс «Вижу знак → нажимаю клавишу»</strong></span>
         </div>}
         <div className="flex items-center flex-wrap gap-1.5">
           {currentAppMode === 'photo' && (
@@ -604,20 +651,20 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         </div>
       </div>)}
 
-      <div className="relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-white text-slate-900">
+      <div className="osmd-dark-theme relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100">
         {currentAppMode === 'photo' && isPhotoMasked && (
           <div data-testid="photo-masked-notice" className="sticky top-0 z-20 mx-auto w-fit px-3 py-1 rounded-b-lg bg-cyan-950 text-cyan-100 text-xs pointer-events-none">
             Такт {actualBar} скрыт — играйте по памяти
           </div>
         )}
-        <div ref={mountRef} className="w-full min-h-[200px]" aria-label="Нотная партитура OpenSheetMusicDisplay" />
+        <div ref={mountRef} className="w-full" aria-label="Нотная партитура OpenSheetMusicDisplay" />
         {loadState === 'loading' && (
-          <div role="status" className="absolute inset-0 flex items-center justify-center bg-white/95 text-slate-600 text-xs">
+          <div role="status" className="absolute inset-0 flex items-center justify-center bg-slate-950/95 text-slate-400 text-xs">
             Загрузка нотного стана…
           </div>
         )}
         {loadState === 'error' && (
-          <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-white text-red-700 text-xs px-4 text-center">
+          <div role="alert" className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-slate-950 text-rose-300 text-xs px-4 text-center">
             <span>Ошибка нотного движка: {errorMessage}</span>
             <button onClick={onRequestLegacy} className="px-3 py-1 rounded bg-slate-900 text-white">
               Вернуться к прежнему нотному стану
