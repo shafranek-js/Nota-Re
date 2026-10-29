@@ -60,33 +60,37 @@ export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   }
 
   return (
-    <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/60 text-xs">
-      <div className="flex flex-wrap items-center gap-2">
+    <div className="shrink-0 w-full min-w-0 border-t border-slate-800/60 pt-1 text-xs">
+      <div className="flex min-w-0 items-center gap-1.5 overflow-x-auto whitespace-nowrap custom-scroll pb-0.5">
         {isExerciseAssisted && (
           <span role="status" data-testid="assisted-step-notice"
-            className="px-2 py-0.5 rounded border border-amber-500/50 text-amber-300">
-            Подсказка использована — упражнение без зачёта
+            className="shrink-0 rounded border border-amber-500/50 px-1.5 py-0.5 text-amber-300">
+            Подсказка использована — без зачёта
           </span>
         )}
-        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ЦЕЛЬ: <strong data-testid="active-target-note" className="text-sky-400 font-mono">{hidePhotoHints ? 'По памяти' : target?.noteName || '—'}</strong>
+        <span className="shrink-0 text-slate-400">
+          Цель: <strong data-testid="active-target-note" className="text-sky-400 font-mono">{hidePhotoHints ? 'По памяти' : target?.noteName || '—'}</strong>
         </span>
-        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ИНТЕРВАЛ: <strong data-testid="active-target-interval" className="text-indigo-400 font-mono">{hidePhotoHints ? 'Скрыт' : intervalInfo.name}</strong>
+        <span className="shrink-0 border-l border-slate-800 pl-1.5 text-slate-400">
+          Интервал: <strong data-testid="active-target-interval" className="text-indigo-400 font-mono">{hidePhotoHints ? 'Скрыт' : intervalInfo.name}</strong>
         </span>
-        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          РИТМОСЛОГ: <strong data-testid="active-target-syllable" className="text-amber-400 font-mono">{hidePhotoHints ? 'Скрыт' : target?.syllable || 'ТА'}</strong>
+        <span className="shrink-0 border-l border-slate-800 pl-1.5 text-slate-400">
+          Ритм: <strong data-testid="active-target-syllable" className="text-amber-400 font-mono">{hidePhotoHints ? 'Скрыт' : target?.syllable || 'ТА'}</strong>
         </span>
-        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ПАЛЕЦ / ШТРИХ: <strong data-testid="active-target-fingering" className="text-rose-400 font-mono">{hidePhotoHints ? 'Скрыт' : `${target?.finger || 1} • ${target?.articulation || 'legato'}`}</strong>
+        <span className="shrink-0 border-l border-slate-800 pl-1.5 text-slate-400">
+          Палец / штрих: <strong data-testid="active-target-fingering" className="text-rose-400 font-mono">{hidePhotoHints ? 'Скрыт' : `${target?.finger || 1} • ${target?.articulation || 'legato'}`}</strong>
         </span>
-        <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ОТВЕТ: <strong data-testid="last-played-note" className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
+        <span className="shrink-0 border-l border-slate-800 pl-1.5 text-slate-400">
+          Ответ: <strong data-testid="last-played-note" className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
         </span>
-      </div>
-
-      <div className="text-slate-400 text-xs truncate max-w-2xl">
-        💡 <strong className="text-emerald-400">Методика:</strong> {tips[currentAppMode] || tips.reflex}
+        <details className="relative shrink-0 border-l border-slate-800 pl-1.5 text-slate-400">
+          <summary className="cursor-pointer text-emerald-300 hover:text-emerald-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+            Методика
+          </summary>
+          <span className="block max-w-[min(78vw,32rem)] whitespace-normal py-1 text-slate-300">
+            {tips[currentAppMode] || tips.reflex}
+          </span>
+        </details>
       </div>
     </div>
   );
