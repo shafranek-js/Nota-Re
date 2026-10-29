@@ -70,7 +70,7 @@ try {
 
   // The flow click itself must be timestamp-scheduled rather than using an
   // oscillator start() without a specified AudioContext time.
-  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
+  await page.getByRole('button', { name: /^Курс$/ }).click();
   await page.getByText(/Урок 3:/).first().click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await page.getByRole('button', { name: 'Поток: ИДЁТ' }).waitFor();
