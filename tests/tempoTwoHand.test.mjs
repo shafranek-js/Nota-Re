@@ -93,4 +93,3 @@ test('late notes and wrong times do not award any course-equivalent hit', () => 
   assert.equal(s.misses, 1);
   assert.equal(s.hits, 0);
 });
-});
