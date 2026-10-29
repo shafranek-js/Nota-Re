@@ -6,6 +6,7 @@ import { CheckCircle2, ArrowRight } from 'lucide-react';
 export const TrainerBanner: React.FC = () => {
   const {
     selectedLessonId,
+    activeLessonId,
     completedLessons,
     completedExercisesCount,
     switchWorkspace,
@@ -24,6 +25,10 @@ export const TrainerBanner: React.FC = () => {
         <strong className="text-white truncate max-w-md">
           {lesson.title}
         </strong>
+        <span data-testid="course-credit-mode" className={activeLessonId === lesson.id
+          ? 'text-emerald-300 font-semibold' : 'text-amber-300 font-semibold'}>
+          {activeLessonId === lesson.id ? 'Зачётная попытка' : 'Практика без зачёта'}
+        </span>
         <span className="hidden lg:inline text-slate-400">
           • Норматив: {lesson.normReps} ном. (точность ≥{lesson.normAcc}%, отклик &lt;{lesson.normSpeed} мс)
         </span>
