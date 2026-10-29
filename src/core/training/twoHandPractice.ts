@@ -1,6 +1,6 @@
 import { MIDI_NOTE_MAP } from '../../data/notes.ts';
 import { applyTonalityToPitch } from '../generator/ExerciseGenerator.ts';
-import { createScoreFromHands, type ExerciseScore, type ExercisePitch, type SupportedKey } from '../notation/musicXml.ts';
+import { createScoreFromHands, createScoreFromTimedHands, type ExerciseScore, type ExercisePitch, type SupportedKey, type TimedHandPitch } from '../notation/musicXml.ts';
 
 /** Independent hand attacks, merged by shared musical onset (sixteenth ticks). */
 export interface TwoHandStep {
@@ -14,6 +14,28 @@ export interface TwoHandPracticeScore {
   readonly steps: readonly TwoHandStep[];
 }
 
+export type TwoHandPattern = 'steady' | 'eighth-rests' | 'staggered';
+
+/**
+ * Eight-beat phrases, each stored as [start, duration] in sixteenth ticks.
+ * Omitted time between notes becomes an engraved rest on THAT staff.
+ * Patterns are deterministic so rhythm / physical MIDI UAT is reproducible.
+ */
+const RHYTHM_PHRASES: Record<Exclude<TwoHandPattern, 'steady'>, {
+  readonly right: readonly (readonly [number, number])[];
+  readonly left: readonly (readonly [number, number])[];
+}> = {
+  'eighth-rests': {
+    right: [[0, 2], [2, 2], [4, 4], [10, 2], [12, 4], [16, 2], [18, 2],
+      [20, 4], [26, 2], [28, 4]],
+    left: [[0, 4], [6, 2], [8, 8], [20, 4], [24, 8]]
+  },
+  staggered: {
+    right: [[2, 2], [4, 6], [10, 2], [12, 4], [18, 2], [20, 4], [24, 6], [30, 2]],
+    left: [[0, 6], [8, 4], [12, 4], [18, 6], [26, 6]]
+  }
+};
+
 /**
  * A short, deterministic two-staff exercise: RH quarters over LH halves.
  * Both hands START together, and LH notes sound through the intermediate RH
@@ -23,7 +45,8 @@ export interface TwoHandPracticeScore {
  */
 export function createTwoHandPractice(
   tonality: SupportedKey,
-  rightNoteCount: 8 | 16 = 16
+  rightNoteCount: 8 | 16 = 16,
+  pattern: TwoHandPattern = 'steady'
 ): TwoHandPracticeScore {
   const rightNames = ['C4', 'D4', 'E4', 'F4', 'G4', 'F4', 'E4', 'D4'];
   const leftNames = ['C3', 'G3', 'D3', 'G3'];
@@ -46,7 +69,36 @@ export function createTwoHandPractice(
   const left = Array.from({ length: rightNoteCount / 2 }, (_, i) =>
     make(leftNames[i % leftNames.length], 2));
 
-  const score = createScoreFromHands(right, left, tonality, 'Nota-Re — two-hand MIDI practice');
+  let score: ExerciseScore;
+  if (pattern === 'steady') {
+    score = createScoreFromHands(right, left, tonality, 'Nota-Re — two-hand MIDI practice');
+  } else {
+    const phrase = RHYTHM_PHRASES[pattern];
+    if (!phrase) throw new Error('Unsupported two-hand rhythm.');
+    const repeats = rightNoteCount / 8;
+    const timedHand = (
+      timings: readonly (readonly [number, number])[],
+      names: readonly string[]
+    ): TimedHandPitch[] => Array.from({ length: repeats }, (_, phraseIndex) =>
+      timings.map(([onset, duration], noteIndex) => {
+        const pitch = make(names[(phraseIndex * timings.length + noteIndex) % names.length], duration / 4);
+        return {
+          midi: pitch.midi,
+          onsetTicks: phraseIndex * 32 + onset,
+          durationTicks: duration,
+          finger: pitch.finger,
+          articulation: pitch.articulation
+        };
+      })
+    ).flat();
+    score = createScoreFromTimedHands(
+      timedHand(phrase.right, rightNames),
+      timedHand(phrase.left, leftNames),
+      tonality,
+      'Nota-Re — ' + pattern + ' two-hand reading'
+    );
+  }
+
   const onsetMap = new Map<number, number[]>();
   for (const note of score.notes) {
     const pitches = onsetMap.get(note.onsetTicks) ?? [];
