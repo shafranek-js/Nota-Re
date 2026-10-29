@@ -4,7 +4,7 @@ import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
-import { ChevronDown, FileDown, Mic, MoreHorizontal, Pause, Play, RotateCw, Square } from 'lucide-react';
+import { ChevronDown, FileDown, Mic, Pause, Play, RotateCw, Square } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
 
