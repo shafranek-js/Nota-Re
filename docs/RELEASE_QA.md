@@ -83,6 +83,33 @@ then again on the merged `main` commit. Chrome tests cover:
   show Zen, even when its preference is enabled. The technical footer
   remains present and the build ID is never clipped.
 
+## Stage F — inspectable notation and error-feedback evidence
+
+- `tests/stage-f-feedback.smoke.mjs` plays a wrong pitch in an actual
+  rhythmic exercise, lets later slots expire, and checks distinctly
+  labelled **Неверная нота / Пропуск** result rows. Pure `late` events
+  are covered separately by deterministic outcome/description unit tests:
+  browser scheduler jitter must not fabricate an intentional "late" strike.
+- `tests/stage-f-visual.smoke.mjs` saves screenshots of the actual UI at
+  320/375/768/1024/1440/1920px for OSMD, Classic and Zen, plus all eight
+  OSMD methodologies at 1440px. `artifacts/stage-f-stave-metrics.json`
+  reports measured SVG noteheads, their median physical width, and notation
+  area dimensions. These are **measurements**, not proof that stave spacing,
+  clefs, fingering, annotations or scrolling are pleasant/readable.
+- In the GitHub Actions **OSMD browser smoke** run, download the
+  `osmd-browser-diagnostics` artifact and inspect each screenshot for clipped
+  ledger lines, accidental placement, obscured notes, tiny clefs, overly
+  compressed keyboard and narrow-screen overflow. Keep real phone and
+  desktop visual acceptance open until inspected.
+- On the physical MIDI instrument, perform two-octave scales with overlapping
+  key releases, repeat a note rapidly, reconnect USB, test sustained
+  notes/pedal if supported, and compare the latency and piano timbre over
+  headphones. Browser event mocks do not validate electrical/hardware latency.
+- For incorrect input, inspect one actual wrong note, one late correct-pitch
+  answer and one silent missed beat. A late pitch must not be explained as
+  wrong pitch, and the UI must not guess the reason for a user's mistake.
+  Verify both Chrome and the physical instrument before signing off.
+
 ## Manual acceptance still required
 
 - **Sound on real speakers/headphones:** check SoundFont piano and
