@@ -1,15 +1,15 @@
 import React from 'react';
 import { useAppStore, WorkspaceTab } from '../../store/useAppStore';
-import { Settings, Volume2, VolumeX, Music } from 'lucide-react';
+import { Settings, Volume2, VolumeX, Music, Cable } from 'lucide-react';
 
 export const Header: React.FC = () => {
   const {
     currentWorkspace,
     switchWorkspace,
-    completedLessons,
     audioEnabled,
     toggleAudioMaster,
-    toggleSettingsDrawer
+    toggleSettingsDrawer,
+    openMidiDiagnostics
   } = useAppStore();
 
   const tabs: { id: WorkspaceTab; label: string }[] = [
@@ -20,19 +20,15 @@ export const Header: React.FC = () => {
 
   return (
     <header className="shrink-0 w-full min-h-12 bg-slate-900/95 border-b border-slate-800/90 px-3 py-1.5 flex flex-wrap xl:flex-nowrap items-center justify-between gap-2 z-30">
-      {/* Логотип и общий прогресс курса */}
+      {/* Compact brand; the Course workspace owns completion progress. */}
       <div className="flex items-center gap-2.5 shrink-0">
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-md shadow-emerald-950/60">
           <Music className="w-4 h-4 text-slate-950 stroke-[2.5]" />
         </div>
-        <div>
-          <div className="flex items-center gap-2">
-            <span className="font-bold text-sm tracking-tight text-white">NotaRe Academy</span>
-            <span className="hidden md:inline text-[10px] font-mono uppercase px-1.5 py-0.5 rounded bg-emerald-500/15 text-emerald-400 border border-emerald-500/30 font-semibold">
-              Курс: {completedLessons.length} / 12 уроков
-            </span>
-          </div>
-        </div>
+        <span data-testid="header-brand" className="font-bold text-sm tracking-tight text-white whitespace-nowrap">
+          <span className="sm:hidden">NotaRe</span>
+          <span className="hidden sm:inline">NotaRe Academy</span>
+        </span>
       </div>
 
       {/* Центральный переключатель рабочих пространств */}
@@ -56,7 +52,7 @@ export const Header: React.FC = () => {
         })}
       </nav>
 
-      {/* Правый блок: управление звуком и настройками */}
+      {/* Audio, hardware diagnostics and settings; status metrics stay in the footer. */}
       <div className="flex items-center gap-2 shrink-0">
         {/* Звук кнопка */}
         <button
@@ -70,6 +66,19 @@ export const Header: React.FC = () => {
         >
           {audioEnabled ? <Volume2 className="w-3.5 h-3.5" /> : <VolumeX className="w-3.5 h-3.5" />}
           <span className="hidden sm:inline">{audioEnabled ? 'Звук' : 'Без звука'}</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={openMidiDiagnostics}
+          data-testid="header-midi-diagnostics"
+          className="inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-200 hover:text-white border border-slate-700 text-xs focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400"
+          title="Открыть MIDI / Audio диагностику"
+          aria-label="Открыть MIDI / Audio диагностику"
+          aria-haspopup="dialog"
+        >
+          <Cable className="w-3.5 h-3.5" aria-hidden="true" />
+          <span>MIDI</span>
         </button>
 
         {/* Настройки кнопка */}

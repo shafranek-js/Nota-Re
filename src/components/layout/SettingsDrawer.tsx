@@ -9,6 +9,7 @@ import { BUILD_DETAILS } from '../../core/release/buildInfo';
 export const SettingsDrawer: React.FC = () => {
   const dialogRef = useRef<HTMLElement>(null);
   const closeButtonRef = useRef<HTMLButtonElement>(null);
+  const midiSummaryRef = useRef<HTMLElement>(null);
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const [soundError, setSoundError] = useState<string | null>(null);
   const [midiDiagnostics, setMidiDiagnostics] = useState(
@@ -39,6 +40,7 @@ export const SettingsDrawer: React.FC = () => {
 
   const {
     isSettingsOpen,
+    settingsPanel,
     toggleSettingsDrawer,
     currentFilter,
     setClefFilter,
@@ -122,6 +124,12 @@ export const SettingsDrawer: React.FC = () => {
       if (opener?.isConnected) opener.focus();
     };
   }, [isSettingsOpen, toggleSettingsDrawer]);
+
+  // A direct hardware shortcut opens the existing diagnostics, with keyboard
+  // focus on the summary. The normal Settings path still starts at Close.
+  useEffect(() => {
+    if (isSettingsOpen && settingsPanel === 'midi') midiSummaryRef.current?.focus();
+  }, [isSettingsOpen, settingsPanel]);
 
   if (!isSettingsOpen) return null;
 
@@ -239,10 +247,12 @@ export const SettingsDrawer: React.FC = () => {
           </div>
 
           <details
+            open={settingsPanel === 'midi'}
             className="rounded-xl border border-slate-700 bg-slate-950/60 p-3"
             data-testid="midi-audio-diagnostics"
           >
-            <summary className="cursor-pointer text-xs font-bold uppercase font-mono text-slate-300">
+            <summary ref={midiSummaryRef}
+              className="cursor-pointer text-xs font-bold uppercase font-mono text-slate-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
               MIDI / Audio — диагностика задержки
             </summary>
             <div className="mt-3 space-y-3 text-xs">

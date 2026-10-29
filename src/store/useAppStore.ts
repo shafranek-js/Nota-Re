@@ -40,6 +40,8 @@ export interface AppState {
   currentWorkspace: WorkspaceTab;
   studioSection: StudioSection;
   isSettingsOpen: boolean;
+  /** Settings deep link for the header MIDI hardware diagnostic shortcut. Session-only. */
+  settingsPanel: 'general' | 'midi';
 
   // Курс
   selectedLessonId: number;
@@ -103,6 +105,7 @@ export interface AppState {
   switchWorkspace: (tab: WorkspaceTab) => void;
   switchStudioSection: (section: StudioSection) => void;
   toggleSettingsDrawer: () => void;
+  openMidiDiagnostics: () => void;
   selectCourseLesson: (id: number) => void;
   selectPrevCourseLesson: () => void;
   selectNextCourseLesson: () => void;
@@ -320,6 +323,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
   studioSection: 'practice',
   isSettingsOpen: false,
+  settingsPanel: 'general',
 
   // All user preference keys live in the versioned, validated snapshot.
   ...loadTrainerPreferences(),
@@ -465,6 +469,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     }));
   },
 
+  openMidiDiagnostics: () => {
+    // Reuse the regular modal opening path: rhythmic clocks and course
+    // eligibility must be invalidated exactly as for the Settings button.
+    if (!get().isSettingsOpen) get().toggleSettingsDrawer();
+    set({ settingsPanel: 'midi' });
+  },
+
   toggleSettingsDrawer: () => {
     const opening = !get().isSettingsOpen;
     // Opening a modal must not silently grade missed notes while the player
@@ -478,6 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const interruptedFlow = opening && get().isContinuousFlow && get().activeLessonId !== null;
     set({
       isSettingsOpen: opening,
+      settingsPanel: 'general',
       trainerPhase: opening && get().trainerPhase === 'countIn' ? 'setup' : get().trainerPhase,
       countInBeat: opening ? 0 : get().countInBeat,
       isContinuousFlow: opening ? false : get().isContinuousFlow,
