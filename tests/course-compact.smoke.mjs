@@ -32,14 +32,14 @@ try {
       const moduleFilter = page.getByRole('navigation', { name: 'Фильтр модулей курса' });
       assert.equal(await moduleFilter.getByRole('button').count(), 5);
       await page.getByTestId('course-filter-IV').click();
-      assert.equal(await page.locator('[data-testid^="course-lesson-"]').count(), 3);
+      assert.equal(await page.locator('button[data-testid^="course-lesson-"]').count(), 3);
       assert.equal(await page.getByTestId('course-lesson-10').getAttribute('aria-current'), 'true',
         'module filter selects first lesson in module if prior selection is outside it');
       assert.match(await selectedStart.innerText(), /урок 10/i);
       assert.match(await resume.innerText(), /Урок 3/,
         'filtering selected lesson must not override next incomplete certified lesson');
       await page.getByTestId('course-filter-all').click();
-      assert.equal(await page.locator('[data-testid^="course-lesson-"]').count(), 12);
+      assert.equal(await page.locator('button[data-testid^="course-lesson-"]').count(), 12);
 
       await page.getByTestId('course-lesson-3').click();
       assert.match(await selectedStart.innerText(), /урок 3/i);
