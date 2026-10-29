@@ -6,7 +6,7 @@ export function applyTonalityToPitch(noteName: string, tonality: TonalityKey): s
   const pitch = noteName.slice(0, -1);
   const oct = noteName.slice(-1);
   if (tonality === 'G' && pitch === 'F') return `F#${oct}`;
-  if (tonality === 'F' && pitch === 'B') return `A#${oct}`;
+  if (tonality === 'F' && pitch === 'B') return `Bb${oct}`;
   if (tonality === 'D') {
     if (pitch === 'F') return `F#${oct}`;
     if (pitch === 'C') return `C#${oct}`;

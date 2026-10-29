@@ -59,8 +59,12 @@ try {
   // tests; regular Space no longer auto-enters a correct pitch.
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
+  const beforeAssistedStatusChange = await epoch();
   await page.keyboard.press('Space');
   assert.ok(await svg.isVisible(), 'Notation must remain after note input');
+  await page.waitForTimeout(180);
+  assert.equal(await epoch(), beforeAssistedStatusChange,
+    'immutable note status updates must not re-engrave unchanged MusicXML');
   const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
   assert.equal(indexAfter, indexBefore + 1, 'exercise should advance exactly one step');
 
@@ -348,6 +352,19 @@ try {
 
   await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
+
+  // A black piano key is spelled Bb under F major but still has MIDI 70;
+  // under C major its legacy A# label remains accessible.
+  const keyPicker = page.locator('select').filter({ has: page.locator('option[value="F"]') }).first();
+  await keyPicker.selectOption('F');
+  await page.getByRole('button', { name: 'Клавиша Bb4', exact: true })
+    .waitFor({ state: 'visible', timeout: 15000 });
+  assert.equal(await page.getByRole('button', { name: 'Клавиша A#4', exact: true }).count(), 0,
+    'F major must not display an enharmonic A-sharp label');
+  await keyPicker.selectOption('C');
+  await page.getByRole('button', { name: 'Клавиша A#4', exact: true })
+    .waitFor({ state: 'visible', timeout: 15000 });
+  assert.equal(await renderError.count(), 0, 'enharmonic key switch must not break OSMD');
 
   await mkdir('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/osmd-trainer.png', fullPage: true });

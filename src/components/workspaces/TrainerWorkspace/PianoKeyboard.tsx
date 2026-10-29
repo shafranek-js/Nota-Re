@@ -122,7 +122,7 @@ export const PianoKeyboard: React.FC = () => {
               const isC = noteName.startsWith('C');
               const pitchClass = noteName.slice(0, -1);
               const isScaleHint = showScaleHighlight && tonalityCfg.scaleNotes.includes(pitchClass);
-              const isLastKey = lastKeyResult?.noteName === noteName;
+              const isLastKey = !!lastKeyResult && MIDI_NOTE_MAP[lastKeyResult.noteName]?.midi === info.midi;
               const flashClass = isLastKey 
                 ? (lastKeyResult.isCorrect ? 'key-active' : 'key-error') 
                 : '';
@@ -149,10 +149,12 @@ export const PianoKeyboard: React.FC = () => {
             {/* Черные клавиши */}
             {BLACK_KEYS_ORDER.map(noteName => {
               const info = MIDI_NOTE_MAP[noteName];
-              const pitchClass = noteName.slice(0, -1);
+              // The same black key is Bb under F major and A# elsewhere.
+              const pitchClass = currentTonality === 'F' && noteName.startsWith('A#')
+                ? 'Bb' : noteName.slice(0, -1);
               const isScaleHint = showScaleHighlight && tonalityCfg.scaleNotes.includes(pitchClass);
               const leftPct = (((info.whiteIdx || 0) + 1 - 0.31) / totalWhite) * 100;
-              const isLastKey = lastKeyResult?.noteName === noteName;
+              const isLastKey = !!lastKeyResult && MIDI_NOTE_MAP[lastKeyResult.noteName]?.midi === info.midi;
               const flashClass = isLastKey 
                 ? (lastKeyResult.isCorrect ? 'key-active' : 'key-error') 
                 : '';
@@ -160,7 +162,8 @@ export const PianoKeyboard: React.FC = () => {
               return (
                 <button
                   key={noteName}
-                  aria-label={`Клавиша ${noteName}`}
+                  aria-label={`Клавиша ${currentTonality === 'F' && noteName.startsWith('A#')
+                    ? 'Bb' + noteName.slice(-1) : noteName}`}
                   onClick={(e) => {
                     e.stopPropagation();
                     handleUserTriggerNote(noteName);
