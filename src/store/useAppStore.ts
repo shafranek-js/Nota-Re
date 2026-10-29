@@ -527,11 +527,11 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleTabletopMode: () => {
     const entering = !get().isTabletopMode;
     if (entering) stopFlowClock();
-    set(state => ({
+    set({
       isTabletopMode: entering,
       ...(entering ? invalidateInterruptedTimedLesson() : {}),
       activeLessonId: null
-    }));
+    });
   },
 
   toggleTwoHandPractice: () => {
