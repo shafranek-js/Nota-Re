@@ -75,7 +75,7 @@ export function reduceTimedPractice(
     // Note-off has no device timestamp in the original event. The caller
     // may pass a receivedAtMs from the same MIDI arrival clock.
     const releasedAtMs = 'receivedAtMs' in event ? event.receivedAtMs : NaN;
-    const early = Number.isFinite(releasedAtMs) ?
+    const early = typeof releasedAtMs === 'number' && Number.isFinite(releasedAtMs) ?
       releases.filter(k => releasedAtMs < k.untilMs - plan.holdGraceMs).length : 0;
     return {
       ...state, held, captured,
