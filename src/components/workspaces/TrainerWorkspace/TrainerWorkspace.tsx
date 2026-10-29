@@ -2,6 +2,7 @@ import React, { Suspense } from 'react';
 import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
 import { useAppStore } from '../../../store/useAppStore';
 import { TrainerBanner } from './TrainerBanner';
+import { CourseLessonControls } from './CourseLessonControls';
 import { TrainerToolbar } from './TrainerToolbar';
 import { GrandStaffSvg } from './GrandStaffSvg';
 import { TargetInfoBar } from './TargetInfoBar';
@@ -21,12 +22,13 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard, zenModeEnabled, currentWorkspace, studioSection } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard, zenModeEnabled, currentWorkspace, studioSection, activeLessonId, selectedLessonId } = useAppStore();
   const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
   const renderOsmd = renderer === 'osmd';
+  const courseLessonActive = trainerPhase === 'playing' && activeLessonId !== null && activeLessonId === selectedLessonId;
 
   // Results replace the practice surface. No hidden keyboard can score a new
   // note until the learner explicitly chooses a next action.
@@ -40,14 +42,15 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
   return (
     <section data-testid="studio-workspace" data-zen-active={zenActive} className={`flex-1 min-h-0 w-full flex flex-col justify-between gap-1.5 overflow-y-auto lg:overflow-hidden ${zenActive ? 'p-1 sm:p-1.5' : 'p-2'}`}>
       {zenActive && <ZenControlStrip />}
-      {!zenActive && !isTwoHandPracticeOpen && <TrainerBanner />}
-      {!zenActive && !isTwoHandPracticeOpen && <TrainerToolbar />}
+      {!zenActive && !isTwoHandPracticeOpen && (courseLessonActive
+        ? <CourseLessonControls />
+        : <><TrainerBanner /><TrainerToolbar /></>)}
       {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-2" role="status" data-testid="trainer-setup">
           <p className="text-sm text-sky-100">Настройте упражнение и нажмите «Начать упражнение» на панели. Ноты пока не оцениваются.</p>
         </div>
       )}
-      {!zenActive && !isTwoHandPracticeOpen && (
+      {!zenActive && !isTwoHandPracticeOpen && !courseLessonActive && (
         <div className="shrink-0 flex items-center px-1">
           <button type="button" onClick={openTrainerPrecheck}
             className="rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1 text-xs text-sky-300 hover:bg-sky-900/40">
