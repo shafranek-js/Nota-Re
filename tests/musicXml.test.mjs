@@ -93,3 +93,49 @@ test('rejects empty scores and non-quantized durations', () => {
   assert.throws(() => createScoreFromExercise([note(60, 'treble', 0.33)], 'C'), /sixteenth/);
   assert.throws(() => createScoreFromExercise([note(140)], 'C'), /MIDI pitch/);
 });
+
+
+test('serializes a same-staff chord without advancing time twice', () => {
+  const score = createScoreFromExercise([note(60)], 'C');
+  const chordScore = {
+    ...score,
+    notes: [
+      { midi: 60, staff: 1, onsetTicks: 0, durationTicks: 4 },
+      { midi: 64, staff: 1, onsetTicks: 0, durationTicks: 4 },
+      { midi: 67, staff: 1, onsetTicks: 0, durationTicks: 4 },
+      { midi: 69, staff: 1, onsetTicks: 4, durationTicks: 12 },
+      { midi: 48, staff: 2, onsetTicks: 0, durationTicks: 16 }
+    ]
+  };
+  const xml = toMusicXml(chordScore);
+  assert.equal((xml.match(/<chord\/>/g) || []).length, 2);
+  assert.match(xml, /<note><chord\/><pitch><step>E<\/step>/);
+  assert.match(xml, /<note><chord\/><pitch><step>G<\/step>/);
+  assert.ok(xml.includes('<backup><duration>16</duration></backup>'));
+  assert.match(xml, /<voice>2<\/voice>/);
+});
+
+test('keeps chord members aligned across a barline and split durations', () => {
+  const score = {
+    ...createScoreFromExercise([note(60)], 'C'),
+    notes: [
+      { midi: 60, staff: 1, onsetTicks: 12, durationTicks: 10 },
+      { midi: 64, staff: 1, onsetTicks: 12, durationTicks: 10 }
+    ]
+  };
+  const xml = toMusicXml(score);
+  assert.equal((xml.match(/<chord\/>/g) || []).length, 2);
+  assert.equal((xml.match(/<tie type="start"\/>/g) || []).length, 2);
+  assert.equal((xml.match(/<tie type="stop"\/>/g) || []).length, 2);
+});
+
+test('rejects unequal simultaneous same-staff durations rather than producing invalid chords', () => {
+  const score = {
+    ...createScoreFromExercise([note(60)], 'C'),
+    notes: [
+      { midi: 60, staff: 1, onsetTicks: 0, durationTicks: 4 },
+      { midi: 64, staff: 1, onsetTicks: 0, durationTicks: 8 }
+    ]
+  };
+  assert.throws(() => toMusicXml(score), /share a duration/);
+});
