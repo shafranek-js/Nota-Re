@@ -3,7 +3,7 @@ import type { AppMode, FilterType, HanonType, SpeechType, TonalityKey } from '..
 import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences';
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
-import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
+import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
 import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
@@ -82,18 +82,7 @@ export const TrainerToolbar: React.FC = () => {
 
   const exportMusicXml = () => {
     try {
-      const score = createScoreFromExercise(activeExerciseNotes, currentTonality,
-        'Nota-Re - ' + currentAppMode + ' exercise');
-      const xml = toMusicXml(score, { includeFingering: currentAppMode === 'hanon' });
-      const blob = new Blob([xml], { type: 'application/vnd.recordare.musicxml+xml;charset=utf-8' });
-      const url = URL.createObjectURL(blob);
-      const link = document.createElement('a');
-      link.href = url;
-      link.download = 'notare-' + currentAppMode + '.musicxml';
-      document.body.appendChild(link);
-      link.click();
-      link.remove();
-      window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+      downloadExerciseMusicXml(activeExerciseNotes, currentTonality, currentAppMode);
     } catch (error) {
       console.error('MusicXML export failed', error);
       window.alert('Не удалось экспортировать упражнение в MusicXML.');
