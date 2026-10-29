@@ -62,10 +62,12 @@ try {
   await page.getByTestId('course-two-hand-trial-launch').click();
   await trial.waitFor({ state: 'visible' });
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
-  assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /не оцениваются/);
+  assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /аппликатуру/);
   assert.equal(await page.getByTestId('two-hand-active-bpm').innerText(), '68');
   assert.equal(await page.getByTestId('two-hand-active-tonality').innerText(), 'C');
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'eighth-rests');
+  assert.match(await page.getByTestId('two-hand-lesson-score').innerText(), /staccato четвертями/);
+  assert.equal(await page.getByTestId('two-hand-pattern').isDisabled(), true);
   await page.getByTestId('two-hand-back-to-course').click();
   await courseProgress.waitFor({ state: 'visible' });
 
