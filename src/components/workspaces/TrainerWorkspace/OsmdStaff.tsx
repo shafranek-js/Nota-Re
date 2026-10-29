@@ -85,6 +85,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   const [errorMessage, setErrorMessage] = useState('');
   const [renderEpoch, setRenderEpoch] = useState(0);
   const hiddenNotesRef = useRef<Set<SVGElement>>(new Set());
+  const coloredPathsRef = useRef<Map<SVGElement, { fill: string; stroke: string }>>(new Map());
 
   // Immutable Zustand snapshots are also created when an answer changes only
   // note.status. Depend on ENGRAVED musical data, not the array reference:
@@ -311,6 +312,176 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       // Mask inspection walks the iterator: always restore actual training spot.
       positionTeachingCursor(renderer, currentOnsetTicks());
     }
+  }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
+
+
+  // OSMD's graphical cursor is keyed by musical time, not the ordinal order
+  // of VexFlow DOM nodes (which also include rests, ties and other voices).
+  // This styling never alters engraving or the lesson's grading state.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    const clear = () => {
+      for (const [path, previous] of coloredPathsRef.current) {
+        path.style.fill = previous.fill;
+        path.style.stroke = previous.stroke;
+      }
+      coloredPathsRef.current.clear();
+      mount.querySelectorAll('[data-notare-note-state]').forEach(el =>
+        el.removeAttribute('data-notare-note-state'));
+      mount.querySelectorAll('[data-notare-active-ring]').forEach(el => el.remove());
+    };
+    clear();
+    const renderer = osmdRef.current;
+    if (loadState !== 'ready' || !renderer) return;
+
+    const masked = new Set(getMaskedNoteIndices(
+      activeExerciseNotes,
+      activeNoteIndex,
+      currentAppMode === 'lookahead' || currentAppMode === 'photo' ? currentAppMode : 'none',
+      isPhotoMasked
+    ));
+
+    try {
+      for (let index = 0; index < activeExerciseNotes.length; index++) {
+        if (masked.has(index)) continue;
+        const note = activeExerciseNotes[index];
+        const state = index < activeNoteIndex ? 'played' :
+          index === activeNoteIndex ? 'active' : 'upcoming';
+        const color = state === 'played' ? '#f43f5e' :
+          state === 'active' ? '#f59e0b' : '#f8fafc';
+        const start = noteOnsets[index];
+        const end = start + note.durMultiplier * 4;
+        // Long notes tied across a barline have more than one SVG segment.
+        const segmentTicks = [start];
+        for (let tick = (Math.floor(start / TICKS_PER_MEASURE) + 1) * TICKS_PER_MEASURE;
+          tick < end; tick += TICKS_PER_MEASURE) segmentTicks.push(tick);
+        for (const tick of segmentTicks) {
+          positionTeachingCursor(renderer, tick);
+          for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+            if (graphicalNote.sourceNote.isRest()) continue;
+            const vexflowNote = graphicalNote as typeof graphicalNote & {
+              getSVGGElement?: () => SVGElement | undefined;
+            };
+            const element = vexflowNote.getSVGGElement?.();
+            if (!element || !mount.contains(element)) continue;
+            element.setAttribute('data-notare-note-state', state);
+            const paths = element.querySelectorAll<SVGElement>(
+              '.vf-notehead path, .vf-stem path, .vf-flag path, .vf-beam path'
+            );
+            const targets = paths.length ? paths : element.querySelectorAll<SVGElement>('path');
+            targets.forEach(path => {
+              if (!coloredPathsRef.current.has(path)) {
+                coloredPathsRef.current.set(path, {
+                  fill: path.style.fill,
+                  stroke: path.style.stroke
+                });
+              }
+              path.style.fill = color;
+              // Preserve VexFlow's naturally un-stroked glyph outlines.
+              if (path.style.stroke && path.style.stroke !== 'none') path.style.stroke = color;
+            });
+          }
+        }
+
+        if (state === 'active') {
+          const point = getEngravedNotePoint(renderer, mount, start);
+          if (!point) continue;
+          const circle = document.createElementNS('http://www.w3.org/2000/svg', 'circle');
+          circle.setAttribute('data-notare-active-ring', 'true');
+          circle.setAttribute('aria-hidden', 'true');
+          circle.setAttribute('pointer-events', 'none');
+          circle.setAttribute('cx', String(point.x));
+          circle.setAttribute('cy', String(point.y));
+          circle.setAttribute('r', '14');
+          circle.setAttribute('fill', '#f59e0b');
+          circle.setAttribute('fill-opacity', '0.12');
+          circle.setAttribute('stroke', '#f59e0b');
+          circle.setAttribute('stroke-width', '1.5');
+          circle.setAttribute('stroke-dasharray', '3 3');
+          point.root.appendChild(circle);
+        }
+      }
+    } catch (error) {
+      console.warn('OSMD teaching colors unavailable', error);
+      // The score stays readable in the default light notation color.
+    } finally {
+      positionTeachingCursor(renderer, currentOnsetTicks());
+    }
+    return clear;
+  }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
+
+  // Fingering/measure labels and rhythm syllables share true OSMD anchors.
+  // Ignore hidden teaching notes so Photo memory cannot leak pitch or rhythm.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    const selector = '[data-notare-pedagogy]';
+    const clear = () => mount.querySelectorAll(selector).forEach(el => el.remove());
+    clear();
+    const renderer = osmdRef.current;
+    if (loadState !== 'ready' || !renderer) return;
+    const masked = new Set(getMaskedNoteIndices(
+      activeExerciseNotes,
+      activeNoteIndex,
+      currentAppMode === 'lookahead' || currentAppMode === 'photo' ? currentAppMode : 'none',
+      isPhotoMasked
+    ));
+    const bassStaves = getBassStaveGeometries(renderer, mount);
+    const trebleStaves = getTrebleStaveGeometries(renderer, mount);
+    const labelledBars = new Set<number>();
+    const svgNS = 'http://www.w3.org/2000/svg';
+
+    try {
+      activeExerciseNotes.forEach((note, index) => {
+        if (masked.has(index)) return;
+        const point = getEngravedNotePoint(renderer, mount, noteOnsets[index]);
+        if (!point) return;
+        const candidates = bassStaves
+          .map((stave, staffIndex) => ({ stave, staffIndex }))
+          .filter(({ stave }) => stave.root === point.root)
+          .sort((a, b) =>
+            Math.abs(a.stave.lineY(2) - point.y) - Math.abs(b.stave.lineY(2) - point.y));
+        const nearest = candidates[0];
+        const top = nearest && trebleStaves[nearest.staffIndex]?.root === point.root
+          ? trebleStaves[nearest.staffIndex] : null;
+        const text = (label: string, x: number, y: number, color: string, size: number, type: string) => {
+          const node = document.createElementNS(svgNS, 'text');
+          node.setAttribute('data-notare-pedagogy', type);
+          node.setAttribute('aria-hidden', 'true');
+          node.setAttribute('pointer-events', 'none');
+          node.setAttribute('x', String(x));
+          node.setAttribute('y', String(y));
+          node.setAttribute('text-anchor', 'middle');
+          node.setAttribute('font-family', 'JetBrains Mono, monospace');
+          node.setAttribute('font-size', String(size));
+          node.setAttribute('font-weight', type === 'finger' ? '600' : '500');
+          node.setAttribute('fill', color);
+          node.textContent = label;
+          point.root.appendChild(node);
+        };
+
+        const bar = Math.floor(noteOnsets[index] / TICKS_PER_MEASURE) + 1;
+        if (bar > 1 && !labelledBars.has(bar)) {
+          labelledBars.add(bar);
+          text(`Такт ${bar}`, point.x + 5,
+            top ? top.lineY(0) - 13 : point.y - 55, '#94a3b8', 10, 'measure');
+        }
+        if (currentAppMode !== 'hanon' && note.finger >= 4) {
+          text(String(note.finger), point.x, point.y - 31, '#fb7185', 12, 'finger');
+        }
+        if (currentAppMode !== 'hanon') {
+          text(note.syllable || 'ТА', point.x,
+            nearest ? nearest.stave.lineY(4) + 28 : point.y + 75,
+            index === activeNoteIndex ? '#38bdf8' : '#94a3b8', 10, 'syllable');
+        }
+      });
+    } catch (error) {
+      console.warn('OSMD pedagogical annotations unavailable', error);
+    } finally {
+      positionTeachingCursor(renderer, currentOnsetTicks());
+    }
+    return clear;
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
 
   // Teaching overlay only: derive interval arcs from OSMD's rendered note
