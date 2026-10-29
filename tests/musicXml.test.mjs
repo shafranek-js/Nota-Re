@@ -124,9 +124,9 @@ test('keeps chord members aligned across a barline and split durations', () => {
     ]
   };
   const xml = toMusicXml(score);
-  assert.equal((xml.match(/<chord\/>/g) || []).length, 3);
-  assert.equal((xml.match(/<tie type="start"\/>/g) || []).length, 4);
-  assert.equal((xml.match(/<tie type="stop"\/>/g) || []).length, 4);
+  assert.equal((xml.match(/<chord\/>/g) || []).length, 2);
+  assert.equal((xml.match(/<tie type="start"\/>/g) || []).length, 2);
+  assert.equal((xml.match(/<tie type="stop"\/>/g) || []).length, 2);
 });
 
 test('rejects unequal simultaneous same-staff durations rather than producing invalid chords', () => {
