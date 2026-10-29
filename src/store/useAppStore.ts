@@ -8,6 +8,7 @@ import {
   nextAudioDeadline, remainingAudioMs
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
+import { advanceAssistedNotes } from '../core/training/assistedStep';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
   loadCourseProgressFromStorage, 
@@ -601,19 +602,24 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
-    if (!target) return;
+    const transition = advanceAssistedNotes(activeExerciseNotes, activeNoteIndex);
+    if (!target || !transition) return;
     audioEngine.playPianoTone(target.freq, 0.25, target.articulation === 'staccato');
-    target.status = 'done';
-    const nextIndex = activeNoteIndex + 1;
-    if (nextIndex >= activeExerciseNotes.length) {
-      set({ isExerciseAssisted: true, isExerciseFlawless: false, completedExercisesCount: 0 });
+    const { notes, nextIndex, finished } = transition;
+    if (finished) {
+      set({
+        activeExerciseNotes: notes,
+        isExerciseAssisted: true,
+        isExerciseFlawless: false,
+        completedExercisesCount: 0
+      });
       window.setTimeout(() => {
-        if (get().activeExerciseNotes === activeExerciseNotes) get().regenerateExercise();
+        if (get().activeExerciseNotes === notes) get().regenerateExercise();
       }, 160);
       return;
     }
-    activeExerciseNotes[nextIndex].status = 'current';
     set({
+      activeExerciseNotes: notes,
       activeNoteIndex: nextIndex,
       noteShownTimestamp: performance.now(),
       isExerciseAssisted: true,
