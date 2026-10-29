@@ -52,6 +52,10 @@ function getEngravedNotePoint(
 ): EngravedPoint | null {
   positionCursorAtTicks(renderer, onsetTicks);
   for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
+    // The piano score contains rests in the inactive staff. They are
+    // graphical cursor entries too, but are NOT the pitch anchor for a
+    // bass-to-treble reading path (nor for interval guides).
+    if (graphicalNote.sourceNote.isRest()) continue;
     const vexflowNote = graphicalNote as typeof graphicalNote & {
       getSVGGElement?: () => SVGElement | undefined;
     };
