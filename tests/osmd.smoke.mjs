@@ -111,8 +111,11 @@ try {
   // Hanon still has instructional block overlays only in Classic.
   await page.getByRole('button', { name: /8\. Ганон/ }).click();
   await page.getByText(/временно использует классический стан/).waitFor();
-  await page.locator('svg[viewBox="0 0 1720 305"]')
-    .waitFor({ state: 'visible', timeout: 15000 });
+  const classicSvg = page.locator('svg[viewBox="0 0 1720 305"]');
+  await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
+  const classicBox = await classicSvg.boundingBox();
+  assert.ok(classicBox && classicBox.height > 80 && classicBox.width > 0,
+    'Classic staff must retain actual drawing area on 375px phones');
 
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
