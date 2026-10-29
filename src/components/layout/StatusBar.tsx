@@ -73,7 +73,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Режим, тональность и темп">
               {MODE_LABELS[currentAppMode] ?? currentAppMode} · {currentTonality} · {bpm} BPM
             </span>
-            <span title="Точность попаданий в текущей сессии">
+          </>
+        )}
+        <span title="Точность попаданий в текущей сессии">
               Точность: <span className="text-slate-300">{accuracy === null ? '—' : `${accuracy}%`} ({totalAttempts})</span>
             </span>
             <span title="Текущая и лучшая серия верных нот">
@@ -85,8 +87,6 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Сыграно однотипных номеров в серии">
               Номеров: <span className="text-slate-300">{completedExercisesCount} / {activeLessonId !== null && lesson ? lesson.normReps : '—'}</span>
             </span>
-          </>
-        )}
       </div>
       <span
         data-testid="build-version"
