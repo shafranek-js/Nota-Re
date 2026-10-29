@@ -15,6 +15,20 @@ const browser = await chromium.launch({
 let page;
 try {
   page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
+  await page.addInitScript(() => {
+    const input = { id: 'two-hand-smoke', state: 'connected', onmidimessage: null };
+    const access = { inputs: new Map([['two-hand-smoke', input]]), onstatechange: null };
+    Object.defineProperty(navigator, 'requestMIDIAccess', {
+      configurable: true, value: async () => access
+    });
+    window.__twoHandMidi = {
+      input,
+      send(bytes) {
+        if (!input.onmidimessage) throw new Error('No MIDI handler');
+        input.onmidimessage({ data: Uint8Array.from(bytes) });
+      }
+    };
+  });
   const errors = [];
   page.on('pageerror', error => errors.push(error.message));
 
@@ -206,6 +220,37 @@ try {
 
   await page.getByRole('button', { name: 'OSMD', exact: true }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
+
+  // Experimental two-hand MIDI practice: the RH and LH scores start together,
+  // but ONLY physically overlapping MIDI note-ons advance a shared onset.
+  await page.waitForFunction(() => typeof window.__twoHandMidi.input.onmidimessage === 'function');
+  await page.getByRole('button', { name: /Две руки одновременно · MIDI/ }).click();
+  await page.getByTestId('two-hand-practice').waitFor({ state: 'visible' });
+  await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
+    .first().waitFor({ state: 'visible', timeout: 45000 });
+  const polyStep = page.getByTestId('two-hand-step-index');
+  assert.equal(await polyStep.innerText(), '1');
+  assert.match(await page.getByTestId('two-hand-expected').innerText(), /C3.*C4/);
+  const beforePolyAttempts = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
+  await page.evaluate(() => window.__twoHandMidi.send([0x92, 48, 100]));
+  assert.equal(await polyStep.innerText(), '1', 'bass note alone does not complete a chord');
+  await page.evaluate(() => window.__twoHandMidi.send([0x90, 60, 100]));
+  await page.waitForFunction(() => document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '2');
+  await page.evaluate(() => {
+    window.__twoHandMidi.send([0x80, 60, 0]);
+    window.__twoHandMidi.send([0x90, 62, 100]);
+  });
+  await page.waitForFunction(() => document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '3');
+  await page.evaluate(() => {
+    window.__twoHandMidi.send([0x80, 62, 0]);
+    window.__twoHandMidi.send([0x90, 64, 100]);
+    window.__twoHandMidi.send([0x92, 55, 100]);
+  });
+  await page.waitForFunction(() => document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '4');
+  assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
+    beforePolyAttempts, 'polyphonic trial must never add ordinary lesson attempts');
+  await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
 
   await mkdir('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/osmd-trainer.png', fullPage: true });
