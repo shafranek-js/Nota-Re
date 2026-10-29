@@ -4,7 +4,7 @@ import { WHITE_KEYS_ORDER, BLACK_KEYS_ORDER, MIDI_NOTE_MAP } from '../../../data
 import { TONALITY_CONFIG } from '../../../data/tonalities';
 import { resolveKeyboardLabels } from '../../../core/training/keyboardLabels';
 
-export const PianoKeyboard: React.FC = () => {
+export const PianoKeyboard: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   const {
     handleUserTriggerNote,
     advanceAssistedStep,
@@ -65,7 +65,7 @@ export const PianoKeyboard: React.FC = () => {
 
   return (
     <div className={`shrink-0 w-full bg-slate-900/95 border border-slate-800/90 rounded-2xl p-2 flex flex-col gap-1.5 shadow-xl ${isBlindfolded ? 'blind-mode' : ''}`}>
-      <div className="px-1 flex flex-wrap justify-between items-center gap-2">
+      {!zen && <div className="px-1 flex flex-wrap justify-between items-center gap-2">
         <strong className="text-xs text-slate-300">Клавиатура C3–B5</strong>
         <span className="text-[11px] text-slate-500">
           {isTabletopMode ? 'Режим «Стол» · без зачёта' :
@@ -73,7 +73,7 @@ export const PianoKeyboard: React.FC = () => {
               visibleLabels === 'notes' ? 'Подписи нот' : 'Без подписей'}
           {midiInputsCount > 0 ? ' · MIDI подключён' : ''}
         </span>
-      </div>
+      </div>}
 
       {/* Сами клавиши */}
       <div className="w-full overflow-x-auto custom-scroll" role="region" aria-label="Прокручиваемая клавиатура фортепиано" tabIndex={0}>
