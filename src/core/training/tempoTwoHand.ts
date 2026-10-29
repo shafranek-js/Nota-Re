@@ -19,10 +19,11 @@ export interface TimedPracticeState {
   readonly hits: number;
   readonly misses: number;
   readonly earlyReleases: number;
+  readonly overheldNotes: number;
   readonly wrongPitches: number;
   readonly lastDeviationMs: number | null;
   readonly feedback: 'count-in' | 'ready' | 'partial' | 'correct' | 'wrong' |
-    'off-beat' | 'released-early' | 'missed' | 'complete';
+    'off-beat' | 'released-early' | 'held-too-long' | 'missed' | 'complete';
   readonly finished: boolean;
 }
 
@@ -46,7 +47,7 @@ export function ticksToMs(ticks: number, bpm: number): number {
 export function initialTimedPractice(): TimedPracticeState {
   return {
     stepIndex: 0, held: [], captured: [], sustained: [], hits: 0,
-    misses: 0, earlyReleases: 0, wrongPitches: 0,
+    misses: 0, earlyReleases: 0, overheldNotes: 0, wrongPitches: 0,
     lastDeviationMs: null, feedback: 'count-in', finished: false
   };
 }
@@ -67,28 +68,45 @@ export function reduceTimedPractice(
     // tick will mark missed onsets; never award a chord due to stuck keys.
     return { ...state, held: [], captured: [], sustained: [], feedback: 'ready' };
   }
+  // Long notes must also END at their notated release: holding through
+  // an upcoming rest is an error even if the next note attack is correct.
+  // Sweep each physical key just once, regardless of subsequent tick wakes.
+  const arrival = 'receivedAtMs' in event ? event.receivedAtMs : undefined;
+  const hasArrival = typeof arrival === 'number' && Number.isFinite(arrival);
+  const overheld = hasArrival
+    ? state.sustained.filter(key => arrival > key.untilMs + plan.holdGraceMs)
+    : [];
+  const currentState: TimedPracticeState = overheld.length
+    ? {
+        ...state,
+        sustained: state.sustained.filter(key => !overheld.includes(key)),
+        overheldNotes: state.overheldNotes + overheld.length,
+        feedback: 'held-too-long'
+      }
+    : state;
+
   if (event.type === 'note-off') {
-    const held = state.held.filter(k => k.note !== event.note || k.channel !== event.channel);
+    const held = currentState.held.filter(k => k.note !== event.note || k.channel !== event.channel);
     const stillHeld = new Set(held.map(k => k.channel + ':' + k.note));
-    const captured = state.captured.filter(k => stillHeld.has(k.channel + ':' + k.note));
-    const releases = state.sustained.filter(k => k.note === event.note && k.channel === event.channel);
+    const captured = currentState.captured.filter(k => stillHeld.has(k.channel + ':' + k.note));
+    const releases = currentState.sustained.filter(k => k.note === event.note && k.channel === event.channel);
     // Note-off has no device timestamp in the original event. The caller
     // may pass a receivedAtMs from the same MIDI arrival clock.
     const releasedAtMs = 'receivedAtMs' in event ? event.receivedAtMs : NaN;
     const early = typeof releasedAtMs === 'number' && Number.isFinite(releasedAtMs) ?
       releases.filter(k => releasedAtMs < k.untilMs - plan.holdGraceMs).length : 0;
     return {
-      ...state, held, captured,
-      sustained: state.sustained.filter(k => k.note !== event.note || k.channel !== event.channel),
-      earlyReleases: state.earlyReleases + early,
-      feedback: early ? 'released-early' : state.feedback
+      ...currentState, held, captured,
+      sustained: currentState.sustained.filter(k => k.note !== event.note || k.channel !== event.channel),
+      earlyReleases: currentState.earlyReleases + early,
+      feedback: early ? 'released-early' : currentState.feedback
     };
   }
 
   const now = event.receivedAtMs;
   if (!Number.isFinite(now)) throw new Error('Invalid MIDI event timestamp');
 
-  let current = state;
+  let current = currentState;
   // Missed grid slots advance on elapsed musical time even when no MIDI
   // input arrives; no click or animation callback may award a correct note.
   while (current.stepIndex < steps.length &&
@@ -104,6 +122,7 @@ export function reduceTimedPractice(
     return { ...current, stepIndex: steps.length, finished: true, feedback: 'complete' };
   }
   if (event.type === 'tick') {
+    if (overheld.length) return current;
     if (now < plan.startMs && current.feedback !== 'count-in') {
       return { ...current, feedback: 'count-in' };
     }
