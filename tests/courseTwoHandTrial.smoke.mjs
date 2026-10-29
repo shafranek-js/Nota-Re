@@ -39,6 +39,7 @@ try {
   await trial.waitFor({ state: 'visible', timeout: 30000 });
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 11/);
   assert.equal(await page.getByTestId('two-hand-active-bpm').innerText(), '58');
+  assert.equal(await page.getByTestId('two-hand-active-tonality').innerText(), 'C');
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'staggered');
   assert.equal(await page.getByTestId('two-hand-step-index').innerText(), '1');
   await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
@@ -63,6 +64,7 @@ try {
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /не оцениваются/);
   assert.equal(await page.getByTestId('two-hand-active-bpm').innerText(), '68');
+  assert.equal(await page.getByTestId('two-hand-active-tonality').innerText(), 'C');
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'eighth-rests');
   await page.getByTestId('two-hand-back-to-course').click();
   await courseProgress.waitFor({ state: 'visible' });
