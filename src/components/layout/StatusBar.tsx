@@ -84,7 +84,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             </span>
             <span title="Сыграно однотипных номеров в серии">
               Номеров: <span className="text-slate-300">{completedExercisesCount} / {activeLessonId !== null && lesson ? lesson.normReps : '—'}</span>
-            </span>}
+            </span>
           </>
         )}
       </div>
