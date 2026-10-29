@@ -33,9 +33,9 @@ try {
         `width ${viewport.width}: body overflows viewport ${JSON.stringify(metrics)}`);
 
       // Every workspace remains reachable even when navigation must scroll.
-      await nav.getByRole('button', { name: /Библиотека/ }).click();
-      assert.equal(await nav.getByRole('button', { name: /Библиотека/ }).getAttribute('aria-current'), 'page');
-      await nav.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+      await nav.getByRole('button', { name: /^База знаний$/ }).click();
+      assert.equal(await nav.getByRole('button', { name: /^База знаний$/ }).getAttribute('aria-current'), 'page');
+      await nav.getByRole('button', { name: /^Студия$/ }).click();
       const pianoRegion = page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' });
       await pianoRegion.waitFor({ state: 'visible' });
       assert.ok(await page.getByRole('button', { name: 'Клавиша C3' }).count() > 0);
