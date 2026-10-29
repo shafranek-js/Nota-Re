@@ -134,6 +134,69 @@ export function createScoreFromHands(
   };
 }
 
+/**
+ * A hand-part event placed at an explicit musical timestamp, in sixteenth
+ * ticks. Gaps are intentional RESTS; unlike createScoreFromHands, the first
+ * event need not start at zero and each hand has its own rests/timeline.
+ *
+ * Chords at the same onset are legal only when they have equal durations.
+ * Overlapping non-chord notes within one hand require a multi-voice model
+ * and are rejected instead of silently engraving corrupt timing.
+ */
+export type TimedHandPitch = Omit<ScoreEvent, 'staff'>;
+
+export function createScoreFromTimedHands(
+  rightHand: readonly TimedHandPitch[],
+  leftHand: readonly TimedHandPitch[],
+  tonality: SupportedKey,
+  title = 'Nota-Re independent hands'
+): ExerciseScore {
+  if (!rightHand.length && !leftHand.length) throw new Error('Cannot export an empty exercise.');
+  if (!(tonality in FIFTHS)) throw new Error('Unsupported tonality.');
+
+  function collect(hand: readonly TimedHandPitch[], staff: StaffNumber): ScoreEvent[] {
+    const sorted = [...hand].sort((a, b) => a.onsetTicks - b.onsetTicks || a.midi - b.midi);
+    let previousEnd = 0;
+    let chordOnset = -1;
+    let chordDuration = -1;
+    const chordPitches = new Set<number>();
+    for (const note of sorted) {
+      if (!Number.isSafeInteger(note.midi) || note.midi < 0 || note.midi > 127 ||
+          !Number.isSafeInteger(note.onsetTicks) || note.onsetTicks < 0 ||
+          !Number.isSafeInteger(note.durationTicks) || note.durationTicks <= 0 ||
+          !Number.isSafeInteger(note.onsetTicks + note.durationTicks)) {
+        throw new Error('Invalid MIDI pitch or sixteenth-note timeline.');
+      }
+      if (note.onsetTicks === chordOnset) {
+        if (note.durationTicks !== chordDuration || chordPitches.has(note.midi)) {
+          throw new Error('Chord notes must be unique and share a duration.');
+        }
+        chordPitches.add(note.midi);
+      } else {
+        if (note.onsetTicks < previousEnd) {
+          throw new Error('Overlapping notes within one staff require separate voices.');
+        }
+        chordOnset = note.onsetTicks;
+        chordDuration = note.durationTicks;
+        chordPitches.clear();
+        chordPitches.add(note.midi);
+        previousEnd = note.onsetTicks + note.durationTicks;
+      }
+    }
+    return sorted.map(note => ({ ...note, staff }));
+  }
+
+  return {
+    title,
+    fifths: FIFTHS[tonality],
+    beats: 4,
+    beatType: 4,
+    divisions: 4,
+    notes: [...collect(rightHand, 1), ...collect(leftHand, 2)]
+      .sort((a, b) => a.onsetTicks - b.onsetTicks || a.staff - b.staff || a.midi - b.midi)
+  };
+}
+
 const DURATIONS: readonly [number, string, boolean][] = [
   [16, 'whole', false],
   [12, 'half', true],
