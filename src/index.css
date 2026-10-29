@@ -104,7 +104,7 @@ body {
   color: #f8fafc;
 }
 
-.osmd-dark-theme svg .vf-stave path,
+.osmd-dark-theme svg .vf-staveline path,
 .osmd-dark-theme svg .vf-stavebarline path {
   stroke: #334155 !important;
   fill: #334155 !important;
