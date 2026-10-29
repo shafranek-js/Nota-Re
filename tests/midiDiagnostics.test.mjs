@@ -56,3 +56,29 @@ test('reject invalid history lengths', () => {
   assert.throws(() => new MidiAudioDiagnosticsTracker(0), /positive history/);
   assert.throws(() => new MidiAudioDiagnosticsTracker(2.5), /positive history/);
 });
+
+test('browser system-to-JS queue delay is distinct from JS-to-audio dispatch', () => {
+  const tracker = new MidiAudioDiagnosticsTracker(3);
+  tracker.recordDispatch(100, 104, 'soundfont', 91);
+  tracker.recordDispatch(200, 205, 'oscillator', 180);
+  tracker.recordDispatch(300, 302, 'oscillator'); // synthetic MIDI lacks timeStamp
+  const snap = tracker.snapshot();
+  assert.equal(snap.samples, 3);
+  assert.equal(snap.systemTimestampSamples, 2);
+  assert.equal(snap.medianMidiQueueMs, 14.5);
+  assert.ok(Math.abs(snap.p95MidiQueueMs - 19.45) < 1e-6);
+  assert.equal(snap.medianSystemToDispatchMs, 19);
+  assert.equal(snap.medianDispatchMs, 4);
+  assert.equal(Object.keys(snap).some(k => /deviceId|note|timestamp/i.test(k)), false,
+    'no note names, raw event timestamps or identifying device details');
+
+  tracker.recordDispatch(400, 403, 'soundfont', 399);
+  tracker.recordDispatch(500, 502, 'soundfont', 500.5); // future is invalid
+  assert.equal(tracker.snapshot().systemTimestampSamples, 3);
+  assert.equal(tracker.snapshot().medianMidiQueueMs, 9,
+    'only validated events count toward queue quantiles');
+  tracker.reset();
+  assert.equal(tracker.snapshot().systemTimestampSamples, 0);
+  assert.equal(tracker.snapshot().medianMidiQueueMs, null);
+  assert.equal(tracker.snapshot().medianSystemToDispatchMs, null);
+});
