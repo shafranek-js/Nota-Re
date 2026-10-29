@@ -149,12 +149,55 @@ try {
   await page.getByRole('button', { name: 'OSMD', exact: true }).click();
   await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
 
-  // Bass landmarks still require Classic until that teaching overlay migrates.
+  // F3 and G2 landmarks must overlay OSMD's true bass stave and must not
+  // force the old renderer or trigger a new MusicXML engraving.
+  const beforeLandmarks = await epoch();
   await page.getByRole('button', { name: /Маяки баса/ }).click();
-  await page.getByText(/временно использует классический стан/).waitFor();
-  await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
+  const bassMarks = page.locator('[data-notare-bass-landmark="true"]');
+  await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.ok(await bassMarks.count() >= 2, 'both bass landmarks should be visible');
+  assert.equal(await epoch(), beforeLandmarks, 'toggling a bass guide must not re-engrave notes');
+  assert.ok(await page.getByTestId('osmd-score').isVisible(), 'OSMD remains the active renderer');
+  assert.equal(await classicSvg.count(), 0, 'landmarks must not switch to Classic');
+  const coordinates = await bassMarks.evaluateAll(groups =>
+    groups.slice(0, 2).map(el => ({
+      pitch: el.getAttribute('data-landmark-pitch'),
+      staffIndex: el.getAttribute('data-staff-line-index'),
+      source: el.getAttribute('data-origin'),
+      x1: Number(el.querySelector('line').getAttribute('x1')),
+      x2: Number(el.querySelector('line').getAttribute('x2')),
+      y1: Number(el.querySelector('line').getAttribute('y1')),
+      y2: Number(el.querySelector('line').getAttribute('y2'))
+    }))
+  );
+  assert.deepEqual(coordinates.map(({ pitch, staffIndex, source }) =>
+    [pitch, staffIndex, source]), [
+    ['F3', '1', 'vexflow-stave'],
+    ['G2', '4', 'vexflow-stave']
+  ]);
+  assert.ok(coordinates.every(({ x1, x2, y1, y2 }) =>
+    x2 > x1 && y1 === y2), 'landmark guides must be horizontal staff-line overlays');
+  assert.ok(coordinates[0].y1 < coordinates[1].y1,
+    'F3 line must be above G2 on the actual bass clef');
+
+  const beforeBassResize = await epoch();
+  await page.setViewportSize({ width: 768, height: 900 });
+  await waitForOverlayRender('[data-notare-bass-landmark="true"]', beforeBassResize);
+  assert.ok(await bassMarks.count() >= 2, 'landmarks follow OSMD layout after responsive resize');
+
   await page.getByRole('button', { name: /Маяки баса/ }).click();
-  await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
+  await page.waitForFunction(() => document.querySelectorAll('[data-notare-bass-landmark="true"]').length === 0);
+  assert.ok(await page.getByTestId('osmd-score').isVisible(), 'disabling landmarks keeps OSMD visible');
+  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
+
+  // A mode switch with landmarks enabled retains OSMD and recreates the guides.
+  await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
+  await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
+  assert.equal(await renderError.count(), 0, 'bass landmarks must never show OSMD renderer errors');
+  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await page.waitForFunction(() => document.querySelectorAll('[data-notare-bass-landmark="true"]').length === 0);
 
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
