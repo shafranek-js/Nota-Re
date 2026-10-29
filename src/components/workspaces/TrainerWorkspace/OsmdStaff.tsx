@@ -10,7 +10,7 @@ import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
 import { osmdZoomForWidth } from '../../../core/notation/osmdZoom';
-import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, getTrebleStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
+import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, getTrebleStaveGeometries, getTrebleMeasureStarts, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -45,6 +45,47 @@ function styleClefs(mount: HTMLElement): void {
   });
 }
 
+/** Project an engraved VexFlow point into the external HTML teaching layer. */
+function positionInLayer(
+  root: SVGSVGElement,
+  x: number,
+  y: number,
+  layer: HTMLElement
+): { x: number; y: number } | null {
+  const matrix = root.getScreenCTM();
+  if (!matrix) return null;
+  const point = root.createSVGPoint();
+  point.x = x;
+  point.y = y;
+  const screen = point.matrixTransform(matrix);
+  const rect = layer.getBoundingClientRect();
+  const local = { x: screen.x - rect.left, y: screen.y - rect.top };
+  return Number.isFinite(local.x) && Number.isFinite(local.y) ? local : null;
+}
+
+function addLayerLabel(
+  layer: HTMLElement,
+  value: string,
+  x: number,
+  y: number,
+  kind: 'measure' | 'finger' | 'syllable',
+  active = false
+): void {
+  const node = document.createElement('span');
+  node.dataset.notarePedagogy = kind;
+  node.setAttribute('aria-hidden', 'true');
+  node.className = 'absolute whitespace-nowrap font-mono pointer-events-none';
+  node.style.left = `${x}px`;
+  node.style.top = `${y}px`;
+  node.style.transform = 'translateX(-50%)';
+  node.style.fontSize = kind === 'finger' ? '12px' : '11px';
+  node.style.fontWeight = kind === 'finger' || active ? '700' : '500';
+  node.style.color = kind === 'finger' ? '#fb7185' :
+    active ? '#38bdf8' : kind === 'measure' ? '#94a3b8' : '#64748b';
+  node.textContent = value;
+  layer.appendChild(node);
+}
+
 function currentOnsetTicks(): number {
   const { activeExerciseNotes, activeNoteIndex } = useAppStore.getState();
   return activeExerciseNotes.slice(0, activeNoteIndex)
@@ -77,6 +118,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   } = useAppStore();
 
   const mountRef = useRef<HTMLDivElement>(null);
+  const overlayRef = useRef<HTMLDivElement>(null);
   const osmdRef = useRef<OpenSheetMusicDisplay | null>(null);
   const zenRef = useRef(zen);
   zenRef.current = zen;
@@ -178,13 +220,13 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         rules.DefaultColorRest = '#94a3b8';
         rules.DefaultColorLabel = '#94a3b8';
         rules.StaffLineColor = '#334155';
-        rules.PageTopMargin = 1.5;
-        rules.PageBottomMargin = 1.5;
-        rules.PageLeftMargin = 1.5;
+        rules.PageTopMargin = 3.5;
+        rules.PageBottomMargin = 3.0;
+        rules.PageLeftMargin = 2.5;
         rules.PageRightMargin = 1.5;
         rules.SystemLeftMargin = 0;
         rules.SystemRightMargin = 0;
-        rules.StaffDistance = 4.5;
+        rules.StaffDistance = 6.0;
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.load(xml);
         if (cancelled) return;
@@ -250,7 +292,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   useEffect(() => {
     if (loadState !== 'ready' || !osmdRef.current) return;
     try {
-      positionCursorAtTicks(osmdRef.current, onsetTicks);
+      positionTeachingCursor(osmdRef.current, onsetTicks);
     } catch (error) {
       console.warn('OSMD cursor positioning failed', error);
     }
@@ -411,77 +453,160 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     return clear;
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
 
-  // Fingering/measure labels and rhythm syllables share true OSMD anchors.
-  // Ignore hidden teaching notes so Photo memory cannot leak pitch or rhythm.
+  // Decorative staff bands belong behind the VexFlow strokes, not in a
+  // separate opaque HTML layer (OSMD itself supplies an SVG background).
   useEffect(() => {
     const mount = mountRef.current;
+    const renderer = osmdRef.current;
     if (!mount) return;
-    const selector = '[data-notare-pedagogy]';
+    const selector = '[data-notare-staff-band]';
     const clear = () => mount.querySelectorAll(selector).forEach(el => el.remove());
     clear();
+    if (!renderer || loadState !== 'ready') return;
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    const treble = getTrebleStaveGeometries(renderer, mount);
+    const bass = getBassStaveGeometries(renderer, mount);
+    for (const stave of [...treble, ...bass]) {
+      const rect = document.createElementNS(svgNS, 'rect');
+      rect.setAttribute('data-notare-staff-band', 'true');
+      rect.setAttribute('aria-hidden', 'true');
+      rect.setAttribute('pointer-events', 'none');
+      rect.setAttribute('x', String(stave.x));
+      rect.setAttribute('y', String(stave.lineY(0) - 8));
+      rect.setAttribute('width', String(stave.width));
+      rect.setAttribute('height', String(stave.lineY(4) - stave.lineY(0) + 16));
+      rect.setAttribute('rx', '4');
+      rect.setAttribute('fill', '#1e293b');
+      rect.setAttribute('fill-opacity', '0.35');
+      stave.root.insertBefore(rect, stave.root.firstChild);
+    }
+    return clear;
+  }, [loadState, renderEpoch]);
+
+  // HTML overlay is intentionally OUTSIDE OSMD's generated SVG viewport:
+  // measure numbers and rhythm syllables must not be clipped by page margins.
+  // All coordinates come from real VexFlow geometry (not index * spacing).
+  useEffect(() => {
+    const mount = mountRef.current;
+    const layer = overlayRef.current;
+    if (!mount || !layer) return;
+    layer.replaceChildren();
     const renderer = osmdRef.current;
-    if (loadState !== 'ready' || !renderer) return;
+    if (!renderer || loadState !== 'ready') return;
+    const bass = getBassStaveGeometries(renderer, mount);
+    const treble = getTrebleStaveGeometries(renderer, mount);
+    const measures = getTrebleMeasureStarts(renderer, mount);
     const masked = new Set(getMaskedNoteIndices(
       activeExerciseNotes,
       activeNoteIndex,
       currentAppMode === 'lookahead' || currentAppMode === 'photo' ? currentAppMode : 'none',
       isPhotoMasked
     ));
-    const bassStaves = getBassStaveGeometries(renderer, mount);
-    const trebleStaves = getTrebleStaveGeometries(renderer, mount);
-    const labelledBars = new Set<number>();
-    const svgNS = 'http://www.w3.org/2000/svg';
 
     try {
+      for (const measure of measures) {
+        if (measure.number <= 1) continue;
+        const xy = positionInLayer(measure.root, measure.x + 13, measure.top - 25, layer);
+        if (xy) addLayerLabel(layer, `Такт ${measure.number}`, xy.x, xy.y, 'measure');
+      }
+
       activeExerciseNotes.forEach((note, index) => {
         if (masked.has(index)) return;
         const point = getEngravedNotePoint(renderer, mount, noteOnsets[index]);
         if (!point) return;
-        const candidates = bassStaves
-          .map((stave, staffIndex) => ({ stave, staffIndex }))
-          .filter(({ stave }) => stave.root === point.root)
+        const head = positionInLayer(point.root, point.x, point.y, layer);
+        if (!head) return;
+        const nearestBass = bass.filter(stave => stave.root === point.root)
           .sort((a, b) =>
-            Math.abs(a.stave.lineY(2) - point.y) - Math.abs(b.stave.lineY(2) - point.y));
-        const nearest = candidates[0];
-        const top = nearest && trebleStaves[nearest.staffIndex]?.root === point.root
-          ? trebleStaves[nearest.staffIndex] : null;
-        const text = (label: string, x: number, y: number, color: string, size: number, type: string) => {
-          const node = document.createElementNS(svgNS, 'text');
-          node.setAttribute('data-notare-pedagogy', type);
-          node.setAttribute('aria-hidden', 'true');
-          node.setAttribute('pointer-events', 'none');
-          node.setAttribute('x', String(x));
-          node.setAttribute('y', String(y));
-          node.setAttribute('text-anchor', 'middle');
-          node.setAttribute('font-family', 'JetBrains Mono, monospace');
-          node.setAttribute('font-size', String(size));
-          node.setAttribute('font-weight', type === 'finger' ? '600' : '500');
-          node.setAttribute('fill', color);
-          node.textContent = label;
-          point.root.appendChild(node);
-        };
-
-        const bar = Math.floor(noteOnsets[index] / TICKS_PER_MEASURE) + 1;
-        if (bar > 1 && !labelledBars.has(bar)) {
-          labelledBars.add(bar);
-          text(`Такт ${bar}`, point.x + 5,
-            top ? top.lineY(0) - 13 : point.y - 55, '#94a3b8', 10, 'measure');
-        }
+            Math.abs(a.lineY(2) - point.y) - Math.abs(b.lineY(2) - point.y))[0];
         if (currentAppMode !== 'hanon' && note.finger >= 4) {
-          text(String(note.finger), point.x, point.y - 31, '#fb7185', 12, 'finger');
+          positionTeachingCursor(renderer, noteOnsets[index]);
+          for (const rendered of renderer.cursor.GNotesUnderCursor()) {
+            if (rendered.sourceNote.isRest()) continue;
+            const vex = rendered as typeof rendered & { getSVGGElement?: () => SVGElement | undefined };
+            const group = vex.getSVGGElement?.();
+            if (!group || !mount.contains(group)) continue;
+            const box = group.getBoundingClientRect();
+            const y = box.top - layer.getBoundingClientRect().top - 12;
+            addLayerLabel(layer, String(note.finger), head.x, y, 'finger');
+            break;
+          }
         }
-        if (currentAppMode !== 'hanon') {
-          text(note.syllable || 'ТА', point.x,
-            nearest ? nearest.stave.lineY(4) + 28 : point.y + 75,
-            index === activeNoteIndex ? '#38bdf8' : '#94a3b8', 10, 'syllable');
+        if (currentAppMode !== 'hanon' && nearestBass) {
+          const baseline = positionInLayer(point.root, point.x,
+            nearestBass.lineY(4) + 22, layer);
+          if (baseline) addLayerLabel(layer, note.syllable || 'ТА', head.x,
+            baseline.y, 'syllable', index === activeNoteIndex);
         }
       });
+
+      // The lookahead shutter is a visual aid in addition to the existing
+      // scoreMasks note visibility. It does not change scoring or reveal notes.
+      if (currentAppMode === 'lookahead') {
+        const current = getEngravedNotePoint(renderer, mount, noteOnsets[activeNoteIndex] ?? 0);
+        if (current) {
+          const first = treble.find(stave => stave.root === current.root);
+          const lower = bass.find(stave => stave.root === current.root);
+          if (first && lower) {
+            const left = positionInLayer(current.root, first.x, first.lineY(0) - 25, layer);
+            const right = positionInLayer(current.root, current.x - 15, lower.lineY(4) + 40, layer);
+            if (left && right) {
+              const curtain = document.createElement('div');
+              curtain.dataset.notareLookaheadCurtain = 'true';
+              curtain.setAttribute('aria-hidden', 'true');
+              curtain.className = 'absolute rounded-md border-2 border-sky-400 pointer-events-none';
+              curtain.style.left = `${left.x}px`;
+              curtain.style.top = `${left.y}px`;
+              curtain.style.width = `${Math.max(32, right.x - left.x)}px`;
+              curtain.style.height = `${Math.max(80, right.y - left.y)}px`;
+              curtain.style.background = 'linear-gradient(90deg, rgba(6,10,18,0.97) 0%, rgba(15,23,42,0.94) 90%, rgba(14,165,233,0.45) 100%)';
+              const caption = document.createElement('span');
+              caption.className = 'absolute top-1 left-2 whitespace-nowrap font-mono font-bold text-sky-400 text-[11px]';
+              caption.textContent = 'БЕГУНОК: СМОТРИТЕ ВПЕРЁД →';
+              curtain.appendChild(caption);
+              layer.appendChild(curtain);
+            }
+          }
+        }
+      }
+
+      // Photo masking continues to use scoreMasks for exact musical timing.
+      // The overlay is purely a visible curtain over the current measure.
+      if (currentAppMode === 'photo' && isPhotoMasked) {
+        const bar = Math.floor((noteOnsets[activeNoteIndex] ?? 0) / TICKS_PER_MEASURE) + 1;
+        const start = measures.find(measure => measure.number === bar);
+        const next = measures.find(measure => measure.number === bar + 1 && measure.root === start?.root);
+        const upper = treble.find(stave => stave.root === start?.root);
+        const lower = bass.find(stave => stave.root === start?.root);
+        if (start && upper && lower) {
+          const first = positionInLayer(start.root, start.x, upper.lineY(0) - 20, layer);
+          const finalX = next?.x ?? upper.x + upper.width;
+          const last = positionInLayer(start.root, finalX, lower.lineY(4) + 32, layer);
+          if (first && last && last.x > first.x) {
+            const curtain = document.createElement('div');
+            curtain.dataset.notarePhotoCurtain = 'true';
+            curtain.setAttribute('aria-hidden', 'true');
+            curtain.className = 'absolute rounded-md border-2 border-dashed border-cyan-400 pointer-events-none';
+            curtain.style.left = `${first.x}px`;
+            curtain.style.top = `${first.y}px`;
+            curtain.style.width = `${last.x - first.x}px`;
+            curtain.style.height = `${last.y - first.y}px`;
+            curtain.style.background = 'linear-gradient(180deg, rgba(8,47,73,0.96), rgba(2,6,23,0.98))';
+            const caption = document.createElement('span');
+            caption.className = 'absolute top-3 left-2 text-cyan-300 font-mono text-[11px]';
+            caption.textContent = 'ТАКТ СФОТОГРАФИРОВАН';
+            curtain.appendChild(caption);
+            layer.appendChild(curtain);
+          }
+        }
+      }
     } catch (error) {
-      console.warn('OSMD pedagogical annotations unavailable', error);
+      console.warn('OSMD HTML teaching layer unavailable', error);
     } finally {
       positionTeachingCursor(renderer, currentOnsetTicks());
     }
-    return clear;
+    return () => layer.replaceChildren();
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
 
   // Teaching overlay only: derive interval arcs from OSMD's rendered note
@@ -828,7 +953,13 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
             Такт {actualBar} скрыт — играйте по памяти
           </div>
         )}
-        <div ref={mountRef} className="w-full" aria-label="Нотная партитура OpenSheetMusicDisplay" />
+        <div data-testid="osmd-vertical-center" className="flex min-h-full min-h-[280px] w-full flex-col items-center justify-center py-6">
+          <div className="relative w-full">
+            <div ref={mountRef} className="relative w-full" aria-label="Нотная партитура OpenSheetMusicDisplay" />
+            <div ref={overlayRef} data-testid="osmd-pedagogy-layer"
+              className="absolute inset-0 z-10 pointer-events-none overflow-visible" aria-hidden="true" />
+          </div>
+        </div>
         {loadState === 'loading' && (
           <div role="status" className="absolute inset-0 flex items-center justify-center bg-slate-950/95 text-slate-400 text-xs">
             Загрузка нотного стана…

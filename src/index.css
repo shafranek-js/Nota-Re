@@ -105,12 +105,15 @@ body {
 }
 
 .osmd-dark-theme svg .vf-staveline path,
-.osmd-dark-theme svg .vf-stavebarline path {
+.osmd-dark-theme svg .vf-stavebarline path,
+.osmd-dark-theme svg .vf-stavebarline rect {
   stroke: #334155 !important;
   fill: #334155 !important;
 }
 
-.osmd-dark-theme svg .vf-staveconnector path {
+/* The initial brace stays visible but quiet; don't hide the piano grouping. */
+.osmd-dark-theme svg .vf-staveconnector path,
+.osmd-dark-theme svg .vf-staveconnector rect {
   stroke: #475569 !important;
   fill: #475569 !important;
 }

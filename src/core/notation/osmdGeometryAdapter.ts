@@ -132,3 +132,44 @@ function getPianoStaveGeometries(
   });
   return geometries;
 }
+
+/** Actual VexFlow measure starts; labels use these instead of guessing note spacing. */
+export interface EngravedMeasureStart {
+  root: SVGSVGElement;
+  number: number;
+  x: number;
+  top: number;
+}
+
+export function getTrebleMeasureStarts(
+  renderer: OpenSheetMusicDisplay,
+  mount: HTMLElement
+): EngravedMeasureStart[] {
+  type Stave = {
+    getX: () => number;
+    getYForLine: (line: number) => number;
+  };
+  type Measure = { getVFStave?: () => Stave };
+  const result: EngravedMeasureStart[] = [];
+  const svgs = mount.querySelectorAll('svg');
+  let number = 0;
+  renderer.GraphicSheet.MusicPages.forEach((page, pageIndex) => {
+    const root = svgs.item(pageIndex);
+    if (!(root instanceof SVGSVGElement)) return;
+    page.MusicSystems.forEach(system => {
+      const treble = system.StaffLines[0];
+      if (!treble || treble.ParentStaff.StafflineCount !== 5) return;
+      treble.Measures.forEach(measure => {
+        number++;
+        const stave = (measure as Measure).getVFStave?.();
+        if (!stave) return;
+        const x = stave.getX();
+        const top = stave.getYForLine(0);
+        if (Number.isFinite(x) && Number.isFinite(top)) {
+          result.push({ root, number, x, top });
+        }
+      });
+    });
+  });
+  return result;
+}
