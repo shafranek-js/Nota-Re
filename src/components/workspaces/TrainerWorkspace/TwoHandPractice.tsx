@@ -154,7 +154,7 @@ export const TwoHandPractice: React.FC = () => {
   const currentStep = exercise.steps[trial.stepIndex];
   useEffect(() => {
     if (loadStatus !== 'ready' || !rendererRef.current) return;
-    try { placeCursor(rendererRef.current, currentStep?.onsetTicks ?? exercise.steps.at(-1)!.onsetTicks); }
+    try { placeCursor(rendererRef.current, currentStep?.onsetTicks ?? exercise.steps[exercise.steps.length - 1].onsetTicks); }
     catch (error) { console.warn('Two-hand cursor failed', error); }
   }, [currentStep, exercise, loadStatus, renderEpoch]);
 
@@ -175,7 +175,7 @@ export const TwoHandPractice: React.FC = () => {
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-100">Две руки — одновременная игра (MIDI)</h2>
-          <p className="text-xs text-amber-300">Отдельный практикум без зачёта курса. Оцениваем перекрытие физических нажатий; точность ритма по метрономy пока не оценивается.</p>
+          <p className="text-xs text-amber-300">Отдельный практикум без зачёта курса. Оцениваем перекрытие физических нажатий; точность ритма по метроному пока не оценивается.</p>
         </div>
         <div className="flex gap-2 items-center">
           <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново</button>
