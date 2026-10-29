@@ -96,17 +96,21 @@ export const CourseWorkspace: React.FC = () => {
       </div>
 
       {/* 2 Колонки: Список 12 уроков (слева) + Карточка выбранного урока (справа) */}
-      <div className="w-full grid grid-cols-1 lg:grid-cols-12 lg:flex-1 lg:min-h-0 gap-3.5">
+      <div className="w-full min-w-0 grid grid-cols-1 lg:grid-cols-12 lg:flex-1 lg:min-h-0 gap-2.5">
         
         {/* Список 12 уроков */}
-        <div className="lg:col-span-5 flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:min-h-0">
-          <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2.5 border-b border-slate-800 shrink-0">
-            <span className="text-xs font-bold uppercase font-mono text-slate-400">Уроки программы (1–12)</span>
-            <span className="text-xs text-slate-500 font-mono">Нажмите для выбора</span>
+        <div className="lg:col-span-5 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl p-2 lg:min-h-0">
+          <div className="flex flex-wrap items-center justify-between gap-2 px-1.5 pb-2 border-b border-slate-800 shrink-0">
+            <span className="text-xs font-bold text-slate-300">Уроки ({filteredLessons.length} из 12)</span>
+            <button type="button" data-testid="course-continue" onClick={continueCourse}
+              title="Начать ближайший несданный урок независимо от выбранного"
+              className="rounded-lg border border-emerald-500/40 bg-emerald-500/10 px-2.5 py-1.5 text-[11px] font-semibold text-emerald-200 hover:bg-emerald-500/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+              {allCompleted ? 'Повторить' : 'Продолжить'}: {moduleName}, Урок {nextLesson.id}
+            </button>
           </div>
 
-          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-2 pr-1 pt-2">
-            {COURSE_CURRICULUM.map(item => {
+          <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-1 pr-0.5 pt-1.5">
+            {filteredLessons.map(item => {
               const isSelected = item.id === selectedLessonId;
               const itemDone = completedLessons.includes(item.id);
 
@@ -118,13 +122,13 @@ export const CourseWorkspace: React.FC = () => {
                   aria-current={isSelected ? 'true' : undefined}
                   aria-label={`Выбрать урок ${item.id}: ${item.title}`}
                   onClick={() => selectCourseLesson(item.id)}
-                  className={`w-full text-left p-3 rounded-xl border cursor-pointer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 flex items-start justify-between gap-2.5 ${
+                  className={`w-full text-left px-2.5 py-1.5 rounded-lg border cursor-pointer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 flex items-start justify-between gap-2.5 ${
                     isSelected
                       ? 'bg-emerald-500/10 border-emerald-500/60 shadow-md shadow-emerald-950/40'
                       : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-950'
                   }`}
                 >
-                  <div className="flex items-start gap-2.5 min-w-0">
+                  <div className="flex items-start gap-2 min-w-0">
                     <span className={`text-xs font-mono font-bold px-2 py-0.5 rounded shrink-0 mt-0.5 ${
                       itemDone 
                         ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40' 
@@ -133,18 +137,16 @@ export const CourseWorkspace: React.FC = () => {
                       {item.id.toString().padStart(2, '0')}
                     </span>
                     <div className="min-w-0">
-                      <div className="flex items-center gap-1.5 flex-wrap">
+                      <div className="flex items-center gap-1.5 min-w-0">
                         <span className="text-[10px] font-mono text-slate-400 uppercase">{item.module}</span>
                         <span className="text-[10px] text-slate-500">• {item.timecode}</span>
                       </div>
-                      <h4 className={`text-xs font-bold line-clamp-2 lg:truncate mt-0.5 ${
+                      <h4 className={`text-xs font-bold line-clamp-2 lg:truncate ${
                         isSelected ? 'text-white' : 'text-slate-200'
                       }`}>
                         {item.title}
                       </h4>
-                      <p className="text-[11px] text-slate-400 line-clamp-1 mt-0.5">
-                        {item.theory}
-                      </p>
+
                     </div>
                   </div>
 
@@ -166,10 +168,10 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Карточка выбранного урока */}
-        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 lg:overflow-y-auto custom-scroll lg:min-h-0">
-          <div className="space-y-4">
+        <div className="lg:col-span-7 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2.5 lg:overflow-y-auto custom-scroll lg:min-h-0">
+          <div className="space-y-2.5">
             {/* Шапка карточки */}
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-3">
+            <div className="sticky top-0 z-10 -mx-3 -mt-2.5 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
@@ -177,11 +179,18 @@ export const CourseWorkspace: React.FC = () => {
                   </span>
                   <span className="text-xs text-slate-400 font-mono">{lesson.timecode}</span>
                 </div>
-                <h2 className="text-lg font-bold text-white mt-1">
+                <h2 className="text-base sm:text-lg font-bold text-white mt-1 leading-snug">
                   {lesson.title}
                 </h2>
               </div>
-              <div>
+              <div className="shrink-0 flex flex-col items-stretch gap-2">
+                <button type="button" data-testid="course-launch-selected"
+                  aria-label={`Запустить этот урок в тренажёре: Урок ${lesson.id}`}
+                  onClick={startActiveLessonInTrainer}
+                  className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+                  <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
+                  Запустить урок {lesson.id} (Студия)
+                </button>
                 {isDone ? (
                   <span className="flex items-center gap-1.5 text-xs font-mono uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -200,7 +209,7 @@ export const CourseWorkspace: React.FC = () => {
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1">
                 📖 Методическое обоснование и физиология навыка:
               </h4>
-              <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 p-3 rounded-xl border border-slate-800">
+              <p className="text-xs text-slate-300 leading-relaxed bg-slate-950 px-3 py-2 rounded-lg border border-slate-800">
                 {lesson.theory}
               </p>
             </div>
@@ -210,7 +219,7 @@ export const CourseWorkspace: React.FC = () => {
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1">
                 📚 Рекомендуемые сборники и страницы (nota-re.ru / Boosty):
               </h4>
-              <p className="text-xs text-sky-300 font-mono bg-sky-950/20 border border-sky-500/25 p-2.5 rounded-xl">
+              <p className="text-xs text-sky-300 font-mono bg-sky-950/20 border border-sky-500/25 px-3 py-1.5 rounded-lg">
                 {lesson.books}
               </p>
             </div>
@@ -220,9 +229,9 @@ export const CourseWorkspace: React.FC = () => {
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
                 🎯 Пошаговый алгоритм выполнения на уроке:
               </h4>
-              <div className="space-y-1.5 text-xs text-slate-300">
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-1.5 text-xs text-slate-300">
                 {lesson.steps.map((st, idx) => (
-                  <div key={idx} className="flex items-start gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                  <div key={idx} className="flex items-start gap-2 bg-slate-950/70 py-1.5 px-2 rounded-lg border border-slate-800/80">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-mono font-bold text-[10px] shrink-0">
                       {idx + 1}
                     </span>
