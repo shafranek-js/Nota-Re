@@ -2,6 +2,7 @@ import React, { useEffect } from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { WHITE_KEYS_ORDER, BLACK_KEYS_ORDER, MIDI_NOTE_MAP } from '../../../data/notes';
 import { TONALITY_CONFIG } from '../../../data/tonalities';
+import { resolveKeyboardLabels } from '../../../core/training/keyboardLabels';
 
 export const PianoKeyboard: React.FC = () => {
   const {
@@ -10,14 +11,15 @@ export const PianoKeyboard: React.FC = () => {
     lastKeyResult,
     currentTonality,
     showScaleHighlight,
-    toggleScaleHighlight,
     isBlindfolded,
-    toggleBlindfoldKeys,
     isTabletopMode,
-    toggleTabletopMode
+    toggleTabletopMode,
+    keyboardLabelMode,
+    midiInputsCount
   } = useAppStore();
 
   const tonalityCfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
+  const visibleLabels = resolveKeyboardLabels(keyboardLabelMode, midiInputsCount);
   const totalWhite = WHITE_KEYS_ORDER.length;
   const blackWidthPct = (0.62 / totalWhite) * 100;
 
@@ -63,51 +65,14 @@ export const PianoKeyboard: React.FC = () => {
 
   return (
     <div className={`shrink-0 w-full bg-slate-900/95 border border-slate-800/90 rounded-2xl p-2 flex flex-col gap-1.5 shadow-xl ${isBlindfolded ? 'blind-mode' : ''}`}>
-      {/* Верхняя строка управления клавиатурой */}
-      <div className="w-full flex flex-wrap items-center justify-between gap-2 px-1">
-        <div className="flex items-center gap-3">
-          <span className="text-xs font-bold text-slate-200 flex items-center gap-1.5">
-            <span>🎹</span> Полноразмерная дека (3 октавы: C3 – B5)
-          </span>
-          <span className="text-[11px] font-mono text-slate-400 hidden lg:inline">
-            Вслепую: <strong>группы из 2 и 3 чёрных клавиш</strong> • ПК: <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Z–M</kbd> (Бас), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Q–P</kbd> (1–2 окт.), <kbd className="px-1 py-0.5 bg-slate-800 rounded text-slate-300">Пробел</kbd> (только «Стол», без зачёта)
-          </span>
-        </div>
-
-        <div className="flex items-center gap-1.5">
-          <button
-            onClick={toggleScaleHighlight}
-            className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-medium transition ${
-              showScaleHighlight
-                ? 'bg-sky-500/20 border-sky-500/40 text-sky-200'
-                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-sky-300'
-            }`}
-          >
-            🎼 Звукоряд тональности
-          </button>
-
-          <button
-            onClick={toggleBlindfoldKeys}
-            className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-medium transition ${
-              isBlindfolded
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-200'
-                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-            }`}
-          >
-            🙈 Тактильная ширма (18:20)
-          </button>
-
-          <button
-            onClick={toggleTabletopMode}
-            className={`px-2.5 py-0.5 rounded-lg border text-[11px] font-medium transition ${
-              isTabletopMode
-                ? 'bg-amber-500/20 border-amber-500/40 text-amber-200'
-                : 'bg-slate-800 hover:bg-slate-700 border-slate-700 text-slate-300'
-            }`}
-          >
-            𝪑 Режим «Стол» (22:05)
-          </button>
-        </div>
+      <div className="px-1 flex flex-wrap justify-between items-center gap-2">
+        <strong className="text-xs text-slate-300">Клавиатура C3–B5</strong>
+        <span className="text-[11px] text-slate-500">
+          {isTabletopMode ? 'Режим «Стол» · без зачёта' :
+            visibleLabels === 'pc' ? 'ПК: Z–M (бас), Q–P (верх)' :
+              visibleLabels === 'notes' ? 'Подписи нот' : 'Без подписей'}
+          {midiInputsCount > 0 ? ' · MIDI подключён' : ''}
+        </span>
       </div>
 
       {/* Сами клавиши */}
@@ -134,12 +99,16 @@ export const PianoKeyboard: React.FC = () => {
                     isScaleHint ? 'key-scale-hint' : ''
                   } ${flashClass}`}
                 >
-                  <span className="text-[10px] font-mono text-slate-400 uppercase mb-0.5">
-                    {info.pcKey || ''}
-                  </span>
-                  <span className={`text-xs font-bold ${isC ? 'text-emerald-700 bg-emerald-100 px-1 rounded' : 'text-slate-800'}`}>
-                    {noteName}
-                  </span>
+                  {visibleLabels === 'pc' && !isBlindfolded && (
+                    <span className="text-[10px] font-mono text-slate-400 uppercase mb-0.5" aria-hidden="true">
+                      {info.pcKey || ''}
+                    </span>
+                  )}
+                  {visibleLabels === 'notes' && !isBlindfolded && (
+                    <span className={`text-xs font-bold ${isC ? 'text-emerald-700 bg-emerald-100 px-1 rounded' : 'text-slate-800'}`} aria-hidden="true">
+                      {noteName}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -174,9 +143,17 @@ export const PianoKeyboard: React.FC = () => {
                     isScaleHint ? 'key-scale-hint' : ''
                   } ${flashClass}`}
                 >
-                  <span className="text-[9px] font-mono text-slate-400">
-                    {info.pcKey || ''}
-                  </span>
+                  {visibleLabels === 'pc' && !isBlindfolded && (
+                    <span className="text-[9px] font-mono text-slate-400" aria-hidden="true">
+                      {info.pcKey || ''}
+                    </span>
+                  )}
+                  {visibleLabels === 'notes' && !isBlindfolded && (
+                    <span className="text-[9px] font-mono text-slate-200" aria-hidden="true">
+                      {currentTonality === 'F' && noteName.startsWith('A#')
+                        ? 'Bb' + noteName.slice(-1) : noteName}
+                    </span>
+                  )}
                 </button>
               );
             })}
