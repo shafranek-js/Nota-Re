@@ -25,7 +25,10 @@ export const Header: React.FC = () => {
         <div className="w-8 h-8 rounded-lg bg-gradient-to-br from-emerald-500 to-cyan-600 flex items-center justify-center shadow-md shadow-emerald-950/60">
           <Music className="w-4 h-4 text-slate-950 stroke-[2.5]" />
         </div>
-        <span className="font-bold text-sm tracking-tight text-white">NotaRe Academy</span>
+        <span data-testid="header-brand" className="font-bold text-sm tracking-tight text-white whitespace-nowrap">
+          <span className="sm:hidden">NotaRe</span>
+          <span className="hidden sm:inline">NotaRe Academy</span>
+        </span>
       </div>
 
       {/* Центральный переключатель рабочих пространств */}
