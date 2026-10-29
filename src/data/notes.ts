@@ -1,7 +1,7 @@
 import type { NoteDefinition } from '../types/music';
 
 // Полная 3-октавная карта клавиш (C3 - B5)
-export const MIDI_NOTE_MAP: Record<string, NoteDefinition> = {
+const BASE_MIDI_NOTE_MAP: Record<string, NoteDefinition> = {
   'C3':  { midi: 48, freq: 130.81, clef: 'bass',   y: 215, stepIdx: 0,  label: 'До (C3)',   pcKey: 'z', isBlack: false, ledger: false, accidental: null, finger: 5 },
   'C#3': { midi: 49, freq: 138.59, clef: 'bass',   y: 215, stepIdx: 0,  label: 'До♯ (C#3)', pcKey: 's', isBlack: true,  whiteIdx: 0,  accidental: 'sharp', finger: 4 },
   'D3':  { midi: 50, freq: 146.83, clef: 'bass',   y: 206, stepIdx: 1,  label: 'Ре (D3)',   pcKey: 'x', isBlack: false, ledger: false, accidental: null, finger: 4 },
@@ -40,6 +40,16 @@ export const MIDI_NOTE_MAP: Record<string, NoteDefinition> = {
   'A5':  { midi: 81, freq: 880.00, clef: 'treble', y: 22,  stepIdx: 19, label: 'Ля (A5)',   pcKey: '',  isBlack: false, ledger: 22,    accidental: null, finger: 5 },
   'A#5': { midi: 82, freq: 932.33, clef: 'treble', y: 22,  stepIdx: 19, label: 'Си♭ (Bb5)', pcKey: '',  isBlack: true,  whiteIdx: 19, accidental: 'flat',  finger: 4 },
   'B5':  { midi: 83, freq: 987.77, clef: 'treble', y: 13,  stepIdx: 20, label: 'Си (B5)',   pcKey: '',  isBlack: false, ledger: 22,    accidental: null, finger: 5 }
+};
+
+// A# and Bb are physically the same piano keys, but F major must preserve
+// the B-flat spelling for note reading and labels. Keep the legacy A# aliases
+// for keyboard geometry and existing shortcuts.
+export const MIDI_NOTE_MAP: Record<string, NoteDefinition> = {
+  ...BASE_MIDI_NOTE_MAP,
+  Bb3: BASE_MIDI_NOTE_MAP['A#3'],
+  Bb4: BASE_MIDI_NOTE_MAP['A#4'],
+  Bb5: BASE_MIDI_NOTE_MAP['A#5']
 };
 
 export const WHITE_KEYS_ORDER = [
