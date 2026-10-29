@@ -349,6 +349,19 @@ try {
   await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
 
+  // A black piano key is spelled Bb under F major but still has MIDI 70;
+  // under C major its legacy A# label remains accessible.
+  const keyPicker = page.locator('select').filter({ has: page.locator('option[value="F"]') }).first();
+  await keyPicker.selectOption('F');
+  await page.getByRole('button', { name: 'Клавиша Bb4', exact: true })
+    .waitFor({ state: 'visible', timeout: 15000 });
+  assert.equal(await page.getByRole('button', { name: 'Клавиша A#4', exact: true }).count(), 0,
+    'F major must not display an enharmonic A-sharp label');
+  await keyPicker.selectOption('C');
+  await page.getByRole('button', { name: 'Клавиша A#4', exact: true })
+    .waitFor({ state: 'visible', timeout: 15000 });
+  assert.equal(await renderError.count(), 0, 'enharmonic key switch must not break OSMD');
+
   await mkdir('artifacts', { recursive: true });
   await page.screenshot({ path: 'artifacts/osmd-trainer.png', fullPage: true });
   assert.deepEqual(errors, [], 'No uncaught browser errors');
