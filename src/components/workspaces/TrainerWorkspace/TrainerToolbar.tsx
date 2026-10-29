@@ -165,7 +165,10 @@ export const TrainerToolbar: React.FC = () => {
               <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-2">
                 {MODES.map(mode => (
                   <button key={mode.id} type="button" aria-pressed={currentAppMode === mode.id}
-                    onClick={() => setAppMode(mode.id)}
+                    onClick={() => {
+                      setAppMode(mode.id);
+                      setPanel(null);
+                    }}
                     className={`${currentAppMode === mode.id ? 'border-emerald-500/70 bg-emerald-500/15' :
                       'border-slate-700 bg-slate-950 hover:border-sky-600'} border rounded-xl p-2.5 text-left`}>
                     <span className="block text-xs font-semibold text-slate-100">{mode.name}</span>
