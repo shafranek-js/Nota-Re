@@ -251,6 +251,22 @@ export const SettingsDrawer: React.FC = () => {
                 <strong data-testid="midi-diag-samples" className="text-right text-sky-200 tabular-nums">
                   {midiDiagnostics.samples}
                 </strong>
+                <span>Сообщений с системной меткой MIDI</span>
+                <strong data-testid="midi-diag-queue-samples" className="text-right text-sky-200 tabular-nums">
+                  {midiDiagnostics.systemTimestampSamples}
+                </strong>
+                <span>Система → JS, медиана</span>
+                <strong data-testid="midi-diag-queue-median" className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.medianMidiQueueMs)}
+                </strong>
+                <span>Система → JS, P95</span>
+                <strong data-testid="midi-diag-queue-p95" className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.p95MidiQueueMs)}
+                </strong>
+                <span>Система → команда звуку, медиана</span>
+                <strong data-testid="midi-diag-system-to-dispatch" className="text-right text-sky-200 tabular-nums">
+                  {formatLatency(midiDiagnostics.medianSystemToDispatchMs)}
+                </strong>
                 <span>JS → отправка звука, медиана</span>
                 <strong data-testid="midi-diag-median" className="text-right text-sky-200 tabular-nums">
                   {formatLatency(midiDiagnostics.medianDispatchMs)}
@@ -289,11 +305,15 @@ export const SettingsDrawer: React.FC = () => {
                 </strong>
               </div>
               <p className="leading-relaxed text-[11px] text-slate-400">
-                Измерение ведётся от входа в JavaScript MIDI-обработчик до передачи
-                команды звуковому движку. Оно не включает задержку устройства,
-                USB, AudioWorklet, аудиодрайвера и динамиков. baseLatency и
-                outputLatency — оценки браузера, их нельзя напрямую складывать
-                с измеренной задержкой. Удержание sustain внутри SoundFont
+                При наличии Web MIDI event.timeStamp отдельно измеряется путь
+                от системного приёма MIDI-сообщения до запуска JS-обработчика
+                и до передачи команды звуковому движку. Если метка недоступна,
+                показывается «—». Она не отражает физическое нажатие клавиши.
+                По-прежнему измеряется JS → команда звуку. Ни один показатель
+                не включает задержку устройства, USB до приёма системой,
+                AudioWorklet, аудиодрайвера и динамиков. baseLatency и
+                outputLatency — оценки браузера; складывать их с этими
+                измерениями как готовую акустическую задержку нельзя. Удержание sustain внутри SoundFont
                 и хвосты затухания не входят в число отслеживаемых голосов.
                 Сырые MIDI-ноты и идентификаторы устройств не сохраняются.
               </p>
