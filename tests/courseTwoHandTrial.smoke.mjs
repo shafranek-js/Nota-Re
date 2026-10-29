@@ -43,6 +43,8 @@ try {
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'staggered');
   assert.equal(await page.getByTestId('two-hand-step-index').innerText(), '1');
   assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/15');
+  assert.equal(await page.getByTestId('two-hand-study-select').locator('option').count(), 15);
+  assert.match(await page.getByTestId('two-hand-study-label').innerText(), /Этюд 1\/15/);
   assert.match(await page.getByTestId('two-hand-shadow-series').innerText(), /подряд/);
   await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
     .first().waitFor({ state: 'visible', timeout: 45000 });
@@ -71,6 +73,22 @@ try {
   assert.match(await page.getByTestId('two-hand-lesson-score').innerText(), /staccato четвертями/);
   assert.equal(await page.getByTestId('two-hand-pattern').isDisabled(), true);
   assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/20');
+  assert.equal(await page.getByTestId('two-hand-study-select').locator('option').count(), 20);
+  const study0Expected = await page.getByTestId('two-hand-expected').innerText();
+  await page.getByTestId('two-hand-study-select').selectOption('1');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-study-label"]')?.textContent?.includes('Этюд 2/20')
+  );
+  const study1Expected = await page.getByTestId('two-hand-expected').innerText();
+  assert.notEqual(study1Expected, study0Expected,
+    'selecting a distinct study must change expected MIDI pitches, not just the label');
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/20',
+    'switching to a different study cannot create course credit or practice repetitions');
+  await page.getByTestId('two-hand-study-select').selectOption('0');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-study-label"]')?.textContent?.includes('Этюд 1/20')
+  );
+  assert.equal(await page.getByTestId('two-hand-expected').innerText(), study0Expected);
   // No physical MIDI activity means that the complete two-bar lesson
   // contains zero verified NoteOff events, and never awards course credit.
   await page.getByTestId('two-hand-start-tempo').click();
