@@ -377,6 +377,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     void midiManager.init();
 
     const pauseWhenHidden = () => {
+      if (document.hidden && get().trainerPhase === 'countIn') {
+        get().cancelTrainerCountIn();
+        return;
+      }
       if (document.hidden && get().isContinuousFlow) {
         stopFlowClock();
         set(invalidateInterruptedTimedLesson());
@@ -423,7 +427,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       stopFlowClock();
       stopCountIn();
     }
-    const interruptedFlow = opening && get().isContinuousFlow && get().trainerPhase === 'playing';
+    // Opening Settings disables flow even during preparation, so the course
+    // may not remain certified against an untimed altered preset.
+    const interruptedFlow = opening && get().isContinuousFlow && get().activeLessonId !== null;
     set({
       isSettingsOpen: opening,
       trainerPhase: opening && get().trainerPhase === 'countIn' ? 'setup' : get().trainerPhase,
@@ -525,6 +531,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       lastKeyResult: null,
       lastAttemptResult: null,
       isPhotoMasked: false,
+      isTwoHandPracticeOpen: false,
       ...(interruptingCourse ? { activeLessonId: null, completedExercisesCount: 0 } : {})
     });
   },
