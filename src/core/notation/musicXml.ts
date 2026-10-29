@@ -207,12 +207,33 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         n.onsetTicks < end && n.onsetTicks + n.durationTicks > begin)
         .sort((a, b) => a.onsetTicks - b.onsetTicks);
 
-      for (const event of staffNotes) {
+      // Events with identical onsets and durations form a chord. MusicXML
+      // requires <chord/> on every note following the first at each rhythmic
+      // segment; those notes must not advance the staff's musical time.
+      for (let i = 0; i < staffNotes.length;) {
+        const event = staffNotes[i];
+        const chord = [event];
+        i++;
+        while (i < staffNotes.length && staffNotes[i].onsetTicks === event.onsetTicks) {
+          const next = staffNotes[i++];
+          if (next.durationTicks !== event.durationTicks) {
+            throw new Error('Simultaneous notes on one staff must share a duration.');
+          }
+          chord.push(next);
+        }
         const start = Math.max(begin, event.onsetTicks);
         const finish = Math.min(end, event.onsetTicks + event.durationTicks);
         if (start < cursor) throw new Error('Overlapping notes in one staff are not supported yet.');
         if (start > cursor) xml += renderRest(start - cursor, staff);
-        xml += renderEvent(event, start, finish, score.fifths, options);
+        let segmentStart = start;
+        for (const part of chunks(finish - start)) {
+          const segmentEnd = segmentStart + part.duration;
+          for (let j = 0; j < chord.length; j++) {
+            const noteXml = renderEvent(chord[j], segmentStart, segmentEnd, score.fifths, options);
+            xml += j === 0 ? noteXml : noteXml.replace('<note>', '<note><chord/>');
+          }
+          segmentStart = segmentEnd;
+        }
         cursor = finish;
       }
       if (cursor < end) xml += renderRest(end - cursor, staff);
