@@ -14,7 +14,7 @@ export const TONALITY_CONFIG: Record<TonalityKey, TonalityConfig> = {
   'F': { 
     name: 'F-dur / d-moll (1♭)', 
     signs: [{ type: '♭', trebleY: 80, bassY: 228 }], 
-    scaleNotes: ['C','D','E','F','G','A','A#'] 
+    scaleNotes: ['C','D','E','F','G','A','Bb'] 
   },
   'D': { 
     name: 'D-dur / h-moll (2♯)', 
