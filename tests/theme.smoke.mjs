@@ -70,7 +70,7 @@ try {
         .getByRole('button', { name: 'Классический', exact: true }).click();
       const classic = page.locator('svg[viewBox="0 0 1720 305"]');
       await classic.waitFor({ state: 'visible' });
-      assert.equal(await classic.locator('#staff-notes-layer ellipse').last().getAttribute('fill'), DARK_INK,
+      assert.equal(await classic.locator('#staff-notes-layer ellipse').last().getAttribute('fill'), '#0f172a',
         'upcoming Classic notes must use dark ink in light mode');
       const classicLines = classic.locator('g[stroke]').first();
       assert.equal(await classicLines.getAttribute('stroke'), '#64748b',
