@@ -9,6 +9,7 @@ import {
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
+import { invalidateInterruptedTimedLesson } from '../core/training/flowInterruption';
 import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
@@ -177,7 +178,7 @@ function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): 
       : performance.now() - fallbackEnd;
     if (document.hidden || lateBy > 350) {
       stopFlowClock();
-      useAppStore.setState({ isContinuousFlow: false });
+      useAppStore.setState(invalidateInterruptedTimedLesson());
       return;
     }
     get().advanceFlowStep();
@@ -304,7 +305,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     const pauseWhenHidden = () => {
       if (document.hidden && get().isContinuousFlow) {
         stopFlowClock();
-        set({ isContinuousFlow: false });
+        set(invalidateInterruptedTimedLesson());
       }
     };
     document.addEventListener('visibilitychange', pauseWhenHidden);
@@ -313,6 +314,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     return () => {
       document.removeEventListener('visibilitychange', pauseWhenHidden);
       stopFlowClock();
+      if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+      photoTimerId = null;
       unlistenPrefs();
       unlistenEvents();
       unlistenPorts();
@@ -523,7 +526,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleTabletopMode: () => {
-    set((s) => ({ isTabletopMode: !s.isTabletopMode, activeLessonId: null }));
+    const entering = !get().isTabletopMode;
+    if (entering) stopFlowClock();
+    set({
+      isTabletopMode: entering,
+      ...(entering ? invalidateInterruptedTimedLesson() : {}),
+      activeLessonId: null
+    });
   },
 
   toggleTwoHandPractice: () => {
