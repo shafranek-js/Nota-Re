@@ -297,7 +297,7 @@ export const TwoHandPractice: React.FC = () => {
   };
 
   return (
-    <section data-testid="two-hand-practice" className="flex-1 min-h-[380px] w-full flex flex-col gap-2 rounded-xl bg-slate-900 border border-slate-700 p-3">
+    <section data-testid="two-hand-practice" data-timed-start-ms={plan?.startMs ?? ""} className="flex-1 min-h-[380px] w-full flex flex-col gap-2 rounded-xl bg-slate-900 border border-slate-700 p-3">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-100">Две руки — одновременная игра (MIDI)</h2>
