@@ -123,10 +123,20 @@ try {
   const beforeHanonResize = await epoch();
   await page.setViewportSize({ width: 768, height: 900 });
   await waitForOverlayRender('[data-notare-hanon-block="true"]', beforeHanonResize);
-  const beforeHanonRegenerate = await epoch();
+  // Hanon sequences are deterministic: regenerating can produce exactly
+  // the same MusicXML, so OSMD should NOT need an extra engraving pass.
+  // Advance an ungraded tabletop step, then verify regeneration resets it
+  // while the existing block annotations remain attached.
+  await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
+  await page.keyboard.press('Space');
+  assert.equal(Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index')), 1);
   await page.getByRole('button', { name: 'Новый', exact: true }).click();
-  await waitForOverlayRender('[data-notare-hanon-block="true"]', beforeHanonRegenerate);
-  assert.ok(await hanonBlock.count() > 0, 'Hanon brackets survive regeneration');
+  await page.waitForFunction(() => {
+    const score = document.querySelector('[data-testid="osmd-score"]');
+    return score?.getAttribute('data-active-note-index') === '0' &&
+      !!score.querySelector('[data-notare-hanon-block="true"]');
+  }, null, { timeout: 15000 });
+  assert.ok(await hanonBlock.count() > 0, 'Hanon brackets survive exercise reset');
 
   // Explicit Classic choice still works on narrow screens even in Hanon.
   await page.setViewportSize({ width: 375, height: 900 });
