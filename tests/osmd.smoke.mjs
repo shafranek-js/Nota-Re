@@ -111,7 +111,8 @@ try {
   // Hanon still has instructional block overlays only in Classic.
   await page.getByRole('button', { name: /8\. Ганон/ }).click();
   await page.getByText(/временно использует классический стан/).waitFor();
-  assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
+  await page.locator('svg[viewBox="0 0 1720 305"]')
+    .waitFor({ state: 'visible', timeout: 15000 });
 
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
