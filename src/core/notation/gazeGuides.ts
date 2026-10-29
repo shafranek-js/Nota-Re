@@ -6,7 +6,7 @@
  * Detect actual musical 4/4 downbeats rather than every fourth item:
  * variable note lengths must not place gaze guides in the wrong bar.
  */
-import { getNoteOnsets, TICKS_PER_MEASURE } from './scoreMasks';
+import { getNoteOnsets, TICKS_PER_MEASURE } from './scoreMasks.ts';
 
 export interface GPatternNote {
   readonly clef: 'treble' | 'bass';
