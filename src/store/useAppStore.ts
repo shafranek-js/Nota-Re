@@ -57,6 +57,8 @@ export interface AppState {
   isTwoHandPracticeOpen: boolean;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
+  showVirtualKeyboard: boolean;
+  keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   isPhotoMasked: boolean;
 
