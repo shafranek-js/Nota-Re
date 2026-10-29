@@ -42,7 +42,7 @@ export const App: React.FC = () => {
       <main className="flex-1 min-h-0 w-full overflow-y-auto lg:overflow-hidden flex flex-col">
         {currentWorkspace === 'course' && <CourseWorkspace />}
         {currentWorkspace === 'trainer' && (
-          <StudioWorkspace renderer={scoreRenderer} onSelectRenderer={selectScoreRenderer} zenActive={zenActive} />
+          <StudioWorkspace renderer={scoreRenderer} onSelectRenderer={selectScoreRenderer} zenActive={zenActive} theme={theme} />
         )}
         {currentWorkspace === 'theory' && <TheoryWorkspace />}
       </main>
