@@ -60,6 +60,43 @@ try {
       await page.getByRole('button', { name: /4\. Фото-память/ }).click();
       await page.getByTestId('toolbar-trigger-view').click();
       const view = page.getByTestId('toolbar-panel-view');
+      const viewRow = page.getByTestId('view-controls-row');
+      assert.ok(await viewRow.isVisible(), 'View controls must occupy a single row');
+      const iconLabels = [
+        'Скрыть клавиатуру', 'Звукоряд тональности',
+        'Тактильная ширма (18:20)', 'Режим «Стол» (22:05)', 'Маяки баса'
+      ];
+      for (const label of iconLabels) {
+        const button = view.getByRole('button', { name: label, exact: true });
+        assert.equal(await button.count(), 1, `unique accessible View icon: ${label}`);
+        assert.equal(await button.getAttribute('title'), label);
+        assert.ok(await button.getAttribute('aria-pressed') !== null, 'toggle must expose pressed state');
+        assert.equal(await button.locator('svg[aria-hidden="true"]').count(), 1,
+          'icon button must contain a decorative SVG');
+        const box = await button.boundingBox();
+        assert.ok(box && box.width <= 38, `compact View icon width: ${label}`);
+      }
+      const rowMetrics = await viewRow.evaluate(row => ({
+        scrollWidth: row.scrollWidth, clientWidth: row.clientWidth,
+        centers: [...row.querySelectorAll('button,select')].map(el => {
+          const r = el.getBoundingClientRect();
+          return r.top + r.height / 2;
+        })
+      }));
+      assert.ok(Math.max(...rowMetrics.centers) - Math.min(...rowMetrics.centers) <= 5,
+        `View controls should have one vertical center at ${width}px: ${JSON.stringify(rowMetrics)}`);
+      if (width === 320) {
+        assert.ok(rowMetrics.scrollWidth > rowMetrics.clientWidth + 10,
+          'small screens must scroll View controls horizontally instead of wrapping');
+      }
+      const scaleToggle = view.getByRole('button', { name: 'Звукоряд тональности' });
+      const scaleBefore = await scaleToggle.getAttribute('aria-pressed');
+      await scaleToggle.click();
+      assert.notEqual(await scaleToggle.getAttribute('aria-pressed'), scaleBefore,
+        'icon toggle must update state');
+      await scaleToggle.click();
+      assert.equal(await scaleToggle.getAttribute('aria-pressed'), scaleBefore,
+        'icon toggle must restore state');
       assert.ok(await view.getByRole('combobox', { name: 'Экспозиция фото-памяти' }).isVisible());
       await view.getByRole('combobox', { name: 'Экспозиция фото-памяти' }).selectOption('1100');
       await view.getByRole('combobox', { name: 'Подписи виртуальных клавиш' }).selectOption('auto');
