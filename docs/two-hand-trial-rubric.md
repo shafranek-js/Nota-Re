@@ -10,9 +10,14 @@ Tracking: https://github.com/shafranek-js/Nota-Re/issues/3
 | 11 | Both-hand reading, G-shaped gaze, bass beat 1 and RH melody beats 2–4 | 15 consecutive pieces | 92% | 580 ms |
 | 12 | Hanon fingering, four-note blocks, RH legato eighths and LH staccato quarters | 20 pieces | 94% | 500 ms |
 
-The current MIDI trial has one deterministic two-bar preparatory score per
-lesson. Repeating the same score 15 or 20 times is NOT equivalent to 15/20
-different lesson pieces, nor proof of fingering, gaze or expressive legato.
+The training catalog now provides **15 original two-bar mini-studies for
+lesson 11 and 20 for lesson 12**, each with a distinct MIDI/MusicXML score.
+Lesson 11 varies RH rhythms, melodic contour and LH bass; lesson 12 varies
+the independently phrased RH eighth-note blocks and LH staccato pitches.
+
+**These are still short preparatory mini-studies**, not the specified published
+lesson repertoire or proof of fingering, gaze or expressive legato. Completing
+all 15/20 training variants must never be mistaken for official graduation.
 
 The published lesson reaction-time requirement is NOT equivalent to metronome
 onset deviation. Those old norms must not be repurposed as new tolerances.
@@ -33,8 +38,19 @@ A timed two-bar study is accepted ONLY when it:
 Accepted practice performances increase only an ephemeral shadow counter.
 Lesson 11 requires 15 consecutive clean repeats: a failed or aborted study
 resets the shadow streak. Lesson 12 requires 20 clean repeats cumulatively.
-Each trial has a session-only monotonic ID, so duplicate timer callbacks,
-wrong-lesson results and stale events cannot increase counts.
+Each timed run has a session-only monotonic attempt ID **and a canonical
+study index** (0–14 or 0–19). The score and onset map must match that exact
+index; a performance of score 1 cannot be credited as score 2. Repeating a
+previously accepted study **does not increase the distinct-study counter**.
+For the consecutive lesson-11 series, such a duplicate resets the training
+streak just like a wrong attempt. A stopped or incorrect attempt cannot
+advance to the next uncompleted study automatically.
+
+The UI displays the current score number and supports explicit selection
+of another study for practice. The "Следующий этюд" action selects the first
+study not already accepted in the current series. An interrupted run stays
+uncredited; the user can retry the same written score. This progression
+exists only in React memory and resets when leaving the trainer.
 
 The shadow counter is reset on navigating away or explicitly using
 "Сбросить тренировочную серию". No data is saved. The score, official
@@ -42,7 +58,9 @@ completedLessons, lesson certification and saved progress remain untouched.
 
 ## Before formal certification may be implemented
 
-- Approve actual varied material for lessons 11/12 (not one short study).
+- Review these original varied preparatory mini-studies, then approve actual
+  source repertoire and evidence for lessons 11/12; variation alone is
+  insufficient for formal certification.
 - Define and approve pass/retry rules for 15/20 distinct pieces, 92%/94%
   accuracy, and original 580/500ms reaction metrics.
 - Resolve fingering and G-gaze observability: generic MIDI note events

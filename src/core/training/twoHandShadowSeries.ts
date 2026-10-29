@@ -1,6 +1,6 @@
 import { COURSE_CURRICULUM } from '../../data/curriculum.ts';
 import type { ExerciseScore } from '../notation/musicXml.ts';
-import { createLessonTwoHandScore } from './lessonTwoHandScore.ts';
+import { createLessonTwoHandScore, lessonTwoHandStudyCount } from './lessonTwoHandScore.ts';
 import { assessLessonReleases } from './lessonReleaseEvidence.ts';
 import { assessPolyphonicPractice } from './polyphonicAssessment.ts';
 import type { TempoPlan, TimedPracticeState } from './tempoTwoHand.ts';
@@ -29,12 +29,14 @@ export interface TwoHandShadowPolicy {
 export type TrialRejectReason =
   | 'not-finished'
   | 'invalid-score'
+  | 'duplicate-study'
   | 'invalid-tempo'
   | 'onset-or-pitch'
   | 'release-or-articulation'
   | 'hardware-interruption';
 
 export interface ShadowAttemptVerdict {
+  readonly studyIndex: number;
   readonly accepted: boolean;
   readonly reasons: readonly TrialRejectReason[];
   readonly meanOnsetDeviationMs: number | null;
@@ -85,13 +87,18 @@ export function evaluateTwoHandShadowAttempt(
   score: ExerciseScore,
   steps: readonly TwoHandStep[],
   timed: TimedPracticeState,
-  plan: TempoPlan
+  plan: TempoPlan,
+  studyIndex = 0
 ): ShadowAttemptVerdict {
   const policy = getTwoHandShadowPolicy(lessonId);
   const preset = getTwoHandCourseTrialPreset(lessonId);
   if (!policy || !preset) throw new Error('No provisional course trial rubric');
-  const canonical = createLessonTwoHandScore(lessonId, preset.tonality);
-  const validScore = scoreFingerprint(score) === scoreFingerprint(canonical.score) &&
+  const validStudyIndex = Number.isSafeInteger(studyIndex) && studyIndex >= 0 &&
+    studyIndex < lessonTwoHandStudyCount(lessonId);
+  const canonical = validStudyIndex
+    ? createLessonTwoHandScore(lessonId, preset.tonality, studyIndex) : null;
+  const validScore = !!canonical &&
+    scoreFingerprint(score) === scoreFingerprint(canonical.score) &&
     stepsFingerprint(steps) === stepsFingerprint(canonical.steps);
   const validTempo = plan.bpm === preset.bpm &&
     Number.isFinite(plan.startMs) && plan.startMs >= 0 &&
@@ -114,6 +121,7 @@ export function evaluateTwoHandShadowAttempt(
   if (timed.interruptions > 0) reasons.push('hardware-interruption');
 
   return {
+    studyIndex,
     accepted: reasons.length === 0,
     reasons,
     meanOnsetDeviationMs: attack?.meanAbsoluteDeviationMs ?? null,
@@ -136,6 +144,8 @@ export interface ShadowSeriesState {
   readonly rejected: number;
   readonly aborted: number;
   readonly cleanStreak: number;
+  /** Unique verified mini-studies still eligible for this practice series. */
+  readonly successfulStudies: readonly number[];
   readonly lastAttemptId: number;
   readonly lastVerdict: ShadowAttemptVerdict | null;
   /** Training target only: not formal course completion. */
@@ -147,7 +157,7 @@ export function initialShadowSeries(
 ): ShadowSeriesState {
   return {
     lessonId, attempts: 0, accepted: 0, rejected: 0, aborted: 0,
-    cleanStreak: 0, lastAttemptId: 0, lastVerdict: null,
+    cleanStreak: 0, successfulStudies: [], lastAttemptId: 0, lastVerdict: null,
     practiceTargetReached: false
   };
 }
@@ -164,23 +174,53 @@ export function appendShadowAttempt(
 ): ShadowSeriesState {
   if (state.lessonId !== lessonId ||
       !Number.isSafeInteger(attemptId) || attemptId <= state.lastAttemptId) return state;
-  const accepted = verdict?.accepted === true &&
-    verdict.officialCourseCredit === false && verdict.reasons.length === 0;
   const policy = getTwoHandShadowPolicy(lessonId);
   if (!policy) return state;
-  const totalAccepted = state.accepted + (accepted ? 1 : 0);
+  const studyIndex = verdict?.studyIndex ?? -1;
+  const validStudyIndex = Number.isSafeInteger(studyIndex) && studyIndex >= 0 &&
+    studyIndex < lessonTwoHandStudyCount(lessonId);
+  const duplicate = validStudyIndex &&
+    state.successfulStudies.includes(studyIndex);
+  const accepted = verdict?.accepted === true &&
+    verdict.officialCourseCredit === false && verdict.reasons.length === 0 &&
+    validStudyIndex && !duplicate;
+  // A replay of the same score is still practice, but must not be credited
+  // as another DISTINCT mini-study, even if MIDI execution was flawless.
+  const recordedVerdict = duplicate && verdict?.accepted
+    ? { ...verdict, accepted: false as const,
+        reasons: ['duplicate-study' as const] }
+    : verdict;
+  const successfulStudies = accepted
+    ? [...state.successfulStudies, studyIndex]
+    : policy.consecutive ? [] : state.successfulStudies;
   const cleanStreak = accepted ? state.cleanStreak + 1 : 0;
   return {
     ...state,
     attempts: state.attempts + 1,
-    accepted: totalAccepted,
+    accepted: state.accepted + (accepted ? 1 : 0),
     rejected: state.rejected + (verdict && !accepted ? 1 : 0),
     aborted: state.aborted + (verdict === null ? 1 : 0),
     cleanStreak,
+    successfulStudies,
     lastAttemptId: attemptId,
-    lastVerdict: verdict,
-    practiceTargetReached: (
-      policy.consecutive ? cleanStreak : totalAccepted
-    ) >= policy.requiredCleanStudies
+    lastVerdict: recordedVerdict,
+    practiceTargetReached: successfulStudies.length >= policy.requiredCleanStudies
   };
+}
+
+
+/**
+ * Advances to the first NOT-YET-credited study. On a failed consecutive
+ * lesson-11 series this intentionally returns index 0. Null means every
+ * distinct preparatory study has been completed; formal course credit still
+ * remains disabled.
+ */
+export function nextTwoHandShadowStudy(
+  series: ShadowSeriesState
+): number | null {
+  if (series.lessonId === null) return null;
+  for (let index = 0; index < lessonTwoHandStudyCount(series.lessonId); index++) {
+    if (!series.successfulStudies.includes(index)) return index;
+  }
+  return null;
 }
