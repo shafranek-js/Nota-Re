@@ -64,12 +64,13 @@ export const TwoHandPractice: React.FC = () => {
   // A course trial uses the actual lesson's BPM without altering persistent
   // trainer preferences or the official per-lesson grade.
   const practiceBpm = courseTrial?.bpm ?? bpm;
+  const practiceTonality = courseTrial?.tonality ?? currentTonality;
   const [pattern, setPattern] = useState<TwoHandPattern>(
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
   const exercise = useMemo(
-    () => createTwoHandPractice(currentTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
-    [currentTonality, scoreNoteCount, pattern]
+    () => createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
+    [practiceTonality, scoreNoteCount, pattern]
   );
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
@@ -334,7 +335,7 @@ export const TwoHandPractice: React.FC = () => {
           <h2 className="text-base font-semibold text-slate-100">{courseTrial?.title ?? 'Две руки — одновременная игра (MIDI)'}</h2>
           {courseTrial && (
             <div data-testid="two-hand-trial-context" className="text-xs text-sky-200">
-              Урок {courseTrial.lessonId} · Темп <strong data-testid="two-hand-active-bpm">{practiceBpm}</strong> BPM.
+              Урок {courseTrial.lessonId} · Тональность <strong data-testid="two-hand-active-tonality">{practiceTonality}</strong> · Темп <strong data-testid="two-hand-active-bpm">{practiceBpm}</strong> BPM.
               {' '}{courseTrial.description}
               {pattern !== courseTrial.pattern && ' Выбран другой ритмический рисунок для дополнительной практики.'}
             </div>
