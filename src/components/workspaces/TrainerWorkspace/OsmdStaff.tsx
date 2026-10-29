@@ -9,6 +9,7 @@ import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
+import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -25,61 +26,10 @@ const collectionNames: Record<string, string> = {
   both: 'Две руки (Буква «Г»)'
 };
 
-function positionCursorAtTicks(renderer: OpenSheetMusicDisplay, onsetTicks: number): void {
-  const cursor = renderer.cursor;
-  const targetTime = onsetTicks / 16; // OSMD timestamps are fractions of a whole note
-  cursor.reset();
-  let steps = 0;
-  while (!cursor.Iterator.EndReached &&
-         cursor.Iterator.currentTimeStamp.RealValue + 0.000001 < targetTime &&
-         steps < 512) {
-    cursor.next();
-    steps++;
-  }
-  cursor.show();
-}
-
 function currentOnsetTicks(): number {
   const { activeExerciseNotes, activeNoteIndex } = useAppStore.getState();
   return activeExerciseNotes.slice(0, activeNoteIndex)
     .reduce((sum, note) => sum + note.durMultiplier * 4, 0);
-}
-
-type EngravedPoint = { x: number; y: number; root: SVGSVGElement };
-
-/** Coordinates of OSMD's own notehead in the SVG's local coordinate space. */
-function getEngravedNotePoint(
-  renderer: OpenSheetMusicDisplay,
-  mount: HTMLDivElement,
-  onsetTicks: number
-): EngravedPoint | null {
-  positionCursorAtTicks(renderer, onsetTicks);
-  for (const graphicalNote of renderer.cursor.GNotesUnderCursor()) {
-    // The piano score contains rests in the inactive staff. They are
-    // graphical cursor entries too, but are NOT the pitch anchor for a
-    // bass-to-treble reading path (nor for interval guides).
-    if (graphicalNote.sourceNote.isRest()) continue;
-    const vexflowNote = graphicalNote as typeof graphicalNote & {
-      getSVGGElement?: () => SVGElement | undefined;
-    };
-    const element = vexflowNote.getSVGGElement?.();
-    if (!element || !mount.contains(element)) continue;
-    const root = element.closest('svg') as SVGSVGElement | null;
-    if (!root) continue;
-    const head = element.querySelector<SVGGraphicsElement>(
-      '.vf-notehead, [class*="notehead"], [id*="notehead"]'
-    ) ?? element;
-    const rect = head.getBoundingClientRect();
-    const matrix = root.getScreenCTM();
-    if (!matrix || rect.width < 1 || rect.height < 1) continue;
-    const center = root.createSVGPoint();
-    center.x = rect.left + rect.width / 2;
-    center.y = rect.top + rect.height / 2;
-    const local = center.matrixTransform(matrix.inverse());
-    if (!Number.isFinite(local.x) || !Number.isFinite(local.y)) continue;
-    return { x: local.x, y: local.y, root };
-  }
-  return null;
 }
 
 interface OsmdStaffProps {
@@ -534,43 +484,18 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     if (!showBassLandmarks || loadState !== 'ready' || !osmdRef.current) return;
 
     const svgNS = 'http://www.w3.org/2000/svg';
-    type VexStave = {
-      getX: () => number;
-      getWidth: () => number;
-      getYForLine: (index: number) => number;
-    };
-    type StaveMeasure = { getVFStave?: () => VexStave };
     let drawn = 0;
 
     try {
-      const pages = osmdRef.current.GraphicSheet.MusicPages;
-      const svgPages = mount.querySelectorAll('svg');
-
-      pages.forEach((page, pageIndex) => {
-        const svg = svgPages.item(pageIndex);
-        if (!(svg instanceof SVGSVGElement)) return;
-
-        page.MusicSystems.forEach(system => {
-          // The canonical MusicXML piano score has exactly two staves,
-          // ordered treble (0) then bass (1). Never mark the treble staff.
-          if (system.StaffLines.length !== 2) return;
-          const bass = system.StaffLines[1];
-          if (bass.ParentStaff.StafflineCount !== 5) return;
-          const measures = bass.Measures;
-          if (!measures.length) return;
-          const first = (measures[0] as StaveMeasure).getVFStave?.();
-          const last = (measures[measures.length - 1] as StaveMeasure).getVFStave?.();
-          if (!first || !last) return;
-
-          const x1 = first.getX();
-          const x2 = last.getX() + last.getWidth();
-          const landmarks = getBassLandmarkSegments({
-            x: x1,
-            width: x2 - x1,
-            lineY: line => first.getYForLine(line)
-          });
-          if (landmarks.length !== 2) return;
-          for (const landmark of landmarks) {
+      for (const stave of getBassStaveGeometries(osmdRef.current, mount)) {
+        const svg = stave.root;
+        const landmarks = getBassLandmarkSegments({
+          x: stave.x,
+          width: stave.width,
+          lineY: stave.lineY
+        });
+        if (landmarks.length !== 2) continue;
+        for (const landmark of landmarks) {
             const group = document.createElementNS(svgNS, 'g');
             group.setAttribute('data-notare-bass-landmark', 'true');
             group.setAttribute('data-landmark-pitch', landmark.pitch);
@@ -600,9 +525,8 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
             group.append(line, label);
             svg.appendChild(group);
             drawn++;
-          }
-        });
-      });
+        }
+      }
       if (drawn === 0) {
         setErrorMessage('Не удалось найти линейки басового ключа в OSMD. Используйте классический стан.');
         setLoadState('error');
