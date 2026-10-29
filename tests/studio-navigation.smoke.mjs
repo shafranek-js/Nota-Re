@@ -64,6 +64,9 @@ try {
       assert.equal(await page.getByRole('button', { name: /Черни · блоки по 4 ноты/ })
         .getAttribute('aria-pressed'), 'true');
 
+      // Hanon preset entered ungraded setup when returning from the Lab.
+      // Explicit start is required before Zen becomes eligible.
+      await page.getByTestId('trainer-start-stop').click();
       // Opt-in focus must never hide global navigation in embedded sections.
       await page.getByTestId('toolbar-zen-toggle').click();
       await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
