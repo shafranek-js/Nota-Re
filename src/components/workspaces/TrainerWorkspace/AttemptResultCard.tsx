@@ -1,7 +1,8 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Settings2, Shuffle } from 'lucide-react';
+import { ArrowRight, RotateCcw, Settings2, Shuffle, CircleX, Clock3, CircleMinus } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
-import type { AttemptEvent, AttemptOutcome } from '../../../core/training/exerciseAttempt';
+import { describeAttemptError } from '../../../core/training/attemptFeedback';
+import type { PracticeError } from '../../../core/training/attemptFeedback';
 import { useAppStore } from '../../../store/useAppStore';
 
 const MODE_NAMES: Record<string, string> = {
@@ -10,17 +11,16 @@ const MODE_NAMES: Record<string, string> = {
   blind: 'Вслепую', hanon: 'Ганон и штрихи'
 };
 
-const ERROR_NAMES: Record<Exclude<AttemptOutcome, 'correct' | 'assisted'>, string> = {
-  'wrong-pitch': 'Неверная нота',
-  late: 'Поздний ответ',
-  missed: 'Пропуск'
+const ERROR_STYLES: Record<PracticeError, string> = {
+  'wrong-pitch': 'border-rose-600/45 bg-rose-950/20',
+  late: 'border-amber-600/45 bg-amber-950/20',
+  missed: 'border-slate-600 bg-slate-800/40'
 };
-
-function describeError(event: AttemptEvent): string {
-  const description = ERROR_NAMES[event.outcome as keyof typeof ERROR_NAMES];
-  return `№${event.noteIndex + 1} · ${description} · ожидалась ${event.expectedNote}` +
-    (event.playedNote === null ? '' : `, сыграна ${event.playedNote}`);
-}
+const ERROR_ICONS: Record<PracticeError, typeof CircleX> = {
+  'wrong-pitch': CircleX,
+  late: Clock3,
+  missed: CircleMinus
+};
 
 /**
  * This is a normal replacement workspace, not an overlay with hidden
@@ -114,14 +114,30 @@ export const AttemptResultCard: React.FC = () => {
         {errors.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-slate-200">Что проверить</h3>
-            <ul className="space-y-1.5 text-xs text-slate-300">
-              {errors.slice(0, 6).map((event, i) => (
-                <li key={i} className="rounded-lg border border-slate-800 px-3 py-2 bg-slate-950">
-                  {describeError(event)}
-                </li>
-              ))}
+            <div aria-label="Виды ошибок" className="flex flex-wrap gap-2 text-xs">
+              <span className="rounded-md border border-rose-600/45 px-2 py-1 text-rose-200">× Неверная нота: {result.wrongPitches}</span>
+              <span className="rounded-md border border-amber-600/45 px-2 py-1 text-amber-200">Поздний ответ: {result.lateHits}</span>
+              <span className="rounded-md border border-slate-600 px-2 py-1 text-slate-300">Пропуск: {result.missedSlots}</span>
+            </div>
+            <ul className="space-y-2 text-xs text-slate-300">
+              {errors.slice(0, 6).map((event, i) => {
+                const feedback = describeAttemptError(event);
+                if (!feedback) return null;
+                const Icon = ERROR_ICONS[feedback.kind];
+                return (
+                  <li key={i} data-testid={`attempt-error-${feedback.kind}`}
+                    className={`rounded-lg border px-3 py-2 flex items-start gap-2.5 ${ERROR_STYLES[feedback.kind]}`}>
+                    <Icon aria-hidden="true" className="w-4 h-4 shrink-0 mt-0.5" />
+                    <div className="min-w-0 space-y-0.5">
+                      <strong className="block text-slate-100">{feedback.heading}</strong>
+                      <span className="block text-slate-300">{feedback.detail}</span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
             {errors.length > 6 && <p className="text-xs text-slate-500">Ещё событий: {errors.length - 6}</p>}
+            <p className="text-xs text-slate-500">Эти отметки описывают сыгранные ноты и ритмические сроки, а не причины ошибки.</p>
           </div>
         )}
 
