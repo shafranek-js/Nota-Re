@@ -229,6 +229,11 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         rules.SystemLeftMargin = 0;
         rules.SystemRightMargin = 0;
         rules.StaffDistance = 6.0;
+        // Match Classic's 18-unit interline rhythm at desktop engraving scale.
+        // Keep the staff height consistent with its four interline intervals;
+        // otherwise notes and VexFlow staff lines can become desynchronized.
+        rules.BetweenStaffLinesDistance = 1.25;
+        rules.StaffHeight = 5.0;
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.load(xml);
         if (cancelled) return;
