@@ -178,6 +178,22 @@ try {
   const coords = firstPathD.match(/-?\d+(?:\.\d+)?/g).map(Number);
   assert.ok(coords[1] > coords[3], 'gaze starts at lower bass and travels up to treble');
   assert.ok(coords[4] > coords[2], 'gaze then travels right toward treble melody');
+  assert.ok(Math.abs(coords[3] - coords[5]) < 0.1,
+    'G-pattern horizontal guide must lie at the actual treble head Y');
+  const labelPosition = await gaze.first().locator('text').evaluate(node => ({
+    x: Number(node.getAttribute('x')),
+    y: Number(node.getAttribute('y')),
+    color: node.getAttribute('fill')
+  }));
+  assert.ok(labelPosition.x >= coords[2] && labelPosition.x < coords[4],
+    'G arrow label must stay beside elbow, not on previous barline');
+  assert.equal(labelPosition.color, '#f59e0b');
+  const hiddenGPatternRests = await page.locator('.osmd-dark-theme[data-gpattern="true"] svg .vf-rest')
+    .evaluateAll(nodes => nodes.every(node => getComputedStyle(node).visibility === 'hidden'));
+  assert.ok(hiddenGPatternRests, 'only G-pattern generated VexFlow rest glyphs should be hidden');
+  assert.ok(await page.locator('[data-notare-connected-barline]').count() >= 3,
+    'piano system barlines span both staves');
+
   assert.equal(await renderError.count(), 0, 'G-pattern should not show OSMD renderer errors');
   const beforeGazeResize = await epoch();
   await page.setViewportSize({ width: 375, height: 900 });
