@@ -1,9 +1,16 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
-import { CheckCircle2, Circle, ArrowLeft, ArrowRight, Play, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Circle, ArrowLeft, ArrowRight, Play, RotateCcw, Info } from 'lucide-react';
+
+type CourseFilter = 'all' | 'I' | 'II' | 'III' | 'IV';
+const MODULES: { id: Exclude<CourseFilter, 'all'>; name: string }[] = [
+  { id: 'I', name: 'Позиция' }, { id: 'II', name: 'Ритм и бас' },
+  { id: 'III', name: 'Интервалы' }, { id: 'IV', name: 'Две руки' }
+];
 
 export const CourseWorkspace: React.FC = () => {
+  const [moduleFilter, setModuleFilter] = useState<CourseFilter>('all');
   const {
     selectedLessonId,
     selectCourseLesson,
@@ -20,7 +27,15 @@ export const CourseWorkspace: React.FC = () => {
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
   const doneCount = completedLessons.length;
-  const pct = Math.round((doneCount / COURSE_CURRICULUM.length) * 100);
+  const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM :
+    COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${moduleFilter} •`));
+  const filterByModule = (next: CourseFilter) => {
+    setModuleFilter(next);
+    if (next !== 'all' && !COURSE_CURRICULUM.some(item => item.id === selectedLessonId && item.module.startsWith(`Модуль ${next} •`))) {
+      const firstLesson = COURSE_CURRICULUM.find(item => item.module.startsWith(`Модуль ${next} •`));
+      if (firstLesson) selectCourseLesson(firstLesson.id);
+    }
+  };
   // Continue from actual certified progress, never from the last browsed
   // lesson. An independently explored lesson does not imply completion.
   const nextLesson = COURSE_CURRICULUM.find(item => !completedLessons.includes(item.id))
@@ -34,46 +49,43 @@ export const CourseWorkspace: React.FC = () => {
 
   return (
     <section className="flex-1 min-h-full lg:min-h-0 w-full p-3 sm:p-3.5 overflow-visible lg:overflow-hidden flex flex-col gap-3">
-      {/* Шапка курса */}
-      <div className="shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="max-w-2xl">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-              Методология Nota Re & Ф. Брянская
-            </span>
-            <span className="text-xs text-slate-400">12 недель • 4 модуля • От 0 до беглости</span>
-          </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight">
-            🎓 Программа выработки беглого чтения нот с листа на фортепиано
-          </h1>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Каждый урок настраивает тренажёр на конкретный психологический приём: от отключения внутреннего голоса до опережающего зрения и независимости пальцев. Сдавайте нормативы зачётной серии для перехода к следующему этапу.
-          </p>
-          <button type="button" data-testid="course-continue" onClick={continueCourse}
-            className="mt-3 rounded-xl bg-emerald-500 px-3.5 py-2 font-semibold text-xs text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-            {allCompleted ? 'Повторить' : 'Продолжить'}: {moduleName}, Урок {nextLesson.id}
+      {/* Компактная панель курса: без дублирования глобального прогресса. */}
+      <div data-testid="course-toolbar" className="shrink-0 min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 px-3 py-2 flex items-center gap-3">
+        <div className="shrink-0 flex items-center gap-2 min-w-0">
+          <h1 className="text-sm sm:text-base font-semibold text-white whitespace-nowrap">Программа чтения с листа</h1>
+          <details className="relative group">
+            <summary data-testid="course-methodology" className="cursor-pointer list-none rounded-md border border-slate-700 px-2 py-1 text-xs text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400" aria-label="О методике курса">
+              <span className="inline-flex items-center gap-1"><Info className="w-3.5 h-3.5" aria-hidden="true"/><span className="hidden sm:inline">О методике</span></span>
+            </summary>
+            <div role="note" className="absolute left-0 top-full mt-2 z-30 w-[min(340px,calc(100vw-36px))] rounded-xl border border-slate-700 bg-slate-950 shadow-xl p-3 text-xs text-slate-300 leading-relaxed">
+              <strong className="block mb-1 text-slate-100">Nota Re & Ф. Брянская · 12 недель</strong>
+              Каждый урок настраивает тренажёр на конкретный психологический приём: от отключения внутреннего голоса до опережающего зрения и независимости пальцев. Сдавайте нормативы зачётной серии для перехода к следующему этапу.
+            </div>
+          </details>
+        </div>
+        <nav aria-label="Фильтр модулей курса" className="min-w-0 flex-1 flex items-center gap-1.5 overflow-x-auto whitespace-nowrap custom-scroll py-0.5">
+          <button type="button" data-testid="course-filter-all" aria-pressed={moduleFilter === 'all'}
+            onClick={() => filterByModule('all')}
+            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === 'all' ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`}>
+            Все · {COURSE_CURRICULUM.length}
           </button>
-        </div>
-
-        {/* Общая шкала курса */}
-        <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 w-full sm:w-auto sm:min-w-[260px] min-w-0 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Общий прогресс курса:</span>
-            <span className="font-mono font-bold text-emerald-400">{doneCount} / 12 ({pct}%)</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-full rounded-full transition-all duration-300" 
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-            <span>Старт</span>
-            <span>Модуль II</span>
-            <span>Модуль III</span>
-            <span>Финал</span>
-          </div>
-        </div>
+          {MODULES.map(module => {
+            const lessons = COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${module.id} •`));
+            const passed = lessons.filter(item => completedLessons.includes(item.id)).length;
+            return (
+              <button type="button" key={module.id} data-testid={`course-filter-${module.id}`}
+                aria-pressed={moduleFilter === module.id} onClick={() => filterByModule(module.id)}
+                className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === module.id ? 'border-emerald-500/60 bg-emerald-500/15 text-emerald-200' : 'border-slate-700 text-slate-300 hover:bg-slate-800'}`}>
+                {module.id} · {module.name} <span className="ml-1 font-mono opacity-70">{passed}/{lessons.length}</span>
+              </button>
+            );
+          })}
+        </nav>
+        <button type="button" data-testid="course-continue" onClick={continueCourse}
+          title={`Следующий несданный урок: ${nextLesson.title}`}
+          className="shrink-0 rounded-lg border border-emerald-500/60 bg-emerald-500/15 px-2.5 py-1.5 text-xs font-semibold text-emerald-200 hover:bg-emerald-500/25 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+          {allCompleted ? 'Повторить' : 'Продолжить'}: {moduleName}, Урок {nextLesson.id}
+        </button>
       </div>
 
       {/* 2 Колонки: Список 12 уроков (слева) + Карточка выбранного урока (справа) */}
@@ -82,12 +94,12 @@ export const CourseWorkspace: React.FC = () => {
         {/* Список 12 уроков */}
         <div className="lg:col-span-5 flex flex-col bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:min-h-0">
           <div className="flex flex-wrap items-center justify-between gap-2 px-2 pb-2.5 border-b border-slate-800 shrink-0">
-            <span className="text-xs font-bold uppercase font-mono text-slate-400">Уроки программы (1–12)</span>
+            <span className="text-xs font-bold uppercase font-mono text-slate-400">{moduleFilter === 'all' ? 'Уроки программы (1–12)' : `Модуль ${moduleFilter} · ${filteredLessons.length} урока`}</span>
             <span className="text-xs text-slate-500 font-mono">Нажмите для выбора</span>
           </div>
 
           <div className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-2 pr-1 pt-2">
-            {COURSE_CURRICULUM.map(item => {
+            {filteredLessons.map(item => {
               const isSelected = item.id === selectedLessonId;
               const itemDone = completedLessons.includes(item.id);
 
@@ -99,7 +111,7 @@ export const CourseWorkspace: React.FC = () => {
                   aria-current={isSelected ? 'true' : undefined}
                   aria-label={`Выбрать урок ${item.id}: ${item.title}`}
                   onClick={() => selectCourseLesson(item.id)}
-                  className={`w-full text-left p-3 rounded-xl border cursor-pointer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 flex items-start justify-between gap-2.5 ${
+                  className={`w-full text-left p-2.5 rounded-xl border cursor-pointer transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-emerald-400 flex items-start justify-between gap-2.5 ${
                     isSelected
                       ? 'bg-emerald-500/10 border-emerald-500/60 shadow-md shadow-emerald-950/40'
                       : 'bg-slate-950/70 border-slate-800/80 hover:border-slate-700 hover:bg-slate-950'
@@ -147,10 +159,10 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Карточка выбранного урока */}
-        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-4 lg:overflow-y-auto custom-scroll lg:min-h-0">
-          <div className="space-y-4">
-            {/* Шапка карточки */}
-            <div className="flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 pb-3">
+        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:overflow-y-auto custom-scroll lg:min-h-0">
+          <div className="space-y-3">
+            {/* Заголовок урока и постоянно видимый запуск. */}
+            <div data-testid="course-lesson-header" className="sticky top-0 z-10 -mt-1 flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 bg-slate-900 py-2">
               <div>
                 <div className="flex items-center gap-2">
                   <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/15 text-emerald-300 font-semibold border border-emerald-500/30">
@@ -162,7 +174,11 @@ export const CourseWorkspace: React.FC = () => {
                   {lesson.title}
                 </h2>
               </div>
-              <div>
+              <div className="flex flex-wrap items-center justify-end gap-2">
+                <button type="button" data-testid="course-start-selected" onClick={startActiveLessonInTrainer}
+                  className="rounded-lg bg-emerald-500 hover:bg-emerald-400 px-3 py-2 text-xs font-bold text-slate-950 inline-flex items-center gap-1.5 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+                  <Play aria-hidden="true" className="w-3.5 h-3.5" /> Запустить урок {lesson.id} (Студия)
+                </button>
                 {isDone ? (
                   <span className="flex items-center gap-1.5 text-xs font-mono uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
                     <CheckCircle2 className="w-4 h-4 text-emerald-400" />
@@ -201,9 +217,9 @@ export const CourseWorkspace: React.FC = () => {
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
                 🎯 Пошаговый алгоритм выполнения на уроке:
               </h4>
-              <div className="space-y-1.5 text-xs text-slate-300">
+              <div className="grid grid-cols-1 xl:grid-cols-3 gap-1.5 text-xs text-slate-300">
                 {lesson.steps.map((st, idx) => (
-                  <div key={idx} className="flex items-start gap-2 bg-slate-950/70 p-2.5 rounded-lg border border-slate-800/80">
+                  <div key={idx} className="flex items-start gap-2 bg-slate-950/70 px-2.5 py-1.5 rounded-lg border border-slate-800/80">
                     <span className="w-5 h-5 rounded-full bg-emerald-500/20 text-emerald-400 flex items-center justify-center font-mono font-bold text-[10px] shrink-0">
                       {idx + 1}
                     </span>
@@ -293,13 +309,7 @@ export const CourseWorkspace: React.FC = () => {
                   Пробное задание: две руки (без зачёта)
                 </button>
               )}
-              <button 
-                onClick={startActiveLessonInTrainer}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition"
-              >
-                <Play className="w-4 h-4 fill-slate-950" />
-                Запустить этот урок в тренажёре →
-              </button>
+
             </div>
           </div>
         </div>
