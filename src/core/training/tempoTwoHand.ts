@@ -122,7 +122,7 @@ export function reduceTimedPractice(
     return { ...current, stepIndex: steps.length, finished: true, feedback: 'complete' };
   }
   if (event.type === 'tick') {
-    if (overheld.length) return current;
+    if (overheld.length) return { ...current, feedback: 'held-too-long' };
     if (now < plan.startMs && current.feedback !== 'count-in') {
       return { ...current, feedback: 'count-in' };
     }
