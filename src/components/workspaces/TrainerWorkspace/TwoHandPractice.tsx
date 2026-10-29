@@ -275,9 +275,14 @@ export const TwoHandPractice: React.FC = () => {
 
   const activeStepIndex = plan ? timed.stepIndex : trial.stepIndex;
   const currentStep = exercise.steps[activeStepIndex];
-  const cursorTick = plan
-    ? currentScoreTick(plan, clockMs, exercise.score)
-    : (currentStep?.onsetTicks ?? exercise.steps[exercise.steps.length - 1].onsetTicks);
+  // OSMD cursors move at NOTE ONSETS, not at animation-frame frequency.
+  // Resetting the full score cursor every 35 ms could block the JS thread
+  // and make physically on-beat MIDI appear late during the count-in.
+  const elapsedTick = plan ? currentScoreTick(plan, clockMs, exercise.score) : null;
+  const cursorTick = elapsedTick === null
+    ? (currentStep?.onsetTicks ?? exercise.steps[exercise.steps.length - 1].onsetTicks)
+    : exercise.steps.reduce((onset, step) =>
+      step.onsetTicks <= elapsedTick + 1e-6 ? step.onsetTicks : onset, 0);
   useEffect(() => {
     if (loadStatus !== 'ready' || !rendererRef.current) return;
     try { placeCursor(rendererRef.current, cursorTick); }
