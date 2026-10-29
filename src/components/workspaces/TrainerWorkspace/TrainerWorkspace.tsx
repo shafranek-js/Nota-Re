@@ -1,5 +1,6 @@
 import React, { Suspense } from 'react';
 import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
+import type { AppTheme } from '../../../core/ui/themePreference';
 import { useAppStore } from '../../../store/useAppStore';
 import { TrainerBanner } from './TrainerBanner';
 import { CourseLessonControls } from './CourseLessonControls';
@@ -19,9 +20,10 @@ const TwoHandPractice = React.lazy(() => import('./TwoHandPractice').then(m => (
 interface TrainerWorkspaceProps {
   renderer: ScoreRenderer;
   onSelectRenderer: (renderer: ScoreRenderer) => void;
+  theme: AppTheme;
 }
 
-export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
+export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer, theme }) => {
   const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard, zenModeEnabled, currentWorkspace, studioSection, activeLessonId, selectedLessonId } = useAppStore();
   const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
 
@@ -76,10 +78,10 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
               Подключение нотного движка…
             </div>
           }>
-            <OsmdStaff zen={zenActive} onRequestLegacy={() => onSelectRenderer('legacy')} />
+            <OsmdStaff theme={theme} zen={zenActive} onRequestLegacy={() => onSelectRenderer('legacy')} />
           </Suspense>
         ) : (
-          <GrandStaffSvg zen={zenActive} />
+          <GrandStaffSvg theme={theme} zen={zenActive} />
         )}
         <TargetInfoBar zen={zenActive} />
       </div>

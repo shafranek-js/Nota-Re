@@ -1,5 +1,6 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import type { AppTheme } from '../../../core/ui/themePreference';
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
@@ -34,10 +35,10 @@ function positionTeachingCursor(renderer: OpenSheetMusicDisplay, ticks: number):
   renderer.cursor.hide();
 }
 
-function styleClefs(mount: HTMLElement): void {
+function styleClefs(mount: HTMLElement, theme: AppTheme): void {
   // VexFlow emits treble and bass clefs in score order for every piano system.
   mount.querySelectorAll<SVGGElement>('.vf-clef').forEach((clef, index) => {
-    const color = index % 2 === 0 ? '#38bdf8' : '#a855f7';
+    const color = index % 2 === 0 ? (theme === 'light' ? '#0369a1' : '#38bdf8') : (theme === 'light' ? '#7e22ce' : '#a855f7');
     clef.querySelectorAll<SVGElement>('path').forEach(path => {
       path.style.fill = color;
       path.style.stroke = color;
@@ -73,6 +74,7 @@ function addLayerLabel(
 ): void {
   const node = document.createElement('span');
   node.dataset.notarePedagogy = kind;
+  if (active) node.dataset.notareActive = 'true';
   node.setAttribute('aria-hidden', 'true');
   node.className = 'absolute whitespace-nowrap font-mono pointer-events-none';
   node.style.left = `${x}px`;
@@ -95,13 +97,14 @@ function currentOnsetTicks(): number {
 interface OsmdStaffProps {
   onRequestLegacy: () => void;
   zen?: boolean;
+  theme: AppTheme;
 }
 
 /**
  * MusicXML-based notation with optional pedagogical note hiding. Notehead/stem
  * visibility is applied to OSMD's own graphical notes; no custom staff layout.
  */
-export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = false }) => {
+export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = false, theme }) => {
   const {
     activeExerciseNotes,
     activeNoteIndex,
@@ -174,7 +177,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         renderer.zoom = osmdZoomForWidth(container.clientWidth, zenRef.current);
         await renderer.render();
         if (!cancelled) {
-          styleClefs(container);
+          styleClefs(container, theme);
           setLoadState('ready');
           osmdRef.current = renderer;
           positionTeachingCursor(renderer, currentOnsetTicks());
@@ -201,7 +204,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         if (cancelled) return;
         renderer = new OSMD(container, {
           backend: 'svg',
-          darkMode: true,
+          darkMode: theme === 'dark',
           autoResize: false,
           drawingParameters: 'compacttight',
           drawTitle: false,
@@ -215,13 +218,14 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         rules.StretchLastSystemLine = true;
         rules.RenderSingleHorizontalStaffline = false;
         rules.RenderMeasureNumbers = false;
-        rules.PageBackgroundColor = '#0b1120';
-        rules.DefaultColorMusic = '#f8fafc';
-        rules.DefaultColorNotehead = '#f8fafc';
-        rules.DefaultColorStem = '#f8fafc';
-        rules.DefaultColorRest = '#94a3b8';
-        rules.DefaultColorLabel = '#94a3b8';
-        rules.StaffLineColor = '#334155';
+        const ink = theme === 'light' ? '#0f172a' : '#f8fafc';
+        rules.PageBackgroundColor = theme === 'light' ? '#ffffff' : '#0b1120';
+        rules.DefaultColorMusic = ink;
+        rules.DefaultColorNotehead = ink;
+        rules.DefaultColorStem = ink;
+        rules.DefaultColorRest = theme === 'light' ? '#475569' : '#94a3b8';
+        rules.DefaultColorLabel = theme === 'light' ? '#475569' : '#94a3b8';
+        rules.StaffLineColor = theme === 'light' ? '#64748b' : '#334155';
         rules.PageTopMargin = 3.5;
         rules.PageBottomMargin = 3.0;
         rules.PageLeftMargin = 2.5;
@@ -275,7 +279,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       try { renderer?.clear(); } catch { /* may not be rendered yet */ }
       container.replaceChildren();
     };
-  }, [xml]);
+  }, [xml, theme]);
 
   // Same loaded OSMD instance, unchanged MusicXML and scoring state:
   // Zen transitions only request an engraving-scale update if needed.
@@ -356,7 +360,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       // Mask inspection walks the iterator: always restore actual training spot.
       positionTeachingCursor(renderer, currentOnsetTicks());
     }
-  }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
+  }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch, theme]);
 
 
   // OSMD's graphical cursor is keyed by musical time, not the ordinal order
@@ -392,8 +396,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         const note = activeExerciseNotes[index];
         const state = index < activeNoteIndex ? 'played' :
           index === activeNoteIndex ? 'active' : 'upcoming';
-        const color = state === 'played' ? '#f43f5e' :
-          state === 'active' ? '#f59e0b' : '#f8fafc';
+        const color = state === 'played' ? (theme === 'light' ? '#be123c' : '#f43f5e') :
+          state === 'active' ? (theme === 'light' ? '#b45309' : '#f59e0b') :
+            (theme === 'light' ? '#0f172a' : '#f8fafc');
         const start = noteOnsets[index];
         const end = start + note.durMultiplier * 4;
         // Long notes tied across a barline have more than one SVG segment.
@@ -479,7 +484,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       rect.setAttribute('width', String(stave.width));
       rect.setAttribute('height', String(stave.lineY(4) - stave.lineY(0) + 16));
       rect.setAttribute('rx', '4');
-      rect.setAttribute('fill', '#1e293b');
+      rect.setAttribute('fill', theme === 'light' ? '#e2e8f0' : '#1e293b');
       rect.setAttribute('fill-opacity', '0.35');
       stave.root.insertBefore(rect, stave.root.firstChild);
     }
@@ -503,7 +508,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       line.setAttribute('x2', String(measure.x));
       line.setAttribute('y1', String(upper.lineY(0)));
       line.setAttribute('y2', String(lower.lineY(4)));
-      line.setAttribute('stroke', '#475569');
+      line.setAttribute('stroke', theme === 'light' ? '#64748b' : '#475569');
       line.setAttribute('stroke-width', '1.5');
       measure.root.appendChild(line);
     }
@@ -511,7 +516,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
       clear();
       mount.querySelectorAll('[data-notare-connected-barline]').forEach(el => el.remove());
     };
-  }, [loadState, renderEpoch]);
+  }, [loadState, renderEpoch, theme]);
 
   // HTML overlay is intentionally OUTSIDE OSMD's generated SVG viewport:
   // measure numbers and rhythm syllables must not be clipped by page margins.
@@ -935,7 +940,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   }, [showBassLandmarks, loadState, renderEpoch]);
 
   return (
-    <div data-theme-lock="dark" data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
+    <div data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
       <div data-testid={zen ? 'zen-score-actions' : undefined} className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         {!zen && <div className="flex items-center flex-wrap gap-2.5">
@@ -981,7 +986,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         </div>
       </div>)}
 
-      <div data-gpattern={currentAppMode === 'gpattern'} className="osmd-dark-theme relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100">
+      <div data-gpattern={currentAppMode === 'gpattern'} className={`${theme === 'light' ? 'osmd-light-theme' : 'osmd-dark-theme'} relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100`}>
         {currentAppMode === 'photo' && isPhotoMasked && (
           <div data-testid="photo-masked-notice" className="sticky top-0 z-20 mx-auto w-fit px-3 py-1 rounded-b-lg bg-cyan-950 text-cyan-100 text-xs pointer-events-none">
             Такт {actualBar} скрыт — играйте по памяти

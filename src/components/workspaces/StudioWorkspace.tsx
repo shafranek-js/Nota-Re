@@ -1,5 +1,6 @@
 import React from 'react';
 import type { ScoreRenderer } from '../../core/notation/scoreRendererPreference';
+import type { AppTheme } from '../../core/ui/themePreference';
 import { useAppStore, type StudioSection } from '../../store/useAppStore';
 import { TrainerWorkspace } from './TrainerWorkspace/TrainerWorkspace';
 import { PrecheckWorkspace } from './PrecheckWorkspace';
@@ -9,6 +10,7 @@ interface StudioWorkspaceProps {
   renderer: ScoreRenderer;
   onSelectRenderer: (renderer: ScoreRenderer) => void;
   zenActive: boolean;
+  theme: AppTheme;
 }
 
 const sections: readonly { id: StudioSection; title: string; detail: string }[] = [
@@ -23,7 +25,7 @@ const sections: readonly { id: StudioSection; title: string; detail: string }[] 
  * Entering a reference section safely interrupts any graded audio deadlines.
  */
 export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
-  renderer, onSelectRenderer, zenActive
+  renderer, onSelectRenderer, zenActive, theme
 }) => {
   const { studioSection, switchStudioSection } = useAppStore();
 
@@ -51,7 +53,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         </nav>
       )}
       {studioSection === 'practice' && (
-        <TrainerWorkspace renderer={renderer} onSelectRenderer={onSelectRenderer} />
+        <TrainerWorkspace renderer={renderer} onSelectRenderer={onSelectRenderer} theme={theme} />
       )}
       {studioSection === 'precheck' && <PrecheckWorkspace />}
       {studioSection === 'lab' && <LabWorkspace />}

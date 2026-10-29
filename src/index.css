@@ -124,7 +124,8 @@ body {
 
 /* G-pattern is a sequential eye-training exercise, not two independent
    simultaneous voices. Suppress only its technical engraving-rest glyphs. */
-.osmd-dark-theme[data-gpattern="true"] svg .vf-rest {
+.osmd-dark-theme[data-gpattern="true"] svg .vf-rest,
+.osmd-light-theme[data-gpattern="true"] svg .vf-rest {
   visibility: hidden !important;
 }
 

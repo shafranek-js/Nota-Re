@@ -3,9 +3,9 @@
  *
  * Existing Tailwind components use dark-first utilities. This compatibility
  * layer maps only presentation colors, never exercise state or note geometry.
- * Engraved notation remains a deliberately dark, high-contrast music canvas
- * (data-theme-lock) so annotation colors and pedagogical highlights retain
- * their tested meaning in both application themes.
+ * Both score renderers now use a matching ink-on-paper palette in light mode.
+ * White and black piano keys retain their physical appearance; only their
+ * surrounding shell and label contrast respond to theme.
  */
 :root[data-theme='light'] { color-scheme: light; }
 :root[data-theme='light'] body { background: #eef3f9; color: #0f172a; }
@@ -127,4 +127,66 @@
 }
 :root[data-theme='light'] .custom-scroll::-webkit-scrollbar-track { background: #edf2f8; }
 :root[data-theme='light'] .custom-scroll::-webkit-scrollbar-thumb { background: #b0bfd0; }
-:root[data-theme='light'] [data-theme-lock='dark'] { color-scheme: dark; }
+
+/* Gradients need their own treatment: class-based background mappings alone
+   leave the legacy dark gradient active under already-dark text. */
+:root[data-theme='light'] [data-testid='trainer-banner'] {
+  background: linear-gradient(100deg, #e6f6ee 0%, #ffffff 58%, #f5f8fc 100%) !important;
+  border-color: #a8d6c0 !important;
+  color: #0f172a;
+}
+
+/* Physical piano keys stay white and black. The global light text mapping
+   must not turn sharp/flat labels nearly black on black keycaps. */
+:root[data-theme='light'] .piano-black-key span[aria-hidden='true'] {
+  color: #f1f5f9 !important;
+}
+:root[data-theme='light'] .piano-white-key span[aria-hidden='true'] {
+  color: #1e293b !important;
+}
+:root[data-theme='light'] .piano-white-key span.bg-emerald-100[aria-hidden='true'] {
+  color: #047857 !important;
+}
+
+/* Full light notation surface. Do not invert the entire SVG: musical status
+   colors, clefs and photo-masking must continue to convey their own meanings.
+   The OSMD engine supplies ink colors from its EngravingRules. */
+:root[data-theme='light'] .osmd-light-theme,
+:root[data-theme='light'] .osmd-light-theme svg {
+  background: #ffffff !important;
+  color: #0f172a;
+}
+:root[data-theme='light'] .osmd-light-theme svg .vf-staveline path,
+:root[data-theme='light'] .osmd-light-theme svg .vf-stavebarline,
+:root[data-theme='light'] .osmd-light-theme svg .vf-stavebarline path,
+:root[data-theme='light'] .osmd-light-theme svg .vf-stavebarline rect,
+:root[data-theme='light'] .osmd-light-theme svg .vf-stavebarline line {
+  stroke: #64748b !important;
+  fill: #64748b !important;
+}
+:root[data-theme='light'] .osmd-light-theme svg .vf-staveconnector,
+:root[data-theme='light'] .osmd-light-theme svg .vf-staveconnector path,
+:root[data-theme='light'] .osmd-light-theme svg .vf-staveconnector rect {
+  stroke: #475569 !important;
+  fill: #475569 !important;
+}
+:root[data-theme='light'] .osmd-light-theme svg .vf-timesignature path {
+  fill: #334155 !important;
+}
+:root[data-theme='light'] .osmd-light-theme svg .vf-fingering text,
+:root[data-theme='light'] .osmd-light-theme svg .vf-lyrics text {
+  fill: #475569 !important;
+}
+:root[data-theme='light'] [data-notare-pedagogy='measure'],
+:root[data-theme='light'] [data-notare-pedagogy='syllable']:not([data-notare-active='true']) {
+  color: #475569 !important;
+}
+:root[data-theme='light'] [data-notare-pedagogy='syllable'][data-notare-active='true'] {
+  color: #0369a1 !important;
+}
+:root[data-theme='light'] [data-notare-pedagogy='finger'] {
+  color: #be123c !important;
+}
+/* Keep an intentionally opaque, dark photographic curtain even on white
+   paper, so hidden notes can never leak in the photo-memory exercise. */
+

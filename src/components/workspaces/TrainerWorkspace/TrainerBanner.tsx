@@ -17,7 +17,7 @@ export const TrainerBanner: React.FC = () => {
   const isDone = completedLessons.includes(lesson.id);
 
   return (
-    <div className="shrink-0 w-full bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2">
+    <div data-testid="trainer-banner" className="shrink-0 w-full bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2">
       <div className="flex items-center gap-2.5 text-xs">
         <span className="px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[11px]">
           УРОК {lesson.id} / 12
