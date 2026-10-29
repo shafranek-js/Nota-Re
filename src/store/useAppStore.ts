@@ -9,6 +9,7 @@ import {
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
+import { getTwoHandCourseTrialPreset } from '../core/training/twoHandCourseTrial';
 import { invalidateInterruptedTimedLesson } from '../core/training/flowInterruption';
 import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
@@ -54,6 +55,8 @@ export interface AppState {
   isTabletopMode: boolean;
   /** Dedicated, ungraded physical-MIDI polyphonic practice. */
   isTwoHandPracticeOpen: boolean;
+  /** Session-only course trial; never accepted as formal lesson completion. */
+  twoHandTrialLessonId: number | null;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   photoExposureMs: number;
@@ -98,6 +101,7 @@ export interface AppState {
   toggleLessonCompleted: (id: number) => void;
   resetCourseProgress: () => void;
   startActiveLessonInTrainer: () => void;
+  startTwoHandCourseTrial: (lessonId: number) => void;
   prepareSelectedLessonInTrainer: () => void;
   openTrainerPrecheck: () => void;
   completeTrainerPrecheck: () => void;
@@ -312,6 +316,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeLessonId: null,
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
+  twoHandTrialLessonId: null,
   isPhotoMasked: false,
   midiInputsCount: 0,
 
@@ -412,6 +417,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({
       currentWorkspace: tab,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
+      twoHandTrialLessonId: tab === 'trainer' ? state.twoHandTrialLessonId : null,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
       activeLessonId: tab === 'trainer' ? state.activeLessonId : null,
       trainerPhase: tab === 'trainer' ? state.trainerPhase : state.trainerPhase === 'countIn' ? 'setup' : state.trainerPhase,
@@ -497,6 +503,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       trainerPhase: 'playing',
       countInBeat: 0,
       isTwoHandPracticeOpen: false,
+      twoHandTrialLessonId: null,
       isTabletopMode: false
     });
 
@@ -548,6 +555,29 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({ trainerPhase: 'setup', countInBeat: 0 });
   },
 
+  startTwoHandCourseTrial: (lessonId) => {
+    // Lesson-linked exercises are training demonstrations, not certification.
+    if (!getTwoHandCourseTrialPreset(lessonId)) return;
+    stopCountIn();
+    stopFlowClock();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    set({
+      currentWorkspace: 'trainer',
+      selectedLessonId: lessonId,
+      isTwoHandPracticeOpen: true,
+      twoHandTrialLessonId: lessonId,
+      activeLessonId: null,
+      isContinuousFlow: false,
+      isTabletopMode: false,
+      trainerPhase: 'playing',
+      countInBeat: 0,
+      completedExercisesCount: 0,
+      isExerciseFlawless: false,
+      lastAttemptResult: null
+    });
+  },
+
   goToNextLessonAndStart: () => {
     const { selectedLessonId } = get();
     if (selectedLessonId < COURSE_CURRICULUM.length) {
@@ -559,7 +589,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setAppMode: (mode) => {
-    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false });
+    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false, twoHandTrialLessonId: null });
     get().regenerateExercise();
   },
 
@@ -681,6 +711,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     stopFlowClock();
     set({
       isTwoHandPracticeOpen: opening,
+      twoHandTrialLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
       completedExercisesCount: 0,
@@ -729,6 +760,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...DEFAULT_TRAINER_PREFERENCES,
       isContinuousFlow: false,
       isTwoHandPracticeOpen: false,
+      twoHandTrialLessonId: null,
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseAssisted: false,
