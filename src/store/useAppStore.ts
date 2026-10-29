@@ -29,13 +29,16 @@ import {
   saveTrainerPreferences, selectTrainerPreferences
 } from '../core/storage/trainerPreferences';
 
-export type WorkspaceTab = 'course' | 'trainer' | 'precheck' | 'lab' | 'theory';
+/** Three primary destinations, with contextual tools inside Studio. */
+export type WorkspaceTab = 'course' | 'trainer' | 'theory';
+export type StudioSection = 'practice' | 'precheck' | 'lab';
 
 const MIDI_PITCH_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
 export interface AppState {
   // Навигация и модалки
   currentWorkspace: WorkspaceTab;
+  studioSection: StudioSection;
   isSettingsOpen: boolean;
 
   // Курс
@@ -98,6 +101,7 @@ export interface AppState {
   // Методы управления
   initApp: () => () => void;
   switchWorkspace: (tab: WorkspaceTab) => void;
+  switchStudioSection: (section: StudioSection) => void;
   toggleSettingsDrawer: () => void;
   selectCourseLesson: (id: number) => void;
   selectPrevCourseLesson: () => void;
@@ -314,6 +318,7 @@ function finishExercise(
 
 export const useAppStore = create<AppState>((set, get) => ({
   currentWorkspace: 'course',
+  studioSection: 'practice',
   isSettingsOpen: false,
 
   // All user preference keys live in the versioned, validated snapshot.
@@ -417,19 +422,46 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchWorkspace: (tab) => {
-    // No hidden metronome deadlines or missed answers while reading the course.
+    // Navigation is not a silent pause/resume: cancel any running graded
+    // clock when leaving Studio; existing per-attempt results remain intact.
     if (tab !== 'trainer') {
       stopFlowClock();
       stopCountIn();
     }
     set(state => ({
       currentWorkspace: tab,
+      studioSection: tab === 'trainer' ? 'practice' : state.studioSection,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
       twoHandTrialLessonId: tab === 'trainer' ? state.twoHandTrialLessonId : null,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
       activeLessonId: tab === 'trainer' ? state.activeLessonId : null,
       trainerPhase: tab === 'trainer' ? state.trainerPhase : state.trainerPhase === 'countIn' ? 'setup' : state.trainerPhase,
       countInBeat: tab === 'trainer' ? state.countInBeat : 0
+    }));
+  },
+
+  switchStudioSection: (studioSection) => {
+    // The five-step theory and the Hanon/Rhythm catalogs are *inside* Studio,
+    // but must never allow a hidden course flow to grade missed notes.
+    if (studioSection !== 'practice') {
+      stopFlowClock();
+      stopCountIn();
+      if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+      photoTimerId = null;
+    }
+    set(state => ({
+      currentWorkspace: 'trainer',
+      studioSection,
+      ...(studioSection !== 'practice' ? {
+        isContinuousFlow: false,
+        activeLessonId: null,
+        completedExercisesCount: 0,
+        isTwoHandPracticeOpen: false,
+        twoHandTrialLessonId: null,
+        isPhotoMasked: false,
+        trainerPhase: state.trainerPhase === 'results' ? 'results' as const : 'setup' as const,
+        countInBeat: 0
+      } : {})
     }));
   },
 
@@ -507,6 +539,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isContinuousFlow: lesson.preset.flow,
       currentAppMode: lesson.preset.mode,
       currentWorkspace: 'trainer',
+      studioSection: 'practice',
       activeLessonId: lesson.id,
       trainerPhase: 'playing',
       countInBeat: 0,
@@ -572,6 +605,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     photoTimerId = null;
     set({
       currentWorkspace: 'trainer',
+      studioSection: 'practice',
       selectedLessonId: lessonId,
       isTwoHandPracticeOpen: true,
       twoHandTrialLessonId: lessonId,
