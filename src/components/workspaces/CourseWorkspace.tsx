@@ -21,6 +21,16 @@ export const CourseWorkspace: React.FC = () => {
   const isDone = completedLessons.includes(lesson.id);
   const doneCount = completedLessons.length;
   const pct = Math.round((doneCount / COURSE_CURRICULUM.length) * 100);
+  // Continue from actual certified progress, never from the last browsed
+  // lesson. An independently explored lesson does not imply completion.
+  const nextLesson = COURSE_CURRICULUM.find(item => !completedLessons.includes(item.id))
+    ?? COURSE_CURRICULUM[COURSE_CURRICULUM.length - 1];
+  const moduleName = nextLesson.module.split(' • ')[0];
+  const allCompleted = doneCount === COURSE_CURRICULUM.length;
+  const continueCourse = () => {
+    selectCourseLesson(nextLesson.id);
+    startActiveLessonInTrainer();
+  };
 
   return (
     <section className="flex-1 min-h-full lg:min-h-0 w-full p-3 sm:p-3.5 overflow-visible lg:overflow-hidden flex flex-col gap-3">
@@ -39,6 +49,10 @@ export const CourseWorkspace: React.FC = () => {
           <p className="text-xs text-slate-400 mt-1 leading-relaxed">
             Каждый урок настраивает тренажёр на конкретный психологический приём: от отключения внутреннего голоса до опережающего зрения и независимости пальцев. Сдавайте нормативы зачётной серии для перехода к следующему этапу.
           </p>
+          <button type="button" data-testid="course-continue" onClick={continueCourse}
+            className="mt-3 rounded-xl bg-emerald-500 px-3.5 py-2 font-semibold text-xs text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+            {allCompleted ? 'Повторить' : 'Продолжить'}: {moduleName}, Урок {nextLesson.id}
+          </button>
         </div>
 
         {/* Общая шкала курса */}
