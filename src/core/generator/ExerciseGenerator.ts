@@ -1,5 +1,5 @@
-import { MIDI_NOTE_MAP } from '../../data/notes';
-import { HANON_1_SEQ, HANON_2_SEQ, GROUPS_4_SEQ, COORD_SEQ } from '../../data/hanon';
+import { MIDI_NOTE_MAP } from '../../data/notes.ts';
+import { HANON_1_SEQ, HANON_2_SEQ, GROUPS_4_SEQ, COORD_SEQ } from '../../data/hanon.ts';
 import type { AppMode, ExerciseNote, FilterType, HanonType, IntervalInfo, TonalityKey } from '../../types/music';
 
 export function applyTonalityToPitch(noteName: string, tonality: TonalityKey): string {
