@@ -1,5 +1,6 @@
 import React, { useEffect, useRef } from 'react';
-import { ArrowRight, RotateCcw, Settings2, Shuffle } from 'lucide-react';
+import { ArrowRight, CircleMinus, CircleX, Clock3, RotateCcw, Settings2, Shuffle } from 'lucide-react';
+import type { LucideIcon } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import type { AttemptEvent, AttemptOutcome } from '../../../core/training/exerciseAttempt';
 import { useAppStore } from '../../../store/useAppStore';
@@ -10,16 +11,29 @@ const MODE_NAMES: Record<string, string> = {
   blind: 'Вслепую', hanon: 'Ганон и штрихи'
 };
 
-const ERROR_NAMES: Record<Exclude<AttemptOutcome, 'correct' | 'assisted'>, string> = {
-  'wrong-pitch': 'Неверная нота',
-  late: 'Поздний ответ',
-  missed: 'Пропуск'
+type ErrorOutcome = Exclude<AttemptOutcome, 'correct' | 'assisted'>;
+
+/** Different shapes, labels and borders: the feedback is not color-only. */
+const ERROR_PRESENTATION: Record<ErrorOutcome, { label: string; Icon: LucideIcon; style: string }> = {
+  'wrong-pitch': {
+    label: 'Неверная нота', Icon: CircleX,
+    style: 'border-rose-500/50 bg-rose-500/10 text-rose-200'
+  },
+  late: {
+    label: 'Поздний ответ', Icon: Clock3,
+    style: 'border-amber-500/50 bg-amber-500/10 text-amber-200'
+  },
+  missed: {
+    label: 'Пропуск', Icon: CircleMinus,
+    style: 'border-slate-600 bg-slate-800/60 text-slate-200'
+  }
 };
 
 function describeError(event: AttemptEvent): string {
-  const description = ERROR_NAMES[event.outcome as keyof typeof ERROR_NAMES];
-  return `№${event.noteIndex + 1} · ${description} · ожидалась ${event.expectedNote}` +
-    (event.playedNote === null ? '' : `, сыграна ${event.playedNote}`);
+  const expected = `Нота №${event.noteIndex + 1} · ожидалась ${event.expectedNote}`;
+  return event.playedNote === null
+    ? `${expected} · ответ не получен`
+    : `${expected} · сыграна ${event.playedNote}`;
 }
 
 /**
@@ -114,14 +128,47 @@ export const AttemptResultCard: React.FC = () => {
         {errors.length > 0 && (
           <div className="space-y-2">
             <h3 className="text-sm font-semibold text-slate-200">Что проверить</h3>
-            <ul className="space-y-1.5 text-xs text-slate-300">
-              {errors.slice(0, 6).map((event, i) => (
-                <li key={i} className="rounded-lg border border-slate-800 px-3 py-2 bg-slate-950">
-                  {describeError(event)}
-                </li>
-              ))}
+            <div role="group" aria-label="Ошибки по типам" data-testid="attempt-error-breakdown"
+              className="flex flex-wrap gap-2 text-xs">
+              {result.wrongPitches > 0 && (
+                <span data-testid="attempt-wrong-pitch-count"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-rose-500/50 bg-rose-500/10 px-2.5 py-1.5 text-rose-200">
+                  <CircleX aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Неверная нота: {result.wrongPitches}
+                </span>
+              )}
+              {result.lateHits > 0 && (
+                <span data-testid="attempt-late-count"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-amber-500/50 bg-amber-500/10 px-2.5 py-1.5 text-amber-200">
+                  <Clock3 aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Поздний ответ: {result.lateHits}
+                </span>
+              )}
+              {result.missedSlots > 0 && (
+                <span data-testid="attempt-missed-count"
+                  className="inline-flex items-center gap-1.5 rounded-lg border border-slate-600 bg-slate-800/60 px-2.5 py-1.5 text-slate-200">
+                  <CircleMinus aria-hidden="true" className="h-3.5 w-3.5 shrink-0" />
+                  Пропуск: {result.missedSlots}
+                </span>
+              )}
+            </div>
+            <ul className="space-y-1.5 text-xs">
+              {errors.slice(0, 6).map((event, i) => {
+                const presentation = ERROR_PRESENTATION[event.outcome as ErrorOutcome];
+                const ErrorIcon = presentation.Icon;
+                return (
+                  <li key={i} data-testid="attempt-error-event" data-outcome={event.outcome}
+                    className={`flex items-start gap-2.5 rounded-lg border px-3 py-2 ${presentation.style}`}>
+                    <ErrorIcon aria-hidden="true" className="mt-0.5 h-4 w-4 shrink-0" />
+                    <div className="min-w-0">
+                      <strong className="block font-semibold">{presentation.label}</strong>
+                      <span className="block text-slate-300">{describeError(event)}</span>
+                    </div>
+                  </li>
+                );
+              })}
             </ul>
-            {errors.length > 6 && <p className="text-xs text-slate-500">Ещё событий: {errors.length - 6}</p>}
+            {errors.length > 6 && <p className="text-xs text-slate-400">Ещё событий: {errors.length - 6}</p>}
           </div>
         )}
 

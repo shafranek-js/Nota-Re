@@ -53,6 +53,31 @@ try {
       const retried = (await page.getByTestId('active-target-note').innerText()).trim();
       assert.equal(retried, firstNote, 'retry keeps the same starting note');
 
+      // A wrong pitch must be visibly different from a late answer or a missed
+      // rhythmic slot, without changing the actual score or grading model.
+      const wrongNote = retried === 'C4' ? 'D4' : 'C4';
+      await page.getByRole('button', { name: `Клавиша ${wrongNote}`, exact: true }).click();
+      for (let step = 0; step < 8; step += 1) {
+        const note = (await page.getByTestId('active-target-note').innerText()).trim();
+        await page.getByRole('button', { name: `Клавиша ${note}`, exact: true }).click();
+      }
+      await results.waitFor({ state: 'visible', timeout: 15000 });
+      assert.equal((await results.getByTestId('attempt-correct').innerText()).trim(), '8 / 9');
+      assert.equal((await results.getByTestId('attempt-errors-count').innerText()).trim(), '1');
+      assert.match(await results.getByTestId('attempt-wrong-pitch-count').innerText(), /Неверная нота: 1/);
+      assert.equal(await results.getByTestId('attempt-late-count').count(), 0);
+      assert.equal(await results.getByTestId('attempt-missed-count').count(), 0);
+      const wrongEvent = results.getByTestId('attempt-error-event');
+      assert.equal(await wrongEvent.count(), 1);
+      assert.equal(await wrongEvent.getAttribute('data-outcome'), 'wrong-pitch');
+      assert.match(await wrongEvent.innerText(), /Неверная нота/);
+      assert.match(await wrongEvent.innerText(), /ожидалась/);
+      assert.equal(await results.getByRole('group', { name: 'Ошибки по типам' }).count(), 1);
+      assert.equal(await wrongEvent.locator('svg[aria-hidden="true"]').count(), 1,
+        'visual feedback has a distinct icon and a readable text label');
+      await results.getByTestId('retry-exercise').click();
+      await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
+
       // Now complete an exercise entirely through tabletop assistance.
       await page.getByTestId('toolbar-trigger-view').click();
       await page.getByRole('button', { name: /Режим «Стол»/ }).click();
