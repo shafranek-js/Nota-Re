@@ -21,6 +21,14 @@ export interface TimedPracticeState {
   readonly earlyReleases: number;
   readonly overheldNotes: number;
   readonly wrongPitches: number;
+  /** Attacks outside the musical timing window (including rests). */
+  readonly offBeatNotes: number;
+  /** MIDI disconnect/panic prevents treating a run as independently verified. */
+  readonly interruptions: number;
+  /** A completed onset represents every required pitch on both staves. */
+  readonly hitOnsets: readonly number[];
+  /** Worst absolute deviation among all attacks in each successful onset. */
+  readonly onsetDeviationsMs: readonly number[];
   readonly lastDeviationMs: number | null;
   readonly feedback: 'count-in' | 'ready' | 'partial' | 'correct' | 'wrong' |
     'off-beat' | 'released-early' | 'held-too-long' | 'missed' | 'complete';
@@ -48,6 +56,7 @@ export function initialTimedPractice(): TimedPracticeState {
   return {
     stepIndex: 0, held: [], captured: [], sustained: [], hits: 0,
     misses: 0, earlyReleases: 0, overheldNotes: 0, wrongPitches: 0,
+    offBeatNotes: 0, interruptions: 0, hitOnsets: [], onsetDeviationsMs: [],
     lastDeviationMs: null, feedback: 'count-in', finished: false
   };
 }
@@ -66,7 +75,8 @@ export function reduceTimedPractice(
   if (event.type === 'panic') {
     // A disconnect stops all physical holds, not the time grid. The next
     // tick will mark missed onsets; never award a chord due to stuck keys.
-    return { ...state, held: [], captured: [], sustained: [], feedback: 'ready' };
+    return { ...state, held: [], captured: [], sustained: [],
+      interruptions: state.interruptions + 1, feedback: 'ready' };
   }
   // Long notes must also END at their notated release: holding through
   // an upcoming rest is an error even if the next note attack is correct.
@@ -142,7 +152,8 @@ export function reduceTimedPractice(
   const expectedAtMs = plan.startMs + ticksToMs(step.onsetTicks, plan.bpm);
   const deviation = now - expectedAtMs;
   if (Math.abs(deviation) > plan.windowMs) {
-    return { ...current, held, feedback: 'off-beat', lastDeviationMs: Math.round(deviation) };
+    return { ...current, held, offBeatNotes: current.offBeatNotes + 1,
+      feedback: 'off-beat', lastDeviationMs: Math.round(deviation) };
   }
   if (!step.expectedMidi.includes(event.note)) {
     return {
@@ -180,6 +191,9 @@ export function reduceTimedPractice(
   return {
     ...current, held, captured: [], sustained,
     stepIndex, hits: current.hits + 1,
+    hitOnsets: [...current.hitOnsets, step.onsetTicks],
+    onsetDeviationsMs: [...current.onsetDeviationsMs,
+      Math.max(...captured.map(key => Math.abs(key.atMs - expectedAtMs)))],
     feedback: 'correct', lastDeviationMs: Math.round(deviation)
   };
 }
