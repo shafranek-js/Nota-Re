@@ -8,6 +8,7 @@ import { getIntervalGuides } from '../../../core/notation/intervalGuides';
 import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
+import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -112,8 +113,10 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
   const [renderEpoch, setRenderEpoch] = useState(0);
   const hiddenNotesRef = useRef<Set<SVGElement>>(new Set());
 
-  // The source array is replaced on regeneration. Progress advances the
-  // active index but must NOT reload and re-engrave the score on every keypress.
+  // Immutable Zustand snapshots are also created when an answer changes only
+  // note.status. Depend on ENGRAVED musical data, not the array reference:
+  // otherwise OSMD will re-render the whole score on every correct answer.
+  const engravingKey = getExerciseEngravingKey(activeExerciseNotes);
   const xml = useMemo(() => {
     if (!activeExerciseNotes.length) return null;
     const score = createScoreFromExercise(activeExerciseNotes, currentTonality);
@@ -121,7 +124,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
       includeFingering: currentAppMode === 'hanon',
       includeSyllables: currentAppMode === 'hanon'
     });
-  }, [activeExerciseNotes, currentTonality, currentAppMode]);
+    // Equivalent musical input produces an identical score and XML even after
+    // immutable status/index changes; intentionally omit array reference.
+  }, [engravingKey, currentTonality, currentAppMode]);
 
   useEffect(() => {
     if (!xml || !mountRef.current) return;
