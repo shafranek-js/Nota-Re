@@ -91,6 +91,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/photo-shortcuts.smoke.mjs
+      - name: Verify result card, exact retry, assisted exclusion and lifecycle
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/trainer-results.smoke.mjs
       - name: Measure real OSMD loading and production bundle sizes
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
