@@ -63,6 +63,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/enharmonicScoring.smoke.mjs
+      - name: Verify optional lessons 11 and 12 two-hand MIDI trials remain ungraded
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/courseTwoHandTrial.smoke.mjs
       - name: Verify hardware self-check and no accidental lesson scoring
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
