@@ -43,7 +43,7 @@ try {
       await page.reload({ waitUntil: 'domcontentloaded' });
       assert.match(await page.getByTestId('status-renderer').innerText(), /SVG/, 'renderer preference survives reload');
 
-      const soundButton = page.getByRole('button', { name: 'Выключить звук' });
+      const soundButton = page.getByTitle('Выключить звук');
       await soundButton.click();
       assert.match(await page.getByTestId('status-audio').innerText(), /Выкл/);
       await page.getByRole('button', { name: 'Открыть настройки' }).click();
