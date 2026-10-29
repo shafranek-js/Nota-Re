@@ -1,4 +1,4 @@
-import { CourseLesson } from '../types/curriculum';
+import type { CourseLesson } from '../types/curriculum';
 
 export const COURSE_CURRICULUM: CourseLesson[] = [
   {
