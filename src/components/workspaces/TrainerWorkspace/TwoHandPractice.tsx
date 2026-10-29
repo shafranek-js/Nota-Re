@@ -348,6 +348,13 @@ export const TwoHandPractice: React.FC = () => {
               {pattern !== courseTrial.pattern && ' Выбран другой ритмический рисунок для дополнительной практики.'}
             </div>
           )}
+          {courseTrial && (
+            <p data-testid="two-hand-lesson-score" className="text-xs text-sky-300">
+              {courseTrial.lessonId === 11
+                ? 'Учебная партитура: бас на первую долю двух тактов; правая рука вступает на вторую.'
+                : 'Учебная партитура: правая рука — legato восьмыми; левая — staccato четвертями.'}
+            </p>
+          )}
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
@@ -417,7 +424,7 @@ export const TwoHandPractice: React.FC = () => {
               <p data-testid="two-hand-release-verdict" className={releases.validated
                 ? 'text-emerald-300' : 'text-amber-300'}>
                 {releases.validated
-                  ? 'Длительности и указанные штрихи проверены по NoteOff.'
+                  ? 'Длительность удержания по указанным штрихам проверена по NoteOff.'
                   : 'Не все отпускания и длительности подтверждены MIDI.'}
               </p>
               <p className="text-slate-400">MIDI не распознаёт номера пальцев и не доказывает музыкальную выразительность legato.
