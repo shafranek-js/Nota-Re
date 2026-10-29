@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { createScoreFromExercise, toMusicXml } from '../src/core/notation/musicXml.ts';
+import { createScoreFromExercise, createScoreFromHands, toMusicXml } from '../src/core/notation/musicXml.ts';
 
 const note = (midi, clef = 'treble', durMultiplier = 1, extra = {}) => ({
   midi, clef, durMultiplier, ...extra
@@ -138,4 +138,34 @@ test('rejects unequal simultaneous same-staff durations rather than producing in
     ]
   };
   assert.throws(() => toMusicXml(score), /share a duration/);
+});
+
+
+test('independent two-hand lines start together and advance on their own clocks', () => {
+  const score = createScoreFromHands(
+    [note(60, 'treble', 1), note(62, 'treble', 1), note(64, 'treble', 2)],
+    [note(48, 'bass', 2), note(50, 'bass', 2)],
+    'C'
+  );
+  assert.deepEqual(score.notes.map(n => [n.midi, n.staff, n.onsetTicks, n.durationTicks]), [
+    [60, 1, 0, 4], [48, 2, 0, 8],
+    [62, 1, 4, 4], [64, 1, 8, 8], [50, 2, 8, 8]
+  ]);
+  const xml = toMusicXml(score);
+  assert.deepEqual(measureVoices(xml), [[16, 16]]);
+  assert.match(xml, /<backup><duration>16<\/duration><\/backup>/);
+});
+
+test('independent hands can end at different times without losing measure balance', () => {
+  const score = createScoreFromHands([note(72, 'treble', 1)], [
+    note(48, 'bass', 2), note(50, 'bass', 2), note(52, 'bass', 2)
+  ], 'F');
+  const xml = toMusicXml(score);
+  assert.deepEqual(measureVoices(xml), [[16, 16], [16, 16]]);
+});
+
+test('two-hand builder rejects empty and invalid input', () => {
+  assert.throws(() => createScoreFromHands([], [], 'C'), /empty/);
+  assert.throws(() => createScoreFromHands([note(140)], [], 'C'), /MIDI pitch/);
+  assert.throws(() => createScoreFromHands([], [note(48, 'bass', 0.33)], 'C'), /sixteenth/);
 });
