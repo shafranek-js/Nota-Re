@@ -2,6 +2,8 @@ import type {
   AppMode, FilterType, HanonType, SpeechType, TonalityKey
 } from '../../types/music';
 
+export type KeyboardLabelMode = 'auto' | 'off' | 'notes' | 'pc';
+
 export const TRAINER_PREFERENCES_KEY = 'notare-trainer-preferences-v1';
 const SCHEMA_VERSION = 1;
 
@@ -18,6 +20,8 @@ export interface TrainerPreferences {
   isTabletopMode: boolean;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
+  showVirtualKeyboard: boolean;
+  keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   audioEnabled: boolean;
 }
@@ -35,6 +39,8 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   isTabletopMode: false,
   showBassLandmarks: false,
   showScaleHighlight: false,
+  showVirtualKeyboard: true,
+  keyboardLabelMode: 'auto',
   photoExposureMs: 1800,
   audioEnabled: true
 };
@@ -46,6 +52,7 @@ const FILTERS: readonly FilterType[] = ['treble', 'treble_oct2', 'bass', 'both']
 const TONALITIES: readonly TonalityKey[] = ['C', 'G', 'F', 'D'];
 const HANON: readonly HanonType[] = ['hanon1', 'hanon2', 'groups4', 'coord'];
 const SPEECH: readonly SpeechType[] = ['count', 'tata', 'syllables', 'solfege'];
+const KEYBOARD_LABELS: readonly KeyboardLabelMode[] = ['auto', 'off', 'notes', 'pc'];
 
 function oneOf<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === 'string' && choices.includes(value as T) ? value as T : fallback;
@@ -81,6 +88,8 @@ export function validateTrainerPreferences(input: unknown): TrainerPreferences {
     isTabletopMode: booleanOr(data.isTabletopMode, defaults.isTabletopMode),
     showBassLandmarks: booleanOr(data.showBassLandmarks, defaults.showBassLandmarks),
     showScaleHighlight: booleanOr(data.showScaleHighlight, defaults.showScaleHighlight),
+    showVirtualKeyboard: booleanOr(data.showVirtualKeyboard, defaults.showVirtualKeyboard),
+    keyboardLabelMode: oneOf(data.keyboardLabelMode, KEYBOARD_LABELS, defaults.keyboardLabelMode),
     photoExposureMs: data.photoExposureMs === 1100 ||
       data.photoExposureMs === 1800 || data.photoExposureMs === 2400
       ? data.photoExposureMs : defaults.photoExposureMs,
@@ -102,6 +111,8 @@ export function selectTrainerPreferences(state: TrainerPreferences): TrainerPref
     isTabletopMode: state.isTabletopMode,
     showBassLandmarks: state.showBassLandmarks,
     showScaleHighlight: state.showScaleHighlight,
+    showVirtualKeyboard: state.showVirtualKeyboard,
+    keyboardLabelMode: state.keyboardLabelMode,
     photoExposureMs: state.photoExposureMs,
     audioEnabled: state.audioEnabled
   };
