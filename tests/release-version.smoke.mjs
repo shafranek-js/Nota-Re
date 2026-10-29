@@ -25,10 +25,12 @@ try {
     page.on('pageerror', error => errors.push(error.message));
     try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
-      const headerVersion = page.getByTestId('build-version');
-      await headerVersion.waitFor({ state: 'visible' });
-      assert.equal((await headerVersion.innerText()).trim(), expected,
-        `width ${width}: actual running bundle revision must be visible`);
+      const footer = page.getByTestId('status-bar');
+      const visibleBuild = footer.getByTestId('build-version');
+      await footer.waitFor({ state: 'visible' });
+      await visibleBuild.waitFor({ state: 'visible' });
+      assert.equal((await visibleBuild.innerText()).trim(), expected,
+        `width ${width}: actual running bundle revision must be visible in the status bar`);
 
       await page.getByRole('button', { name: 'Открыть настройки' }).click();
       const inSettings = page.getByTestId('settings-build-version');
