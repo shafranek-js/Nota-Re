@@ -19,6 +19,8 @@ import { assessPolyphonicPractice } from '../../../core/training/polyphonicAsses
 import { createLessonTwoHandScore } from '../../../core/training/lessonTwoHandScore';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
+import { appendShadowAttempt, evaluateTwoHandShadowAttempt, getTwoHandShadowPolicy,
+  initialShadowSeries } from '../../../core/training/twoHandShadowSeries';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
@@ -87,6 +89,27 @@ export const TwoHandPractice: React.FC = () => {
   const timerRef = useRef<number | null>(null);
   const clickStops = useRef<Array<() => void>>([]);
   const [tempoError, setTempoError] = useState('');
+  // Session-local training evidence ONLY. The official Zustand course ledger
+  // and completedLessons are not touched by any of these callbacks.
+  const [shadowSeries, setShadowSeries] = useState(() =>
+    initialShadowSeries(courseTrial?.lessonId ?? null));
+  const attemptSerialRef = useRef(0);
+  const activeAttemptRef = useRef<number | null>(null);
+  const shadowPolicy = getTwoHandShadowPolicy(courseTrial?.lessonId ?? null);
+
+  const recordAttempt = (completed: TimedPracticeState | null, currentPlan: TempoPlan | null) => {
+    const id = activeAttemptRef.current;
+    if (!courseTrial || id === null) return;
+    activeAttemptRef.current = null;
+    const verdict = completed && currentPlan
+      ? evaluateTwoHandShadowAttempt(
+          courseTrial.lessonId, exercise.score, exercise.steps, completed, currentPlan
+        )
+      : null; // Deliberate Stop, visibility loss, or interrupted attempt.
+    setShadowSeries(previous => appendShadowAttempt(
+      previous, courseTrial.lessonId, id, verdict
+    ));
+  };
 
   const stopTempo = () => {
     if (timerRef.current !== null) window.clearInterval(timerRef.current);
@@ -103,6 +126,7 @@ export const TwoHandPractice: React.FC = () => {
   const [renderEpoch, setRenderEpoch] = useState(0);
 
   const resetTrial = () => {
+    if (planRef.current && !timedRef.current.finished) recordAttempt(null, null);
     stopTempo();
     trialRef.current = initialChordPractice();
     timedRef.current = initialTimedPractice();
@@ -136,6 +160,7 @@ export const TwoHandPractice: React.FC = () => {
       trialRef.current = initialChordPractice();
       setTrial(trialRef.current);
       planRef.current = nextPlan;
+      if (courseTrial) activeAttemptRef.current = ++attemptSerialRef.current;
       setPlan(nextPlan);
       setClockMs(performance.now());
 
@@ -158,6 +183,7 @@ export const TwoHandPractice: React.FC = () => {
         );
         setTimed(timedRef.current);
         if (timedRef.current.finished) {
+          recordAttempt(timedRef.current, currentPlan);
           if (timerRef.current !== null) window.clearInterval(timerRef.current);
           timerRef.current = null;
           for (const cancel of clickStops.current) cancel();
@@ -189,6 +215,7 @@ export const TwoHandPractice: React.FC = () => {
           timedRef.current, exercise.score, exercise.steps, currentPlan, relevant
         );
         setTimed(timedRef.current);
+        if (timedRef.current.finished) recordAttempt(timedRef.current, currentPlan);
       } else {
         trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant);
         setTrial(trialRef.current);
@@ -196,6 +223,7 @@ export const TwoHandPractice: React.FC = () => {
     });
     const pauseWhenHidden = () => {
       if (document.hidden && planRef.current) {
+        if (!timedRef.current.finished) recordAttempt(null, null);
         stopTempo();
         setTempoError('Попытка остановлена при переходе на другую вкладку.');
       }
@@ -320,6 +348,9 @@ export const TwoHandPractice: React.FC = () => {
     assessment && courseTrial ? assessLessonReleases(exercise.score, timed) : null,
     [assessment, courseTrial?.lessonId, exercise, timed]
   );
+  const practiceProgress = shadowPolicy
+    ? (shadowPolicy.consecutive ? shadowSeries.cleanStreak : shadowSeries.accepted)
+    : 0;
   const restNow = plan !== null && !timed.finished &&
     clockMs >= plan.startMs &&
     !exercise.score.notes.some(note =>
@@ -395,6 +426,45 @@ export const TwoHandPractice: React.FC = () => {
         <span>Следующее вступление: <strong data-testid="two-hand-expected" className="text-sky-300">{expected}</strong></span>
         <span className="text-slate-400">MIDI: {midiInputsCount > 0 ? 'подключено' : 'нет устройства'}</span>
       </div>
+      {courseTrial && shadowPolicy && (
+        <div data-testid="two-hand-shadow-series"
+          className="rounded-lg border border-sky-700/50 bg-sky-900/20 p-3 text-xs text-slate-200 space-y-1">
+          <p className="font-semibold text-sky-200">Предварительная серия повторений — без зачёта курса</p>
+          <p>Тренировочная цель: <strong data-testid="two-hand-shadow-progress">
+            {practiceProgress}/{shadowPolicy.requiredCleanStudies}
+          </strong> {shadowPolicy.consecutive ? 'чистых повторений подряд' : 'чистых повторений'}.
+            {' '}Всего попыток: {shadowSeries.attempts}; чистых: {shadowSeries.accepted};
+            ошибок: {shadowSeries.rejected}; прервано: {shadowSeries.aborted}.
+          </p>
+          <p data-testid="two-hand-shadow-last-result">
+            {shadowSeries.attempts === 0 ? 'Завершённых попыток пока нет.' :
+              shadowSeries.lastVerdict === null ? 'Предыдущая попытка остановлена или прервана.' :
+              shadowSeries.lastVerdict.accepted
+                ? 'Предыдущий мини-этюд сыгран чисто (только тренировочная проверка).'
+                : 'Предыдущая попытка не соответствует предварительным критериям.'}
+          </p>
+          {shadowSeries.practiceTargetReached &&
+            <p data-testid="two-hand-shadow-target" className="text-emerald-300">
+              Тренировочная цель серии достигнута. Это НЕ закрывает урок.
+            </p>}
+          <p className="text-slate-400">
+            Порог средней ошибки вступлений: 110 мс; нужны все ноты и правильные
+            физические отпускания. В учебной программе точность ≥
+            {shadowPolicy.curriculumAccuracyPercent}% и реакция
+            {shadowPolicy.curriculumReactionMs} мс относятся к ДРУГОМУ нормативу,
+            не заменяются этим метрономным тестом. Аппликатура и музыкальное legato
+            здесь не подтверждаются.
+          </p>
+          <button type="button" data-testid="two-hand-shadow-reset"
+            onClick={() => {
+              resetTrial();
+              setShadowSeries(initialShadowSeries(courseTrial.lessonId));
+            }}
+            className="rounded border border-sky-600/60 px-2 py-1 text-sky-200">
+            Сбросить тренировочную серию
+          </button>
+        </div>
+      )}
       {plan && <div data-testid="two-hand-timed-stats" className="flex flex-wrap gap-3 text-xs text-slate-200">
         <span>В долю: <strong>{timed.hits}</strong></span>
         <span>Пропущено: <strong>{timed.misses}</strong></span>
