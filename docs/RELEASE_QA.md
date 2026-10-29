@@ -72,10 +72,11 @@ then again on the merged `main` commit. Chrome tests cover:
   persisted; toggling it never changes the MIDI/audio/grading clock.
 - Check both OSMD and Classic on 320, 375, 768, 1024, 1440 and 1920px.
   In OSMD Zen, the notation renderer uses a responsive engraving zoom rather
-  than a fixed 0.8 scale in a large blank white canvas. The screenshot matrix
+  than the fixed effective 1.0 scale in a large blank white canvas. The screenshot matrix
   records physical notehead widths **before / during / after Zen** and fails
   if real glyphs do not grow at 768px+ or do not return to their standard
-  size on exit. The zoom is unchanged at phone widths.
+  size on exit. The zoom is unchanged at phone widths (baseline 12px
+  noteheads), avoiding a readability regression from reapplying 0.8.
 - Verify the *actual staves, clefs, accidentals, noteheads, pedagogical guides
   and keyboard* remain readable and scrollable after the change. Automated
   dimensions cannot replace the real display legibility inspection.
