@@ -247,40 +247,40 @@ export const CourseWorkspace: React.FC = () => {
                 📊 Норматив зачёта (автоматическая фиксация в студии):
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Серия номеров</div>
                   <div className="text-sm font-bold font-mono text-purple-400 mt-0.5">{lesson.normReps} упр.</div>
                 </div>
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Точность попадания</div>
                   <div className="text-sm font-bold font-mono text-emerald-400 mt-0.5">≥ {lesson.normAcc}%</div>
                 </div>
-                <div className="bg-slate-950 p-2.5 rounded-xl border border-slate-800">
+                <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Скорость реакции</div>
                   <div className="text-sm font-bold font-mono text-amber-400 mt-0.5">&lt; {lesson.normSpeed} мс</div>
                 </div>
               </div>
 
               {/* Сводка пресета */}
-              <div className="mt-3 pt-2 border-t border-slate-800 text-[11px] font-mono text-slate-400">
+              <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono text-slate-400">
                 ⚡ Пресет тренажёра: Режим: <strong className="text-emerald-400">{lesson.preset.mode}</strong> | Диапазон: <strong className="text-sky-400">{lesson.preset.filter}</strong> | Тональность: <strong className="text-amber-400">{lesson.preset.tonality}</strong> | Темп: <strong className="text-white">{lesson.preset.bpm} BPM</strong>
               </div>
             </div>
           </div>
 
           {/* Нижняя панель действий карточки */}
-          <div className="pt-4 mt-4 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2.5">
+          <div className="pt-2.5 mt-2.5 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
             <div className="flex items-center gap-2">
               <button 
-                onClick={selectPrevCourseLesson}
-                disabled={selectedLessonId <= 1}
+                onClick={() => moveLesson(-1)}
+                disabled={selectedFilteredIndex <= 0}
                 className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
               >
                 <ArrowLeft className="w-3.5 h-3.5" /> Назад
               </button>
               <button 
-                onClick={selectNextCourseLesson}
-                disabled={selectedLessonId >= COURSE_CURRICULUM.length}
+                onClick={() => moveLesson(1)}
+                disabled={selectedFilteredIndex >= filteredLessons.length - 1}
                 className="px-3 py-2 rounded-xl bg-slate-800 hover:bg-slate-700 disabled:opacity-40 disabled:hover:bg-slate-800 text-slate-200 text-xs font-semibold transition flex items-center gap-1.5"
               >
                 Вперёд <ArrowRight className="w-3.5 h-3.5" />
@@ -321,13 +321,7 @@ export const CourseWorkspace: React.FC = () => {
                   Пробное задание: две руки (без зачёта)
                 </button>
               )}
-              <button 
-                onClick={startActiveLessonInTrainer}
-                className="px-5 py-2.5 rounded-xl bg-gradient-to-r from-emerald-500 to-teal-500 hover:from-emerald-400 hover:to-teal-400 text-slate-950 font-bold text-xs shadow-lg shadow-emerald-950/50 flex items-center gap-2 transition"
-              >
-                <Play className="w-4 h-4 fill-slate-950" />
-                Запустить этот урок в тренажёре →
-              </button>
+
             </div>
           </div>
         </div>
