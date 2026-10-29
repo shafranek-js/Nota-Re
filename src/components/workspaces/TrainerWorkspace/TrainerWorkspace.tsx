@@ -44,7 +44,7 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
       {zenActive && <ZenControlStrip />}
       {!zenActive && !isTwoHandPracticeOpen && (courseLessonActive
         ? <CourseLessonControls />
-        : <><TrainerBanner /><TrainerToolbar /></>)}
+        : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>)}
       {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-1.5" data-testid="trainer-setup">
           <p className="text-xs text-sky-100">Упражнение готово · Ноты пока не оцениваются</p>
@@ -70,35 +70,6 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
         </Suspense>
       ) : <>
       <div data-testid="studio-score-area" className={`w-full flex flex-col justify-between overflow-hidden gap-1 ${zenActive ? 'flex-1 min-h-[260px] sm:min-h-[320px] lg:min-h-0' : 'flex-none min-h-[380px] lg:flex-1 lg:min-h-0'}`}>
-        <div className={`${zenActive ? 'hidden' : 'shrink-0 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]'}`}>
-          <div className="flex items-center gap-1" role="group" aria-label="Способ отображения нот">
-            <span className="text-slate-400 mr-1">Ноты:</span>
-            <button
-              type="button"
-              aria-pressed={renderer === 'osmd'}
-              onClick={() => onSelectRenderer('osmd')}
-              className={'px-2 py-1 rounded border transition ' +
-                (renderer === 'osmd'
-                  ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
-                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white')}
-            >
-              OSMD
-            </button>
-            <button
-              type="button"
-              aria-pressed={renderer === 'legacy'}
-              onClick={() => onSelectRenderer('legacy')}
-              className={'px-2 py-1 rounded border transition ' +
-                (renderer === 'legacy'
-                  ? 'bg-emerald-500/20 border-emerald-500/60 text-emerald-300'
-                  : 'bg-slate-900 border-slate-700 text-slate-400 hover:text-white')}
-            >
-              Классический
-            </button>
-          </div>
-
-        </div>
-
         {renderOsmd ? (
           <Suspense fallback={
             <div role="status" className="flex-1 min-h-0 grid place-content-center bg-slate-900 rounded-xl text-slate-400 text-xs">
