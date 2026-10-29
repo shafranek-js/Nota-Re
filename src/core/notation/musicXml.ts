@@ -44,6 +44,10 @@ export interface XmlOptions {
   readonly includeSyllables?: boolean;
   /** Suppress only filler rests on a staff that has no notes anywhere in the score. */
   readonly hideInactiveStaffRests?: boolean;
+  /** Visual-only exercise: hide automatically generated timing rests on both staves. */
+  readonly hideGeneratedRests?: boolean;
+  /** For the sequential bass→treble G-pattern, make bass stems point toward treble. */
+  readonly bassStemsUp?: boolean;
 }
 
 const FIFTHS: Record<SupportedKey, number> = { C: 0, G: 1, F: -1, D: 2 };
@@ -282,6 +286,7 @@ function renderEvent(
       (tieStop ? '<tie type="stop"/>' : '') + (tieStart ? '<tie type="start"/>' : '') +
       '<voice>' + event.staff + '</voice><type>' + part.type + '</type>' +
       (part.dotted ? '<dot/>' : '') + '<staff>' + event.staff + '</staff>' +
+      (options.bassStemsUp && event.staff === 2 && part.type !== 'whole' ? '<stem>up</stem>' : '') +
       (notations ? '<notations>' + notations + '</notations>' : '') +
       (firstSegment && options.includeSyllables && event.syllable
         ? '<lyric><syllabic>single</syllabic><text>' + escapeXml(event.syllable) + '</text></lyric>'
@@ -344,7 +349,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         const start = Math.max(begin, event.onsetTicks);
         const finish = Math.min(end, event.onsetTicks + event.durationTicks);
         if (start < cursor) throw new Error('Overlapping notes in one staff are not supported yet.');
-        if (start > cursor) xml += renderRest(start - cursor, staff, silentStaff);
+        if (start > cursor) xml += renderRest(start - cursor, staff, silentStaff || !!options.hideGeneratedRests);
         let segmentStart = start;
         for (const part of chunks(finish - start)) {
           const segmentEnd = segmentStart + part.duration;
@@ -356,7 +361,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         }
         cursor = finish;
       }
-      if (cursor < end) xml += renderRest(end - cursor, staff, silentStaff);
+      if (cursor < end) xml += renderRest(end - cursor, staff, silentStaff || !!options.hideGeneratedRests);
     }
     xml += '</measure>';
   }
