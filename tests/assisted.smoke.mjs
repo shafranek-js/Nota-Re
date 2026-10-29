@@ -9,7 +9,7 @@ const errors = [];
 page.on('pageerror', e => errors.push(e.message));
 try {
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   const score = page.getByTestId('osmd-score');
   await score.waitFor({ state: 'visible', timeout: 30000 });
 
