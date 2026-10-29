@@ -176,9 +176,8 @@ export function appendShadowAttempt(
       !Number.isSafeInteger(attemptId) || attemptId <= state.lastAttemptId) return state;
   const policy = getTwoHandShadowPolicy(lessonId);
   if (!policy) return state;
-  const studyIndex = verdict?.studyIndex;
-  const validStudyIndex = typeof studyIndex === 'number' &&
-    Number.isSafeInteger(studyIndex) && studyIndex >= 0 &&
+  const studyIndex = verdict?.studyIndex ?? -1;
+  const validStudyIndex = Number.isSafeInteger(studyIndex) && studyIndex >= 0 &&
     studyIndex < lessonTwoHandStudyCount(lessonId);
   const duplicate = validStudyIndex &&
     state.successfulStudies.includes(studyIndex);
