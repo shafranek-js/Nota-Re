@@ -204,6 +204,8 @@ test('G-pattern uses hidden timing rests and upward bass stems without touching 
     'other modes keep the score engraver stem rules');
   assert.equal((teaching.match(/<stem>up<\/stem>/g) || []).length, 2,
     'only the two bass downbeats explicitly face up');
+  assert.ok(/<type>quarter<\/type><stem>up<\/stem><staff>2<\/staff>/.test(teaching),
+    'MusicXML stem must precede staff per the note element order');
   assert.deepEqual(
     Array.from(teaching.matchAll(/<measure number="\d+">([\s\S]*?)<\/measure>/g),
       match => match[1].includes('<backup><duration>16</duration></backup>')),
