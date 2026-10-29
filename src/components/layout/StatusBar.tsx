@@ -82,11 +82,9 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Средний отклик по последним 15 верным ответам">
               Отклик: <span className="text-slate-300">{avgReaction === null ? '—' : `${avgReaction} мс`}</span>
             </span>
-            {activeLessonId !== null && lesson && (
-              <span title="Зачтённые повторы серии урока">
-                Зачёт: <span className="text-slate-300">{completedExercisesCount} / {lesson.normReps}</span>
-              </span>
-            )}
+            <span title="Сыграно однотипных номеров в серии">
+              Номеров: <span className="text-slate-300">{completedExercisesCount} / {activeLessonId !== null && lesson ? lesson.normReps : '—'}</span>
+            </span>}
           </>
         )}
       </div>
