@@ -1,6 +1,11 @@
 import { parseMidiMessage, type MidiInputEvent } from './midiMessages';
+import { validatedMidiSystemTime } from './midiEventTiming';
 
-export type MidiDeviceEvent = (MidiInputEvent & { receivedAtMs: number }) | { type: 'panic' };
+export type MidiDeviceEvent = (MidiInputEvent & {
+  receivedAtMs: number;
+  /** Browser/OS receipt time, optional. Never a physical key-press timestamp. */
+  systemReceivedAtMs?: number;
+}) | { type: 'panic' };
 type MidiEventCallback = (event: MidiDeviceEvent) => void;
 type PortsChangeCallback = (count: number) => void;
 
@@ -62,8 +67,12 @@ export class MidiManager {
         // Same monotonic time origin as performance.now() in AudioEngine.
         // This is a JS callback timestamp, not a physical key-onset time.
         const receivedAtMs = performance.now();
+        const systemReceivedAtMs = validatedMidiSystemTime(message.timeStamp, receivedAtMs);
         const parsed = parseMidiMessage(message.data);
-        if (parsed) this.broadcast({ ...parsed, receivedAtMs });
+        if (parsed) this.broadcast({
+          ...parsed, receivedAtMs,
+          ...(systemReceivedAtMs === null ? {} : { systemReceivedAtMs })
+        });
       };
       input.onmidimessage = handler;
       this.handlers.set(input, handler);

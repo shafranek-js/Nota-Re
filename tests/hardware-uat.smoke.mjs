@@ -17,9 +17,14 @@ try {
     });
     window.__uat = {
       input, access,
-      send(bytes) {
+      send(bytes, simulatedSystemQueueMs = null) {
         if (typeof input.onmidimessage !== 'function') throw new Error('MIDI handler missing');
-        input.onmidimessage({ data: Uint8Array.from(bytes) });
+        input.onmidimessage({
+          data: Uint8Array.from(bytes),
+          ...(simulatedSystemQueueMs === null ? {} : {
+            timeStamp: performance.now() - simulatedSystemQueueMs
+          })
+        });
       },
       unplug() {
         input.state = 'disconnected';
@@ -53,11 +58,20 @@ try {
   )?.[1]);
   const initialAttempts = await attempts();
   await page.evaluate(() => {
-    window.__uat.send([0x90, 60, 85]);
+    // Only this simulated event has a plausible browser/OS timestamp.
+    // Other synthetic messages intentionally exercise the missing-timestamp path.
+    window.__uat.send([0x90, 60, 85], 12);
     window.__uat.send([0x80, 60, 0]);
     window.__uat.send([0x90, 60, 85]);
     window.__uat.send([0x90, 64, 90]);
   });
+  await page.waitForFunction(() =>
+    Number(document.querySelector('[data-testid="midi-diag-queue-samples"]')?.textContent) === 1
+  );
+  assert.match(await page.getByTestId('midi-diag-queue-median').innerText(), /мс/);
+  const queueDelay = Number.parseFloat(await page.getByTestId('midi-diag-queue-median').innerText());
+  assert.ok(queueDelay >= 12 && queueDelay < 150,
+    'synthetic 12ms system-to-callback delay must be observable, not acoustic output latency');
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="hardware-step-0"]')?.textContent?.trim() === 'Пройдено'
   );

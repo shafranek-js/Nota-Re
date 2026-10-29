@@ -62,9 +62,12 @@ class AudioEngine {
     this.diagnostics.updateVoices(this.liveVoices.size, this.sustainChannels.size);
   }
 
-  private recordMidiDispatch(receivedAtMs: number | undefined, route: AudioRoute): void {
+  private recordMidiDispatch(
+    receivedAtMs: number | undefined, route: AudioRoute,
+    systemReceivedAtMs?: number
+  ): void {
     if (receivedAtMs !== undefined) {
-      this.diagnostics.recordDispatch(receivedAtMs, performance.now(), route);
+      this.diagnostics.recordDispatch(receivedAtMs, performance.now(), route, systemReceivedAtMs);
     }
     this.updateDiagnosticVoices();
   }
@@ -132,7 +135,8 @@ class AudioEngine {
    * While SoundFont loads, a live oscillator voice remains held until release.
    */
   public midiNoteOn(
-    channel: number, note: number, velocity: number, receivedAtMs?: number
+    channel: number, note: number, velocity: number,
+    receivedAtMs?: number, systemReceivedAtMs?: number
   ): void {
     if (!this.isAudioEnabled) return;
     if (channel < 0 || channel > 15 || note < 0 || note > 127 || velocity < 1 || velocity > 127) return;
@@ -153,7 +157,7 @@ class AudioEngine {
       this.previewUsesSoundFont && this.previewQueue?.isPlaying;
     if (!previewCollision && this.piano.noteOn(context, channel, note, velocity)) {
       this.liveVoices.set(key, { kind: 'soundfont', released: false });
-      this.recordMidiDispatch(receivedAtMs, 'soundfont');
+      this.recordMidiDispatch(receivedAtMs, 'soundfont', systemReceivedAtMs);
       return;
     }
 
@@ -172,7 +176,7 @@ class AudioEngine {
       oscillator.onended = () => { oscillator.disconnect(); gain.disconnect(); };
       oscillator.start(now);
       this.liveVoices.set(key, { kind: 'oscillator', oscillator, gain, released: false });
-      this.recordMidiDispatch(receivedAtMs, 'oscillator');
+      this.recordMidiDispatch(receivedAtMs, 'oscillator', systemReceivedAtMs);
     } catch (error) {
       console.warn('Cannot create MIDI fallback voice', error);
     }

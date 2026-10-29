@@ -11,6 +11,11 @@ export interface MidiAudioDiagnostics {
   readonly medianDispatchMs: number | null;
   readonly p95DispatchMs: number | null;
   readonly maxDispatchMs: number | null;
+  /** Number of samples where the browser exposed a valid system receipt timestamp. */
+  readonly systemTimestampSamples: number;
+  readonly medianMidiQueueMs: number | null;
+  readonly p95MidiQueueMs: number | null;
+  readonly medianSystemToDispatchMs: number | null;
   readonly soundFontCount: number;
   readonly oscillatorCount: number;
   readonly activeVoices: number;
@@ -28,6 +33,8 @@ function quantile(sorted: readonly number[], fraction: number): number | null {
 
 export class MidiAudioDiagnosticsTracker {
   private readonly recentMs: number[] = [];
+  private readonly recentMidiQueueMs: number[] = [];
+  private readonly recentSystemToDispatchMs: number[] = [];
   private soundFontCount = 0;
   private oscillatorCount = 0;
   private activeVoices = 0;
@@ -44,12 +51,28 @@ export class MidiAudioDiagnosticsTracker {
     this.historyLimit = historyLimit;
   }
 
-  recordDispatch(receivedAtMs: number, dispatchedAtMs: number, route: AudioRoute): void {
+  recordDispatch(
+    receivedAtMs: number, dispatchedAtMs: number, route: AudioRoute,
+    systemReceivedAtMs?: number
+  ): void {
     if (!Number.isFinite(receivedAtMs) || !Number.isFinite(dispatchedAtMs) ||
         dispatchedAtMs < receivedAtMs) return;
     const delta = dispatchedAtMs - receivedAtMs;
     this.recentMs.push(delta);
     if (this.recentMs.length > this.historyLimit) this.recentMs.shift();
+    // The OS/browser event time is only available on some MIDI inputs.
+    // It never represents the physical key press or speaker onset.
+    if (typeof systemReceivedAtMs === 'number' &&
+        Number.isFinite(systemReceivedAtMs) && systemReceivedAtMs > 0 &&
+        systemReceivedAtMs <= receivedAtMs &&
+        receivedAtMs - systemReceivedAtMs <= 10_000) {
+      this.recentMidiQueueMs.push(receivedAtMs - systemReceivedAtMs);
+      this.recentSystemToDispatchMs.push(dispatchedAtMs - systemReceivedAtMs);
+      if (this.recentMidiQueueMs.length > this.historyLimit) {
+        this.recentMidiQueueMs.shift();
+        this.recentSystemToDispatchMs.shift();
+      }
+    }
     if (route === 'soundfont') this.soundFontCount++;
     else this.oscillatorCount++;
     this.publish();
@@ -64,6 +87,8 @@ export class MidiAudioDiagnosticsTracker {
 
   reset(): void {
     this.recentMs.length = 0;
+    this.recentMidiQueueMs.length = 0;
+    this.recentSystemToDispatchMs.length = 0;
     this.soundFontCount = 0;
     this.oscillatorCount = 0;
     this.peakVoices = this.activeVoices;
@@ -72,11 +97,17 @@ export class MidiAudioDiagnosticsTracker {
 
   snapshot(): MidiAudioDiagnostics {
     const sorted = [...this.recentMs].sort((a, b) => a - b);
+    const midiQueueSorted = [...this.recentMidiQueueMs].sort((a, b) => a - b);
+    const totalSorted = [...this.recentSystemToDispatchMs].sort((a, b) => a - b);
     return {
       samples: this.recentMs.length,
       medianDispatchMs: quantile(sorted, 0.5),
       p95DispatchMs: quantile(sorted, 0.95),
       maxDispatchMs: sorted.length ? sorted[sorted.length - 1] : null,
+      systemTimestampSamples: midiQueueSorted.length,
+      medianMidiQueueMs: quantile(midiQueueSorted, 0.5),
+      p95MidiQueueMs: quantile(midiQueueSorted, 0.95),
+      medianSystemToDispatchMs: quantile(totalSorted, 0.5),
       soundFontCount: this.soundFontCount,
       oscillatorCount: this.oscillatorCount,
       activeVoices: this.activeVoices,
