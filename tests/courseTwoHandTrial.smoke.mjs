@@ -42,6 +42,8 @@ try {
   assert.equal(await page.getByTestId('two-hand-active-tonality').innerText(), 'C');
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'staggered');
   assert.equal(await page.getByTestId('two-hand-step-index').innerText(), '1');
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/15');
+  assert.match(await page.getByTestId('two-hand-shadow-series').innerText(), /подряд/);
   await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
     .first().waitFor({ state: 'visible', timeout: 45000 });
 
@@ -68,6 +70,7 @@ try {
   assert.equal(await page.getByTestId('two-hand-pattern').inputValue(), 'eighth-rests');
   assert.match(await page.getByTestId('two-hand-lesson-score').innerText(), /staccato четвертями/);
   assert.equal(await page.getByTestId('two-hand-pattern').isDisabled(), true);
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/20');
   // No physical MIDI activity means that the complete two-bar lesson
   // contains zero verified NoteOff events, and never awards course credit.
   await page.getByTestId('two-hand-start-tempo').click();
@@ -77,6 +80,26 @@ try {
     /Физические отпускания:\s*0\/24/);
   assert.match(await page.getByTestId('two-hand-release-verdict').innerText(),
     /Не все отпускания/);
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-shadow-series"]')?.textContent?.includes('Всего попыток: 1;')
+  );
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(),
+    '0/20', 'silence must not count as a clean study');
+  assert.match(await page.getByTestId('two-hand-shadow-last-result').innerText(),
+    /не соответствует/);
+  assert.equal(await page.getByTestId('two-hand-shadow-target').count(), 0);
+
+  // New run is independent; explicit Stop is an aborted attempt, never a
+  // successful repetition. Reset affects this session only.
+  await page.getByTestId('two-hand-start-tempo').click();
+  await page.getByTestId('two-hand-mode').getByText('Ритм · метроном').waitFor();
+  await page.getByRole('button', { name: 'Заново / Стоп' }).click();
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-shadow-series"]')?.textContent?.includes('прервано: 1')
+  );
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '0/20');
+  await page.getByTestId('two-hand-shadow-reset').click();
+  assert.match(await page.getByTestId('two-hand-shadow-series').innerText(), /Всего попыток: 0/);
   await page.getByTestId('two-hand-back-to-course').click();
   await courseProgress.waitFor({ state: 'visible' });
 
