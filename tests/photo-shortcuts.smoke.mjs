@@ -16,7 +16,7 @@ page.on('pageerror', error => errors.push(error.message));
 
 try {
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
 
   const target = page.getByTestId('active-target-note');
