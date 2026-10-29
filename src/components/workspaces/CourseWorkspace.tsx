@@ -1,14 +1,19 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
-import { CheckCircle2, Circle, ArrowLeft, ArrowRight, Play, RotateCcw } from 'lucide-react';
+import { CheckCircle2, Circle, ArrowLeft, ArrowRight, BookOpen, Info, Play, RotateCcw } from 'lucide-react';
+
+const COURSE_MODULES = [
+  { id: 'I', title: 'Позиция' }, { id: 'II', title: 'Ритм и бас' },
+  { id: 'III', title: 'Интервалы' }, { id: 'IV', title: 'Две руки' }
+] as const;
+type ModuleFilter = 'all' | (typeof COURSE_MODULES)[number]['id'];
 
 export const CourseWorkspace: React.FC = () => {
+  const [moduleFilter, setModuleFilter] = useState<ModuleFilter>('all');
   const {
     selectedLessonId,
     selectCourseLesson,
-    selectPrevCourseLesson,
-    selectNextCourseLesson,
     completedLessons,
     toggleLessonCompleted,
     resetCourseProgress,
@@ -20,7 +25,20 @@ export const CourseWorkspace: React.FC = () => {
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
   const doneCount = completedLessons.length;
-  const pct = Math.round((doneCount / COURSE_CURRICULUM.length) * 100);
+  const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM
+    : COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${moduleFilter} •`));
+  const selectModule = (filter: ModuleFilter) => {
+    setModuleFilter(filter);
+    if (filter !== 'all' && !lesson.module.startsWith(`Модуль ${filter} •`)) {
+      const first = COURSE_CURRICULUM.find(item => item.module.startsWith(`Модуль ${filter} •`));
+      if (first) selectCourseLesson(first.id);
+    }
+  };
+  const selectedFilteredIndex = filteredLessons.findIndex(item => item.id === lesson.id);
+  const moveLesson = (direction: -1 | 1) => {
+    const next = filteredLessons[selectedFilteredIndex + direction];
+    if (next) selectCourseLesson(next.id);
+  };
   // Continue from actual certified progress, never from the last browsed
   // lesson. An independently explored lesson does not imply completion.
   const nextLesson = COURSE_CURRICULUM.find(item => !completedLessons.includes(item.id))
@@ -33,47 +51,48 @@ export const CourseWorkspace: React.FC = () => {
   };
 
   return (
-    <section className="flex-1 min-h-full lg:min-h-0 w-full p-3 sm:p-3.5 overflow-visible lg:overflow-hidden flex flex-col gap-3">
-      {/* Шапка курса */}
-      <div className="shrink-0 bg-slate-900/90 border border-slate-800 rounded-2xl p-4 flex flex-wrap items-center justify-between gap-4">
-        <div className="max-w-2xl">
-          <div className="flex items-center gap-2 mb-1">
-            <span className="text-xs font-mono uppercase px-2 py-0.5 rounded bg-emerald-500/20 text-emerald-400 font-semibold border border-emerald-500/30">
-              Методология Nota Re & Ф. Брянская
-            </span>
-            <span className="text-xs text-slate-400">12 недель • 4 модуля • От 0 до беглости</span>
-          </div>
-          <h1 className="text-xl font-extrabold text-white tracking-tight">
-            🎓 Программа выработки беглого чтения нот с листа на фортепиано
-          </h1>
-          <p className="text-xs text-slate-400 mt-1 leading-relaxed">
-            Каждый урок настраивает тренажёр на конкретный психологический приём: от отключения внутреннего голоса до опережающего зрения и независимости пальцев. Сдавайте нормативы зачётной серии для перехода к следующему этапу.
-          </p>
-          <button type="button" data-testid="course-continue" onClick={continueCourse}
-            className="mt-3 rounded-xl bg-emerald-500 px-3.5 py-2 font-semibold text-xs text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
-            {allCompleted ? 'Повторить' : 'Продолжить'}: {moduleName}, Урок {nextLesson.id}
+    <section className="flex-1 min-h-full lg:min-h-0 w-full min-w-0 p-2.5 sm:p-3 overflow-visible lg:overflow-hidden flex flex-col gap-2.5">
+      {/* Compact course toolbar: useful module navigation, no duplicate hero/progress. */}
+      <div data-testid="course-toolbar" className="relative z-10 shrink-0 w-full min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 px-3 sm:px-4 py-2.5 flex flex-wrap lg:flex-nowrap items-center gap-x-3 gap-y-2">
+        <div className="shrink-0 flex items-center gap-2">
+          <BookOpen className="h-4 w-4 text-emerald-400 shrink-0" aria-hidden="true" />
+          <h1 className="text-sm sm:text-base lg:text-lg font-semibold whitespace-nowrap text-white tracking-tight">Программа чтения с листа</h1>
+          <details data-testid="course-methodology" className="relative shrink-0">
+            <summary className="list-none cursor-pointer inline-flex items-center gap-1 rounded-lg border border-slate-700 px-2 py-1 text-[11px] text-slate-300 hover:text-white focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+              <Info className="w-3.5 h-3.5" aria-hidden="true" />
+              <span className="hidden sm:inline">О методике</span><span className="sr-only sm:hidden">О методике</span>
+            </summary>
+            <div role="note" className="absolute z-30 right-0 sm:right-auto sm:left-0 top-full mt-2 w-[min(85vw,23rem)] rounded-xl border border-slate-700 bg-slate-950 p-3 shadow-xl text-xs text-slate-300 leading-relaxed whitespace-normal">
+              <strong className="block mb-1 text-slate-100">NotaRe и Ф. Брянская</strong>
+              12 недель и четыре модуля. Каждый урок развивает отдельный навык
+              чтения нот: от работы без внутреннего проговаривания до опережающего
+              зрения и независимости пальцев. Нормативы засчитываются по результатам практики.
+            </div>
+          </details>
+        </div>
+        <nav aria-label="Модули курса" data-testid="course-module-nav"
+          className="flex-1 min-w-0 max-w-full flex items-center gap-1 overflow-x-auto whitespace-nowrap custom-scroll">
+          <button type="button" data-testid="course-module-all" aria-pressed={moduleFilter === 'all'}
+            onClick={() => selectModule('all')}
+            className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === 'all'
+              ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200'
+              : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-100'}`}>
+            Все · {doneCount}/{COURSE_CURRICULUM.length}
           </button>
-        </div>
-
-        {/* Общая шкала курса */}
-        <div className="bg-slate-950 p-3.5 rounded-xl border border-slate-800 w-full sm:w-auto sm:min-w-[260px] min-w-0 flex flex-col gap-2">
-          <div className="flex items-center justify-between text-xs">
-            <span className="text-slate-400 font-medium">Общий прогресс курса:</span>
-            <span className="font-mono font-bold text-emerald-400">{doneCount} / 12 ({pct}%)</span>
-          </div>
-          <div className="w-full bg-slate-800 h-2 rounded-full overflow-hidden">
-            <div 
-              className="bg-gradient-to-r from-emerald-500 to-cyan-500 h-full rounded-full transition-all duration-300" 
-              style={{ width: `${pct}%` }}
-            />
-          </div>
-          <div className="flex items-center justify-between text-[11px] text-slate-500 font-mono">
-            <span>Старт</span>
-            <span>Модуль II</span>
-            <span>Модуль III</span>
-            <span>Финал</span>
-          </div>
-        </div>
+          {COURSE_MODULES.map(module => {
+            const lessons = COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${module.id} •`));
+            const completed = lessons.filter(item => completedLessons.includes(item.id)).length;
+            return (
+              <button type="button" key={module.id} data-testid={`course-module-${module.id}`}
+                aria-pressed={moduleFilter === module.id} onClick={() => selectModule(module.id)}
+                className={`shrink-0 rounded-lg border px-2.5 py-1.5 text-[11px] font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${moduleFilter === module.id
+                  ? 'border-emerald-500/50 bg-emerald-500/15 text-emerald-200'
+                  : 'border-slate-800 bg-slate-950 text-slate-400 hover:text-slate-100'}`}>
+                {module.id} · {module.title} <span className="text-slate-400 tabular-nums">({completed}/{lessons.length})</span>
+              </button>
+            );
+          })}
+        </nav>
       </div>
 
       {/* 2 Колонки: Список 12 уроков (слева) + Карточка выбранного урока (справа) */}
