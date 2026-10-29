@@ -1,9 +1,8 @@
 import type { KeyboardLabelMode } from '../storage/trainerPreferences';
 
-export type VisibleKeyboardLabels = 'off' | 'notes' | 'pc';
+export type VisibleKeyboardLabels = KeyboardLabelMode;
 
-/** PC shortcuts are not needed on the keycaps when a physical MIDI keyboard is connected. */
-export function resolveKeyboardLabels(mode: KeyboardLabelMode, midiInputsCount: number): VisibleKeyboardLabels {
-  if (mode === 'auto') return midiInputsCount > 0 ? 'notes' : 'pc';
+/** The training overlay is explicitly selected, never inferred from MIDI availability. */
+export function resolveKeyboardLabels(mode: KeyboardLabelMode): VisibleKeyboardLabels {
   return mode;
 }
