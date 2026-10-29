@@ -80,7 +80,11 @@ try {
   await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
   assert.ok(await gaze.count() > 0, 'G-pattern must draw gaze paths on OSMD notes');
   const firstPath = gaze.first().locator('path');
-  assert.match(await firstPath.getAttribute('d'), /^M [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+ L [-\d.]+ [-\d.]+$/);
+  const firstPathD = await firstPath.getAttribute('d');
+  assert.match(firstPathD, /^M [-\\d.]+ [-\\d.]+ L [-\\d.]+ [-\\d.]+ L [-\\d.]+ [-\\d.]+$/);
+  const coords = firstPathD.match(/-?\\d+(?:\\.\\d+)?/g).map(Number);
+  assert.ok(coords[1] > coords[3], 'gaze starts at lower bass and travels up to treble');
+  assert.ok(coords[4] > coords[2], 'gaze then travels right toward treble melody');
   assert.equal(await renderError.count(), 0, 'G-pattern should not show OSMD renderer errors');
   await page.setViewportSize({ width: 375, height: 900 });
   await gaze.first().waitFor({ state: 'attached', timeout: 15000 });
