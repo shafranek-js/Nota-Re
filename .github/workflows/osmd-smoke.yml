@@ -47,6 +47,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/compact-toolbar.smoke.mjs
+      - name: Verify persistent light and dark themes in Chrome
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/theme.smoke.mjs
       - name: Verify Zen score space, audio, MIDI and photo safety in Chrome
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

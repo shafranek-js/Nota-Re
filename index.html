@@ -1,6 +1,16 @@
 <!DOCTYPE html>
 <html lang="ru" class="dark">
   <head>
+    <script>
+      // Apply the stored appearance before styles and React to avoid a dark flash.
+      try {
+        const light = localStorage.getItem('notare-theme-v1') === 'light';
+        document.documentElement.dataset.theme = light ? 'light' : 'dark';
+        document.documentElement.classList.toggle('dark', !light);
+      } catch {
+        document.documentElement.dataset.theme = 'dark';
+      }
+    </script>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>NotaRe Academy & Studio v3.0 — Интерактивный курс и тренажёр чтения с листа</title>
