@@ -5,7 +5,7 @@ import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
-import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square } from 'lucide-react';
+import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
 
@@ -97,6 +97,13 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
       onClick={() => setPanel(current => current === kind ? null : kind)}
       className={panel === kind ? activeClass : inactiveClass}>
       <span className="inline-flex items-center gap-1">{title}<ChevronDown aria-hidden="true" className="w-3 h-3"/></span>
+    </button>
+  );
+
+  const iconOption = (label: string, selected: boolean, onClick: () => void, Icon: typeof Keyboard) => (
+    <button type="button" title={label} aria-label={label} aria-pressed={selected}
+      onClick={onClick} className={`${selected ? activeClass : inactiveClass} inline-flex h-9 w-9 shrink-0 items-center justify-center !p-0`}>
+      <Icon aria-hidden="true" className="h-4 w-4" />
     </button>
   );
 
@@ -247,12 +254,12 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
                 {optionButton('Классический', renderer === 'legacy', () => onSelectRenderer('legacy'))}
               </div>
               <span className="mx-1 h-5 shrink-0 border-l border-slate-700" aria-hidden="true" />
-              {optionButton(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
-                showVirtualKeyboard, toggleVirtualKeyboard)}
-              {optionButton('Звукоряд тональности', showScaleHighlight, toggleScaleHighlight)}
-              {optionButton('Тактильная ширма (18:20)', isBlindfolded, toggleBlindfoldKeys)}
-              {optionButton('Режим «Стол» (22:05)', isTabletopMode, toggleTabletopMode)}
-              {optionButton('Маяки баса', showBassLandmarks, toggleBassLandmarks)}
+              {iconOption(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
+                showVirtualKeyboard, toggleVirtualKeyboard, Keyboard)}
+              {iconOption('Звукоряд тональности', showScaleHighlight, toggleScaleHighlight, Music2)}
+              {iconOption('Тактильная ширма (18:20)', isBlindfolded, toggleBlindfoldKeys, EyeOff)}
+              {iconOption('Режим «Стол» (22:05)', isTabletopMode, toggleTabletopMode, Monitor)}
+              {iconOption('Маяки баса', showBassLandmarks, toggleBassLandmarks, MapPin)}
               <label className="shrink-0 inline-flex items-center gap-1.5 text-xs text-slate-300">
                 Подписи клавиш
                 <select aria-label="Подписи виртуальных клавиш" value={keyboardLabelMode}
