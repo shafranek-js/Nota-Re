@@ -1,4 +1,5 @@
 import assert from 'node:assert/strict';
+import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
 
 const browser = await chromium.launch({
@@ -37,6 +38,9 @@ try {
       assert.equal(await score.getAttribute('data-theme-lock'), 'dark',
         'OSMD notes retain their proven high-contrast score palette');
       assert.equal(await page.getByRole('button', { name: 'Клавиша C3' }).isVisible(), true);
+      // Capture the real rendered light UI for human visual acceptance.
+      await mkdir('artifacts', { recursive: true });
+      await page.screenshot({ path: `artifacts/theme-light-studio-${width}.png`, fullPage: true });
 
       await page.reload({ waitUntil: 'domcontentloaded' });
       await page.getByTestId('theme-toggle').waitFor({ state: 'visible' });
