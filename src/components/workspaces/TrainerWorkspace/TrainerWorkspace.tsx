@@ -8,6 +8,8 @@ import { TargetInfoBar } from './TargetInfoBar';
 import { PianoKeyboard } from './PianoKeyboard';
 import { AttemptResultCard } from './AttemptResultCard';
 import { PreplayChecklist, CountInScreen } from './PreplayChecklist';
+import { ZenControlStrip } from './ZenControlStrip';
+import { isZenActive } from '../../../core/training/zenMode';
 
 // The OSMD bundle is only downloaded when its renderer is selected.
 const OsmdStaff = React.lazy(() => import('./OsmdStaff').then(m => ({ default: m.OsmdStaff })));
@@ -19,7 +21,8 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard, zenModeEnabled, currentWorkspace } = useAppStore();
+  const zenActive = isZenActive({ currentWorkspace, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
@@ -35,15 +38,16 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
   }
 
   return (
-    <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-y-auto lg:overflow-hidden">
-      {!isTwoHandPracticeOpen && <TrainerBanner />}
-      {!isTwoHandPracticeOpen && <TrainerToolbar />}
+    <section data-testid="studio-workspace" data-zen-active={zenActive} className={`flex-1 min-h-0 w-full flex flex-col justify-between gap-1.5 overflow-y-auto lg:overflow-hidden ${zenActive ? 'p-1 sm:p-1.5' : 'p-2'}`}>
+      {zenActive && <ZenControlStrip />}
+      {!zenActive && !isTwoHandPracticeOpen && <TrainerBanner />}
+      {!zenActive && !isTwoHandPracticeOpen && <TrainerToolbar />}
       {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
         <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-2" role="status" data-testid="trainer-setup">
           <p className="text-sm text-sky-100">Настройте упражнение и нажмите «Начать упражнение» на панели. Ноты пока не оцениваются.</p>
         </div>
       )}
-      {!isTwoHandPracticeOpen && (
+      {!zenActive && !isTwoHandPracticeOpen && (
         <div className="shrink-0 flex items-center px-1">
           <button type="button" onClick={openTrainerPrecheck}
             className="rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1 text-xs text-sky-300 hover:bg-sky-900/40">
@@ -66,8 +70,8 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
           <TwoHandPractice />
         </Suspense>
       ) : <>
-      <div className="flex-none min-h-[380px] lg:flex-1 lg:min-h-0 w-full flex flex-col justify-between overflow-hidden gap-1">
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]">
+      <div data-testid="studio-score-area" className={`w-full flex flex-col justify-between overflow-hidden gap-1 ${zenActive ? 'flex-1 min-h-[260px] sm:min-h-[320px] lg:min-h-0' : 'flex-none min-h-[380px] lg:flex-1 lg:min-h-0'}`}>
+        <div className={`${zenActive ? 'hidden' : 'shrink-0 flex flex-wrap items-center justify-between gap-2 px-1 text-[11px]'}`}>
           <div className="flex items-center gap-1" role="group" aria-label="Способ отображения нот">
             <span className="text-slate-400 mr-1">Ноты:</span>
             <button
@@ -102,16 +106,16 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
               Подключение нотного движка…
             </div>
           }>
-            <OsmdStaff onRequestLegacy={() => onSelectRenderer('legacy')} />
+            <OsmdStaff zen={zenActive} onRequestLegacy={() => onSelectRenderer('legacy')} />
           </Suspense>
         ) : (
-          <GrandStaffSvg />
+          <GrandStaffSvg zen={zenActive} />
         )}
-        <TargetInfoBar />
+        <TargetInfoBar zen={zenActive} />
       </div>
 
       <div className={showVirtualKeyboard ? 'shrink-0' : 'hidden'} aria-hidden={!showVirtualKeyboard}>
-        <PianoKeyboard />
+        <PianoKeyboard zen={zenActive} />
       </div>
       </>}
     </section>

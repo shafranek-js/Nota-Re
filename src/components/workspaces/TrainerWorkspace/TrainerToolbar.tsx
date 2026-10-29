@@ -4,7 +4,7 @@ import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musicXml';
-import { ChevronDown, FileDown, Mic, Pause, Play, RotateCw, Square } from 'lucide-react';
+import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
 
@@ -53,7 +53,7 @@ export const TrainerToolbar: React.FC = () => {
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
     keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice,
-    startTrainerExercise, stopTrainerExercise, activeLessonId
+    startTrainerExercise, stopTrainerExercise, activeLessonId, zenModeEnabled, toggleZenMode
   } = useAppStore();
 
   useEffect(() => {
@@ -142,6 +142,11 @@ export const TrainerToolbar: React.FC = () => {
           </span>
         </button>
         <div className="ml-auto shrink-0 flex gap-1.5">
+          <button type="button" onClick={toggleZenMode} data-testid="toolbar-zen-toggle"
+            aria-pressed={zenModeEnabled} title="Во время игры скрывать отвлекающие панели; Esc возвращает их"
+            className={zenModeEnabled ? activeClass : controlClass}>
+            <span className="inline-flex items-center gap-1"><Focus className="w-3.5 h-3.5" aria-hidden="true"/> Zen</span>
+          </button>
           <button type="button"
             onClick={trainerPhase === 'setup' ? startTrainerExercise : stopTrainerExercise}
             data-testid="trainer-start-stop"

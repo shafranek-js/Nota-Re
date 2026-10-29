@@ -34,13 +34,14 @@ function currentOnsetTicks(): number {
 
 interface OsmdStaffProps {
   onRequestLegacy: () => void;
+  zen?: boolean;
 }
 
 /**
  * MusicXML-based notation with optional pedagogical note hiding. Notehead/stem
  * visibility is applied to OSMD's own graphical notes; no custom staff layout.
  */
-export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
+export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = false }) => {
   const {
     activeExerciseNotes,
     activeNoteIndex,
@@ -542,12 +543,13 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
 
   return (
     <div data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
-      <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
-        <div className="flex items-center flex-wrap gap-2.5">
+      {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
+      <div data-testid={zen ? 'zen-score-actions' : undefined} className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
+        {!zen && <div className="flex items-center flex-wrap gap-2.5">
           <span className="text-slate-400">Такт: <strong className="text-white">{actualBar}</strong></span>
           <span className="text-slate-400">Сборник: <strong className="text-sky-400">{collectionNames[currentFilter]}</strong></span>
           <span className="text-emerald-300">OSMD · MusicXML</span>
-        </div>
+        </div>}
         <div className="flex items-center flex-wrap gap-1.5">
           {currentAppMode === 'photo' && (
             <button
@@ -559,28 +561,28 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
               Вспышка такта
             </button>
           )}
-          <button
+          {(!zen || showBassLandmarks) && <button
             onClick={toggleBassLandmarks}
             title="Показать ориентиры F3 и G2 на линейках басового ключа OSMD"
             className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded-md text-purple-300"
           >
             𝄢 Маяки баса: {showBassLandmarks ? 'ВКЛ' : 'ВЫКЛ'}
-          </button>
-          <button
+          </button>}
+          {(!zen || currentAppMode === 'rhythm') && <button
             onClick={() => audioEngine.playSyllablePatternDemo('titi', bpm)}
             className="flex items-center gap-1 px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-amber-300"
           >
             <Volume2 className="w-3 h-3" /> Ритм-образец
-          </button>
-          <button
+          </button>}
+          {(!zen || currentAppMode === 'rhythm') && <button
             onClick={cycleSpeechSuppressor}
             className="px-2 py-0.5 rounded-md bg-slate-950 border border-slate-800 text-amber-300"
             title="Сменить режим речевого сопровождения"
           >
             Речь: {speechLabels[speechSuppressor]}
-          </button>
+          </button>}
         </div>
-      </div>
+      </div>)}
 
       <div className="relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-white text-slate-900">
         {currentAppMode === 'photo' && isPhotoMasked && (

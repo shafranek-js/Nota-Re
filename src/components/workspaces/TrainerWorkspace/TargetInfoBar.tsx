@@ -2,7 +2,7 @@ import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { computeIntervalInfo } from '../../../core/generator/ExerciseGenerator';
 
-export const TargetInfoBar: React.FC = () => {
+export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   const {
     activeExerciseNotes,
     activeNoteIndex,
@@ -30,6 +30,34 @@ export const TargetInfoBar: React.FC = () => {
     blind: 'Не смотрите на клавиатуру! Ощупывайте рельеф по островкам из 2 и 3 чёрных клавиш.',
     hanon: 'Чёткий посыл в кончики 4-го и 5-го пальцев. Совмещайте стаккато в левой руке с легато в правой!'
   };
+
+  // Focus mode shows only cues needed for the selected teaching mode.
+  // Never disclose masked photo pitches, and never announce a new note on
+  // every key strike via an intrusive live region.
+  if (zen) {
+    const prompt = currentAppMode === 'rhythm'
+      ? `Ритмослог: ${target?.syllable || 'ТА'}`
+      : currentAppMode === 'intervals'
+        ? `Интервал: ${intervalInfo.name}`
+        : currentAppMode === 'hanon'
+          ? `Палец / штрих: ${target?.finger || 1} · ${target?.articulation || 'legato'}`
+          : currentAppMode === 'photo'
+            ? hidePhotoHints ? 'Играйте такт по памяти' : 'Смотрите на такт до появления маски'
+            : currentAppMode === 'lookahead'
+              ? 'Смотрите на следующую ноту'
+              : currentAppMode === 'gpattern'
+                ? 'Следите за траекторией между двумя станами'
+                : currentAppMode === 'blind'
+                  ? 'Ориентируйтесь по группам чёрных клавиш'
+                  : 'Читайте с нотного стана';
+    return (
+      <div data-testid="zen-coaching" aria-live="off"
+        className="shrink-0 w-full min-h-6 text-xs text-slate-400 px-2 flex items-center gap-2">
+        {isExerciseAssisted && <strong className="text-amber-300">Без зачёта: подсказка</strong>}
+        <span>{prompt}</span>
+      </div>
+    );
+  }
 
   return (
     <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 pt-1.5 border-t border-slate-800/60 text-xs">

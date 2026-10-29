@@ -5,9 +5,9 @@ must be performed on an actual keyboard, speaker and mobile browser.
 
 ## Release identity
 
-The header shows `v<package version> · <short Git commit> · dev/production`.
-The same identity is available at the bottom of **Settings** even on a
-320-pixel screen. The application version comes from `package.json` and
+The permanent **bottom technical status bar** shows
+`v<package version> · <short Git commit> · dev/production` and remains
+visible on a 320-pixel screen, including while Studio Zen Mode is active. The application version comes from `package.json` and
 the short revision from the commit used during Vite compilation.
 
 - Locally, confirm `git rev-parse --short=7 HEAD` matches the header;
@@ -40,7 +40,26 @@ then again on the merged `main` commit. Chrome tests cover:
 - OSMD engraving, note cursor, lookahead/photo masks and legacy fallback.
 - 320, 375, 768, 1280 and 1920-pixel responsive behavior, modal focus,
   Escape, keyboard labels and vertical/horizontal scrolling.
-- Exact build SHA visible in the header and Settings, including after reload.
+- Exact build SHA visible in the bottom technical status bar, including after reload and in Zen Mode.
+
+## Zen / Focus mode (Stage D)
+
+- In Studio, click **Zen** while playing: the normal app header, lesson
+  banner and setup toolbar are replaced by a compact **Back / progress /
+  tempo / audio / Settings / Stop / Exit** strip. Focus is opt-in and
+  persisted; toggling it never changes the MIDI/audio/grading clock.
+- Check both OSMD and Classic on 320, 375, 768, 1440 and 1920px screens.
+  Confirm the actual *staves and noteheads* remain readable, not merely that
+  the score container becomes taller. Verify that the piano remains usable.
+- In Photo Mode, the mask must still hide target pitches from all captions,
+  with the **Вспышка такта** action available while in Zen.
+  In Rhythm mode, the relevant sample and speech options remain reachable.
+- **Esc** in Zen exits to the normal toolbar; when Settings is open, the
+  first Esc dismisses Settings without leaving Zen. Click **Стоп** to
+  leave playing and reach setup without crediting a partial lesson.
+- Results, count-in, precheck and independent two-hand practice do not
+  show Zen, even when its preference is enabled. The technical footer
+  remains present and the build ID is never clipped.
 
 ## Manual acceptance still required
 

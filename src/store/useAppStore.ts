@@ -61,6 +61,7 @@ export interface AppState {
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   showVirtualKeyboard: boolean;
+  zenModeEnabled: boolean;
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   isPhotoMasked: boolean;
@@ -126,6 +127,7 @@ export interface AppState {
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
   toggleVirtualKeyboard: () => void;
+  toggleZenMode: () => void;
   setKeyboardLabelMode: (mode: KeyboardLabelMode) => void;
   stopTrainerExercise: () => void;
   setPhotoExposure: (ms: number) => void;
@@ -736,6 +738,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   toggleVirtualKeyboard: () => set((s) => ({
     showVirtualKeyboard: !s.showVirtualKeyboard
   })),
+
+  // Presentation-only: do not stop or restart the audio clock, MIDI or scoring.
+  toggleZenMode: () => set((s) => ({ zenModeEnabled: !s.zenModeEnabled })),
 
   setKeyboardLabelMode: (keyboardLabelMode) => set({ keyboardLabelMode }),
 

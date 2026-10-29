@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { Header } from './components/layout/Header';
+import { isZenActive } from './core/training/zenMode';
 import { SettingsDrawer } from './components/layout/SettingsDrawer';
 import { StatusBar } from './components/layout/StatusBar';
 import { readScoreRendererPreference, saveScoreRendererPreference } from './core/notation/scoreRendererPreference';
@@ -12,7 +13,8 @@ import { LabWorkspace } from './components/workspaces/LabWorkspace';
 import { TheoryWorkspace } from './components/workspaces/TheoryWorkspace';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, initApp } = useAppStore();
+  const { currentWorkspace, initApp, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled } = useAppStore();
+  const zenActive = isZenActive({ currentWorkspace, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
   const [scoreRenderer, setScoreRenderer] = useState<ScoreRenderer>(readScoreRendererPreference);
 
   const selectScoreRenderer = (renderer: ScoreRenderer) => {
@@ -27,7 +29,7 @@ export const App: React.FC = () => {
   return (
     <div className="h-screen w-screen overflow-hidden flex flex-col bg-[#060a12] text-slate-100">
       {/* 1. Полноширинная шапка */}
-      <Header />
+      {!zenActive && <Header />}
 
       {/* 2. Активное рабочее пространство */}
       <main className="flex-1 min-h-0 w-full overflow-y-auto lg:overflow-hidden flex flex-col">

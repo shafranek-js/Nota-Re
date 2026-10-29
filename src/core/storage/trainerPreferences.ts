@@ -21,6 +21,7 @@ export interface TrainerPreferences {
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   showVirtualKeyboard: boolean;
+  zenModeEnabled: boolean;
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   audioEnabled: boolean;
@@ -40,6 +41,7 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   showBassLandmarks: false,
   showScaleHighlight: false,
   showVirtualKeyboard: true,
+  zenModeEnabled: false,
   keyboardLabelMode: 'auto',
   photoExposureMs: 1800,
   audioEnabled: true
@@ -89,6 +91,7 @@ export function validateTrainerPreferences(input: unknown): TrainerPreferences {
     showBassLandmarks: booleanOr(data.showBassLandmarks, defaults.showBassLandmarks),
     showScaleHighlight: booleanOr(data.showScaleHighlight, defaults.showScaleHighlight),
     showVirtualKeyboard: booleanOr(data.showVirtualKeyboard, defaults.showVirtualKeyboard),
+    zenModeEnabled: booleanOr(data.zenModeEnabled, defaults.zenModeEnabled),
     keyboardLabelMode: oneOf(data.keyboardLabelMode, KEYBOARD_LABELS, defaults.keyboardLabelMode),
     photoExposureMs: data.photoExposureMs === 1100 ||
       data.photoExposureMs === 1800 || data.photoExposureMs === 2400
@@ -112,6 +115,7 @@ export function selectTrainerPreferences(state: TrainerPreferences): TrainerPref
     showBassLandmarks: state.showBassLandmarks,
     showScaleHighlight: state.showScaleHighlight,
     showVirtualKeyboard: state.showVirtualKeyboard,
+    zenModeEnabled: state.zenModeEnabled,
     keyboardLabelMode: state.keyboardLabelMode,
     photoExposureMs: state.photoExposureMs,
     audioEnabled: state.audioEnabled
