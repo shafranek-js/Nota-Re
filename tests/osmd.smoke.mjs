@@ -298,6 +298,35 @@ try {
     beforePolyAttempts, 'timed MIDI must not award course attempts');
   await page.getByRole('button', { name: 'Заново / Стоп' }).click();
   assert.equal(await page.getByTestId('two-hand-mode').innerText(), 'Свободная практика');
+  // Select each new independent rhythm without leaving MIDI practice.
+  // A rest in one staff is engraved by MusicXML, not a phantom note-on.
+  const rhythmPicker = page.getByTestId('two-hand-pattern');
+  await rhythmPicker.selectOption('staggered');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-expected"]')?.textContent === 'C3'
+  );
+  await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
+    .first().waitFor({ state: 'visible', timeout: 30000 });
+  assert.equal(await polyStep.innerText(), '1', 'pattern switch resets the ungraded trial');
+  await page.evaluate(() => window.__twoHandMidi.send([0x92, 48, 105]));
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '2'
+  );
+  assert.equal(await page.getByTestId('two-hand-expected').innerText(), 'C4',
+    'the RH enters one eighth after the lone LH downbeat');
+
+  await rhythmPicker.selectOption('eighth-rests');
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-expected"]')?.textContent?.includes('C3') &&
+    document.querySelector('[data-testid="two-hand-expected"]')?.textContent?.includes('C4'));
+  assert.equal(await polyStep.innerText(), '1');
+  await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
+    .first().waitFor({ state: 'visible', timeout: 30000 });
+  await rhythmPicker.selectOption('steady');
+  assert.equal(await polyStep.innerText(), '1');
+  assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
+    beforePolyAttempts, 'pattern changes and rest exercises must never award course credit');
+
   await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
 

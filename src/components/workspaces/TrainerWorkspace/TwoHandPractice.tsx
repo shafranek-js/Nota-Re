@@ -9,7 +9,8 @@ import {
   initialChordPractice,
   reduceChordPractice,
   type ChordPracticeState,
-  type PracticeMidiEvent
+  type PracticeMidiEvent,
+  type TwoHandPattern
 } from '../../../core/training/twoHandPractice';
 import { useAppStore } from '../../../store/useAppStore';
 import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
@@ -36,6 +37,7 @@ const timedFeedbackText: Record<TimedPracticeState['feedback'], string> = {
   wrong: 'Неверная нота.',
   'off-beat': 'Раньше или позже допустимого окна.',
   'released-early': 'Нота отпущена раньше её длительности.',
+  'held-too-long': 'Нота удержана дольше написанной длительности — отпустите перед паузой.',
   missed: 'Доля пропущена — продолжайте со следующей.',
   complete: 'Ритмическая попытка завершена. Посмотрите результаты.'
 };
@@ -55,9 +57,10 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  */
 export const TwoHandPractice: React.FC = () => {
   const { currentTonality, scoreNoteCount, midiInputsCount, bpm } = useAppStore();
+  const [pattern, setPattern] = useState<TwoHandPattern>('steady');
   const exercise = useMemo(
-    () => createTwoHandPractice(currentTonality, scoreNoteCount === 8 ? 8 : 16),
-    [currentTonality, scoreNoteCount]
+    () => createTwoHandPractice(currentTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
+    [currentTonality, scoreNoteCount, pattern]
   );
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
@@ -155,6 +158,8 @@ export const TwoHandPractice: React.FC = () => {
   };
 
   useEffect(() => {
+    // A different key signature, length or rhythm starts a new trial.
+    resetTrial();
     // An exercise change or navigating away cancels scheduled clicks and
     // cannot leave a hidden timed session awarding progress.
     const detach = midiManager.onMidiEvent(event => {
@@ -291,6 +296,12 @@ export const TwoHandPractice: React.FC = () => {
 
   const expected = currentStep?.expectedMidi
     .map(midi => MIDI_NAMES.get(midi) ?? String(midi)).join(' + ') ?? 'Готово';
+  const restNow = plan !== null && !timed.finished &&
+    clockMs >= plan.startMs &&
+    !exercise.score.notes.some(note =>
+      note.onsetTicks <= elapsedTick! &&
+      note.onsetTicks + note.durationTicks > elapsedTick!);
+
 
   const exportXml = () => {
     const url = URL.createObjectURL(new Blob([xml], { type: 'application/vnd.recordare.musicxml+xml' }));
@@ -308,7 +319,21 @@ export const TwoHandPractice: React.FC = () => {
           <h2 className="text-base font-semibold text-slate-100">Две руки — одновременная игра (MIDI)</h2>
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
-        <div className="flex gap-2 items-center">
+        <div className="flex flex-wrap gap-2 items-center">
+          <label htmlFor="two-hand-pattern" className="text-xs text-slate-300">Ритмический рисунок</label>
+          <select id="two-hand-pattern" data-testid="two-hand-pattern"
+            aria-label="Ритмический рисунок двух рук"
+            disabled={!!plan && !timed.finished}
+            value={pattern}
+            onChange={event => {
+              resetTrial();
+              setPattern(event.target.value as TwoHandPattern);
+            }}
+            className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+            <option value="steady">Ровные четверти и половинные</option>
+            <option value="eighth-rests">Восьмые и паузы</option>
+            <option value="staggered">Смещённые вступления и пунктир</option>
+          </select>
           <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново / Стоп</button>
           <button type="button" data-testid="two-hand-start-tempo" disabled={!!plan && !timed.finished}
             onClick={() => { void startTempo(); }}
@@ -322,16 +347,22 @@ export const TwoHandPractice: React.FC = () => {
         <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(activeStepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
         <span data-testid="two-hand-mode">{plan ? (timed.finished ? 'Ритм завершён' : 'Ритм · метроном') : 'Свободная практика'}</span>
         <span>Момент: <strong>{currentStep ? currentStep.onsetTicks / 4 + 1 : '—'}</strong> доля</span>
-        <span>Играть вместе: <strong data-testid="two-hand-expected" className="text-sky-300">{expected}</strong></span>
+        <span>Следующее вступление: <strong data-testid="two-hand-expected" className="text-sky-300">{expected}</strong></span>
         <span className="text-slate-400">MIDI: {midiInputsCount > 0 ? 'подключено' : 'нет устройства'}</span>
       </div>
       {plan && <div data-testid="two-hand-timed-stats" className="flex flex-wrap gap-3 text-xs text-slate-200">
         <span>В долю: <strong>{timed.hits}</strong></span>
         <span>Пропущено: <strong>{timed.misses}</strong></span>
         <span>Ранних отпусканий: <strong>{timed.earlyReleases}</strong></span>
+        <span>Передержано нот: <strong>{timed.overheldNotes}</strong></span>
         <span>Ошибочных нот: <strong>{timed.wrongPitches}</strong></span>
         <span>Отклонение: <strong>{timed.lastDeviationMs === null ? '—' : timed.lastDeviationMs + ' мс'}</strong></span>
       </div>}
+      {restNow && <p data-testid="two-hand-rest-now" role="status"
+        className="text-xs text-amber-300">Пауза в обеих руках — не нажимайте клавиши.</p>}
+      {!plan && pattern !== 'steady' && <p className="text-xs text-slate-400">
+        В свободной практике паузы отображаются в нотах. Контроль их длительности работает при игре с метрономом.
+      </p>}
       {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>}
       <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? timedFeedbackText[timed.feedback] : feedbackText[trial.feedback]}</p>
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
