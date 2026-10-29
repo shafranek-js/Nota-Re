@@ -24,6 +24,17 @@ try {
       const tabs = page.getByRole('navigation', { name: 'Модули курса' });
       const launch = page.getByTestId('course-launch-selected');
       const list = page.getByTestId('course-list-scroll');
+      if (viewport.width < 1024) {
+        const positions = await page.evaluate(() => {
+          const button = document.querySelector('[data-testid="course-launch-selected"]').getBoundingClientRect();
+          const list = document.querySelector('[data-testid="course-list-scroll"]').getBoundingClientRect();
+          return { buttonTop: button.top, buttonBottom: button.bottom, listTop: list.top, height: innerHeight };
+        });
+        assert.ok(positions.buttonBottom < positions.height - 32,
+          `selected lesson start visible without scrolling on ${viewport.width}px: ${JSON.stringify(positions)}`);
+        assert.ok(positions.buttonTop < positions.listTop,
+          'mobile selected lesson and its launch action must precede the full lesson list');
+      }
       assert.equal(await tabs.getByRole('button').count(), 5);
       assert.match(await page.getByTestId('course-module-all').innerText(), /2\/12/);
       assert.match(await page.getByTestId('course-module-I').innerText(), /2\/3/);
