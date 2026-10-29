@@ -159,7 +159,7 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Карточка выбранного урока */}
-        <div className="lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:overflow-y-auto custom-scroll lg:min-h-0">
+        <div className="order-first lg:order-none lg:col-span-7 flex flex-col justify-between bg-slate-900/90 border border-slate-800 rounded-2xl p-3 lg:overflow-y-auto custom-scroll lg:min-h-0">
           <div className="space-y-3">
             {/* Заголовок урока и постоянно видимый запуск. */}
             <div data-testid="course-lesson-header" className="sticky top-0 z-10 -mt-1 flex flex-wrap items-start justify-between gap-2 border-b border-slate-800 bg-slate-900 py-2">
