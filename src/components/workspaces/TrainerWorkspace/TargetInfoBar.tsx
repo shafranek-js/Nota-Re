@@ -53,7 +53,7 @@ export const TargetInfoBar: React.FC = () => {
           ПАЛЕЦ / ШТРИХ: <strong data-testid="active-target-fingering" className="text-rose-400 font-mono">{hidePhotoHints ? 'Скрыт' : `${target?.finger || 1} • ${target?.articulation || 'legato'}`}</strong>
         </span>
         <span className="px-2 py-0.5 rounded bg-slate-950 border border-slate-800 text-slate-400">
-          ОТВЕТ: <strong className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
+          ОТВЕТ: <strong data-testid="last-played-note" className="text-slate-300 font-mono">{lastTriggeredNote || '—'}</strong>
         </span>
       </div>
 
