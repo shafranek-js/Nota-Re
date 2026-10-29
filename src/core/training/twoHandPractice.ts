@@ -71,7 +71,7 @@ export function createTwoHandPractice(
  */
 export type PracticeMidiEvent =
   | { type: 'note-on'; note: number; channel: number; receivedAtMs: number }
-  | { type: 'note-off'; note: number; channel: number }
+  | { type: 'note-off'; note: number; channel: number; receivedAtMs?: number }
   | { type: 'panic' };
 
 export interface ChordPracticeState {
