@@ -61,6 +61,8 @@ try {
       assert.ok(await dialog.evaluate(el => el.getBoundingClientRect().width <= innerWidth + 1));
       assert.equal(await page.locator('header').evaluate(el => el.inert), true);
       assert.equal(await page.locator('main').evaluate(el => el.inert), true);
+      assert.equal(await page.getByTestId('status-bar').evaluate(el => el.inert), true,
+        'settings modal must make the technical footer inert');
       assert.equal(await page.locator('header').getAttribute('aria-hidden'), 'true');
       assert.equal(await dialog.getByRole('button', { name: 'Закрыть настройки' }).evaluate(el => el === document.activeElement), true);
 
