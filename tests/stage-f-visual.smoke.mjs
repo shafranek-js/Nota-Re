@@ -80,7 +80,8 @@ try {
     await checkWidth(`OSMD ${width}`);
     const normal = await osmdGeometry();
     assert.ok(normal.noteheadCount > 0, `OSMD ${width}: actual rendered noteheads required`);
-    assert.ok(normal.medianHeadWidthPx >= 3, `OSMD ${width}: no microscopic noteheads`);
+    assert.ok(normal.medianHeadWidthPx >= 11.5,
+      `OSMD ${width}: preserve the approximately 12px baseline glyph size from the audited prior build`);
     await page.screenshot({ path: `${artifacts}/stage-f-osmd-${width}.png` });
     const normalEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
     await page.getByTestId('toolbar-zen-toggle').click();
@@ -103,8 +104,8 @@ try {
       assert.ok(zen.medianHeadWidthPx >= normal.medianHeadWidthPx * minGrowth,
         `Zen ${width}: real noteheads must grow, not just the empty container (${normal.medianHeadWidthPx} -> ${zen.medianHeadWidthPx}px)`);
     } else {
-      assert.ok(zen.medianHeadWidthPx >= normal.medianHeadWidthPx,
-        `Zen ${width}: small-screen noteheads must not shrink`);
+      assert.ok(zen.medianHeadWidthPx >= 11.5 && zen.medianHeadWidthPx >= normal.medianHeadWidthPx,
+        `Zen ${width}: phone noteheads must retain the original ~12px readability baseline`);
     }
     await page.screenshot({ path: `${artifacts}/stage-f-zen-${width}.png` });
     const zenEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
