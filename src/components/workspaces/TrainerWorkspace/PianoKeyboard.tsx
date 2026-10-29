@@ -14,9 +14,7 @@ export const PianoKeyboard: React.FC = () => {
     isBlindfolded,
     toggleBlindfoldKeys,
     isTabletopMode,
-    toggleTabletopMode,
-    activeExerciseNotes,
-    activeNoteIndex
+    toggleTabletopMode
   } = useAppStore();
 
   const tonalityCfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
