@@ -55,6 +55,14 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/studio-navigation.smoke.mjs
+      - name: Verify distinct wrong/missed feedback against live rhythmic flow
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/stage-f-feedback.smoke.mjs
+      - name: Capture six-breakpoint stave and Zen visual-review matrix
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/stage-f-visual.smoke.mjs
       - name: Exercise OSMD with real browser
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
@@ -131,4 +139,5 @@ jobs:
           path: |
             artifacts/*.png
             artifacts/performance-baseline.json
+            artifacts/stage-f-stave-metrics.json
           if-no-files-found: ignore
