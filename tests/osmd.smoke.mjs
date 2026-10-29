@@ -249,6 +249,52 @@ try {
   await page.waitForFunction(() => document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '4');
   assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
     beforePolyAttempts, 'polyphonic trial must never add ordinary lesson attempts');
+  // Timed mode uses an AudioContext-scheduled four-beat lead-in. MIDI event
+  // timestamps and the score cursor share performance.now() as their epoch.
+  // The browser test sends *real emulated MIDI* at absolute beat boundaries,
+  // then releases the long LH note prematurely to validate duration checks.
+  await page.evaluate(() => [
+    [0x82, 48, 0], [0x80, 60, 0], [0x80, 62, 0],
+    [0x80, 64, 0], [0x82, 55, 0]
+  ].forEach(bytes => window.__twoHandMidi.send(bytes)));
+  await page.getByTestId('two-hand-start-tempo').click();
+  const practice = page.getByTestId('two-hand-practice');
+  await page.waitForFunction(() =>
+    Number(document.querySelector('[data-testid="two-hand-practice"]')?.getAttribute('data-timed-start-ms')) > performance.now()
+  );
+  assert.match(await page.getByTestId('two-hand-feedback').innerText(), /Подготовка/);
+
+  await page.evaluate(async () => {
+    const start = Number(document.querySelector('[data-testid="two-hand-practice"]').getAttribute('data-timed-start-ms'));
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, start - performance.now())));
+    window.__twoHandMidi.send([0x92, 48, 105]);
+    window.__twoHandMidi.send([0x90, 60, 105]);
+  });
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '2'
+  );
+  assert.match(await page.getByTestId('two-hand-timed-stats').innerText(), /В долю:\s*1/);
+
+  await page.evaluate(async () => {
+    const start = Number(document.querySelector('[data-testid="two-hand-practice"]').getAttribute('data-timed-start-ms'));
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, start + 950 - performance.now())));
+    window.__twoHandMidi.send([0x80, 60, 0]);
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, start + 1000 - performance.now())));
+    window.__twoHandMidi.send([0x90, 62, 110]);
+  });
+  await page.waitForFunction(() =>
+    document.querySelector('[data-testid="two-hand-step-index"]')?.textContent === '3'
+  );
+  await page.evaluate(async () => {
+    const start = Number(document.querySelector('[data-testid="two-hand-practice"]').getAttribute('data-timed-start-ms'));
+    await new Promise(resolve => setTimeout(resolve, Math.max(0, start + 1200 - performance.now())));
+    window.__twoHandMidi.send([0x82, 48, 0]);
+  });
+  assert.match(await page.getByTestId('two-hand-timed-stats').innerText(), /Ранних отпусканий:\s*1/);
+  assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
+    beforePolyAttempts, 'timed MIDI must not award course attempts');
+  await page.getByRole('button', { name: 'Заново / Стоп' }).click();
+  assert.equal(await page.getByTestId('two-hand-mode').innerText(), 'Свободная практика');
   await page.getByRole('button', { name: 'Вернуться к тренажёру' }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 30000 });
 
