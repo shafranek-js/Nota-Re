@@ -1,6 +1,7 @@
 import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { midiManager } from '../../../core/midi/MidiManager';
+import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
 import { toMusicXml } from '../../../core/notation/musicXml';
 import {
@@ -11,6 +12,8 @@ import {
   type PracticeMidiEvent
 } from '../../../core/training/twoHandPractice';
 import { useAppStore } from '../../../store/useAppStore';
+import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
+  type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
@@ -24,6 +27,18 @@ function placeCursor(renderer: OpenSheetMusicDisplay, ticks: number): void {
   }
   cursor.show();
 }
+
+const timedFeedbackText: Record<TimedPracticeState['feedback'], string> = {
+  'count-in': 'Подготовка: четыре удара метронома перед началом.',
+  ready: 'Играйте строго в долю, слушая метроном.',
+  partial: 'Удерживайте первую ноту аккорда до второй.',
+  correct: 'Попадание в ритм.',
+  wrong: 'Неверная нота.',
+  'off-beat': 'Раньше или позже допустимого окна.',
+  'released-early': 'Нота отпущена раньше её длительности.',
+  missed: 'Доля пропущена — продолжайте со следующей.',
+  complete: 'Ритмическая попытка завершена. Посмотрите результаты.'
+};
 
 const feedbackText: Record<ChordPracticeState['feedback'], string> = {
   ready: 'Нажмите показанные ноты на MIDI-клавиатуре.',
@@ -39,7 +54,7 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  * the course's sequential activeNoteIndex, attempts, or certifications.
  */
 export const TwoHandPractice: React.FC = () => {
-  const { currentTonality, scoreNoteCount, midiInputsCount } = useAppStore();
+  const { currentTonality, scoreNoteCount, midiInputsCount, bpm } = useAppStore();
   const exercise = useMemo(
     () => createTwoHandPractice(currentTonality, scoreNoteCount === 8 ? 8 : 16),
     [currentTonality, scoreNoteCount]
@@ -47,6 +62,23 @@ export const TwoHandPractice: React.FC = () => {
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
   const trialRef = useRef(trial);
+  const [timed, setTimed] = useState<TimedPracticeState>(initialTimedPractice);
+  const timedRef = useRef(timed);
+  const [plan, setPlan] = useState<TempoPlan | null>(null);
+  const planRef = useRef<TempoPlan | null>(null);
+  const [clockMs, setClockMs] = useState(() => performance.now());
+  const timerRef = useRef<number | null>(null);
+  const clickStops = useRef<Array<() => void>>([]);
+  const [tempoError, setTempoError] = useState('');
+
+  const stopTempo = () => {
+    if (timerRef.current !== null) window.clearInterval(timerRef.current);
+    timerRef.current = null;
+    for (const cancel of clickStops.current) cancel();
+    clickStops.current = [];
+    planRef.current = null;
+    setPlan(null);
+  };
   const mountRef = useRef<HTMLDivElement>(null);
   const rendererRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
@@ -54,21 +86,111 @@ export const TwoHandPractice: React.FC = () => {
   const [renderEpoch, setRenderEpoch] = useState(0);
 
   const resetTrial = () => {
+    stopTempo();
     trialRef.current = initialChordPractice();
+    timedRef.current = initialTimedPractice();
     setTrial(trialRef.current);
+    setTimed(timedRef.current);
+    setTempoError('');
+  };
+
+  const startTempo = async () => {
+    stopTempo();
+    const context = audioEngine.ensureAudioContext();
+    if (!context || !audioEngine.getAudioEnabled()) {
+      setTempoError('Включите звук в настройках — метроном нужен для проверки ритма.');
+      return;
+    }
+    try {
+      await context.resume();
+      if (context.state !== 'running') throw new Error('AudioContext не запущен');
+      setTempoError('');
+      // Anchor both the metronome and the incoming MIDI events to one
+      // reference instant, with four full beats before the first attack.
+      const beatSeconds = 60 / bpm;
+      const leadSeconds = 4 * beatSeconds + 0.20;
+      const audioStart = context.currentTime + leadSeconds;
+      const startMs = performance.now() + leadSeconds * 1000;
+      const nextPlan: TempoPlan = {
+        startMs, bpm, windowMs: 160, overlapMs: 140, holdGraceMs: 120
+      };
+      timedRef.current = initialTimedPractice();
+      setTimed(timedRef.current);
+      trialRef.current = initialChordPractice();
+      setTrial(trialRef.current);
+      planRef.current = nextPlan;
+      setPlan(nextPlan);
+      setClockMs(performance.now());
+
+      const endTicks = Math.max(...exercise.score.notes.map(note =>
+        note.onsetTicks + note.durationTicks));
+      for (let beat = -4; beat <= endTicks / 4; beat++) {
+        clickStops.current.push(audioEngine.scheduleMetronomeClick(
+          beat % 4 === 0, audioStart + beat * beatSeconds
+        ));
+      }
+
+      timerRef.current = window.setInterval(() => {
+        const currentPlan = planRef.current;
+        if (!currentPlan) return;
+        const now = performance.now();
+        setClockMs(now);
+        timedRef.current = reduceTimedPractice(
+          timedRef.current, exercise.score, exercise.steps,
+          currentPlan, { type: 'tick', receivedAtMs: now }
+        );
+        setTimed(timedRef.current);
+        if (timedRef.current.finished) {
+          if (timerRef.current !== null) window.clearInterval(timerRef.current);
+          timerRef.current = null;
+          for (const cancel of clickStops.current) cancel();
+          clickStops.current = [];
+          // Keep the completed plan for the result display and cursor.
+        }
+      }, 35);
+    } catch (error) {
+      stopTempo();
+      setTempoError(error instanceof Error ? error.message : String(error));
+    }
   };
 
   useEffect(() => {
-    resetTrial();
-    return midiManager.onMidiEvent(event => {
-      if (event.type === 'sustain') return; // Pedal does not mean physically held keys.
+    // An exercise change or navigating away cancels scheduled clicks and
+    // cannot leave a hidden timed session awarding progress.
+    const detach = midiManager.onMidiEvent(event => {
+      if (event.type === 'sustain') return;
       const relevant: PracticeMidiEvent | null =
         event.type === 'note-on' || event.type === 'note-off' ? event :
         event.type === 'panic' || event.type === 'all-notes-off' ? { type: 'panic' } : null;
       if (!relevant) return;
-      trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant);
-      setTrial(trialRef.current);
+      const currentPlan = planRef.current;
+      if (currentPlan) {
+        if (timedRef.current.finished) return;
+        timedRef.current = reduceTimedPractice(
+          timedRef.current, exercise.score, exercise.steps, currentPlan, relevant
+        );
+        setTimed(timedRef.current);
+      } else {
+        trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant);
+        setTrial(trialRef.current);
+      }
     });
+    const pauseWhenHidden = () => {
+      if (document.hidden && planRef.current) {
+        stopTempo();
+        setTempoError('Попытка остановлена при переходе на другую вкладку.');
+      }
+    };
+    document.addEventListener('visibilitychange', pauseWhenHidden);
+    return () => {
+      detach();
+      document.removeEventListener('visibilitychange', pauseWhenHidden);
+      if (timerRef.current !== null) window.clearInterval(timerRef.current);
+      timerRef.current = null;
+      for (const cancel of clickStops.current) cancel();
+      clickStops.current = [];
+      planRef.current = null;
+    };
   }, [exercise]);
 
   useEffect(() => {
@@ -151,12 +273,16 @@ export const TwoHandPractice: React.FC = () => {
     };
   }, [xml]);
 
-  const currentStep = exercise.steps[trial.stepIndex];
+  const activeStepIndex = plan ? timed.stepIndex : trial.stepIndex;
+  const currentStep = exercise.steps[activeStepIndex];
+  const cursorTick = plan
+    ? currentScoreTick(plan, clockMs, exercise.score)
+    : (currentStep?.onsetTicks ?? exercise.steps[exercise.steps.length - 1].onsetTicks);
   useEffect(() => {
     if (loadStatus !== 'ready' || !rendererRef.current) return;
-    try { placeCursor(rendererRef.current, currentStep?.onsetTicks ?? exercise.steps[exercise.steps.length - 1].onsetTicks); }
+    try { placeCursor(rendererRef.current, cursorTick); }
     catch (error) { console.warn('Two-hand cursor failed', error); }
-  }, [currentStep, exercise, loadStatus, renderEpoch]);
+  }, [cursorTick, loadStatus, renderEpoch]);
 
   const expected = currentStep?.expectedMidi
     .map(midi => MIDI_NAMES.get(midi) ?? String(midi)).join(' + ') ?? 'Готово';
@@ -175,20 +301,34 @@ export const TwoHandPractice: React.FC = () => {
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
           <h2 className="text-base font-semibold text-slate-100">Две руки — одновременная игра (MIDI)</h2>
-          <p className="text-xs text-amber-300">Отдельный практикум без зачёта курса. Оцениваем перекрытие физических нажатий; точность ритма по метроному пока не оценивается.</p>
+          <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex gap-2 items-center">
-          <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново</button>
+          <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново / Стоп</button>
+          <button type="button" data-testid="two-hand-start-tempo" disabled={!!plan && !timed.finished}
+            onClick={() => { void startTempo(); }}
+            className="rounded bg-sky-700 disabled:opacity-40 px-3 py-1.5 text-xs text-white">
+            {plan ? 'Повторить с метрономом' : 'Играть по метроному · 4 доли'}
+          </button>
           <button type="button" onClick={exportXml} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">MusicXML</button>
         </div>
       </div>
       <div className="flex flex-wrap gap-3 items-center text-sm">
-        <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(trial.stepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
+        <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(activeStepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
+        <span data-testid="two-hand-mode">{plan ? (timed.finished ? 'Ритм завершён' : 'Ритм · метроном') : 'Свободная практика'}</span>
         <span>Момент: <strong>{currentStep ? currentStep.onsetTicks / 4 + 1 : '—'}</strong> доля</span>
         <span>Играть вместе: <strong data-testid="two-hand-expected" className="text-sky-300">{expected}</strong></span>
         <span className="text-slate-400">MIDI: {midiInputsCount > 0 ? 'подключено' : 'нет устройства'}</span>
       </div>
-      <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{feedbackText[trial.feedback]}</p>
+      {plan && <div data-testid="two-hand-timed-stats" className="flex flex-wrap gap-3 text-xs text-slate-200">
+        <span>В долю: <strong>{timed.hits}</strong></span>
+        <span>Пропущено: <strong>{timed.misses}</strong></span>
+        <span>Ранних отпусканий: <strong>{timed.earlyReleases}</strong></span>
+        <span>Ошибочных нот: <strong>{timed.wrongPitches}</strong></span>
+        <span>Отклонение: <strong>{timed.lastDeviationMs === null ? '—' : timed.lastDeviationMs + ' мс'}</strong></span>
+      </div>}
+      {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>}
+      <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? timedFeedbackText[timed.feedback] : feedbackText[trial.feedback]}</p>
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
         <div ref={mountRef} aria-label="Независимые партии двух рук OpenSheetMusicDisplay"
           className="min-h-[220px] w-full" />
