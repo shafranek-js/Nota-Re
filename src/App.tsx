@@ -7,14 +7,12 @@ import { StatusBar } from './components/layout/StatusBar';
 import { readScoreRendererPreference, saveScoreRendererPreference } from './core/notation/scoreRendererPreference';
 import type { ScoreRenderer } from './core/notation/scoreRendererPreference';
 import { CourseWorkspace } from './components/workspaces/CourseWorkspace';
-import { TrainerWorkspace } from './components/workspaces/TrainerWorkspace/TrainerWorkspace';
-import { PrecheckWorkspace } from './components/workspaces/PrecheckWorkspace';
-import { LabWorkspace } from './components/workspaces/LabWorkspace';
+import { StudioWorkspace } from './components/workspaces/StudioWorkspace';
 import { TheoryWorkspace } from './components/workspaces/TheoryWorkspace';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, initApp, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled } = useAppStore();
-  const zenActive = isZenActive({ currentWorkspace, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
+  const { currentWorkspace, studioSection, initApp, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled } = useAppStore();
+  const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
   const [scoreRenderer, setScoreRenderer] = useState<ScoreRenderer>(readScoreRendererPreference);
 
   const selectScoreRenderer = (renderer: ScoreRenderer) => {
@@ -35,10 +33,8 @@ export const App: React.FC = () => {
       <main className="flex-1 min-h-0 w-full overflow-y-auto lg:overflow-hidden flex flex-col">
         {currentWorkspace === 'course' && <CourseWorkspace />}
         {currentWorkspace === 'trainer' && (
-          <TrainerWorkspace renderer={scoreRenderer} onSelectRenderer={selectScoreRenderer} />
+          <StudioWorkspace renderer={scoreRenderer} onSelectRenderer={selectScoreRenderer} zenActive={zenActive} />
         )}
-        {currentWorkspace === 'precheck' && <PrecheckWorkspace />}
-        {currentWorkspace === 'lab' && <LabWorkspace />}
         {currentWorkspace === 'theory' && <TheoryWorkspace />}
       </main>
 
