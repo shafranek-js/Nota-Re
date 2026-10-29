@@ -10,7 +10,7 @@ import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { getExerciseEngravingKey } from '../../../core/notation/exerciseEngravingKey';
 import { osmdZoomForWidth } from '../../../core/notation/osmdZoom';
-import { getEngravedNotePoint, positionCursorAtTicks, getBassStaveGeometries, getTrebleStaveGeometries, getTrebleMeasureStarts, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
+import { getEngravedNotePoint, getEngravedNoteBounds, positionCursorAtTicks, getBassStaveGeometries, getTrebleStaveGeometries, getTrebleMeasureStarts, type EngravedPoint } from '../../../core/notation/osmdGeometryAdapter';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -78,7 +78,7 @@ function addLayerLabel(
   node.style.left = `${x}px`;
   node.style.top = `${y}px`;
   node.style.transform = 'translateX(-50%)';
-  node.style.fontSize = kind === 'finger' ? '12px' : '11px';
+  node.style.fontSize = '12px';
   node.style.fontWeight = kind === 'finger' || active ? '700' : '500';
   node.style.color = kind === 'finger' ? '#fb7185' :
     active ? '#38bdf8' : kind === 'measure' ? '#94a3b8' : '#64748b';
@@ -139,7 +139,9 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     return toMusicXml(score, {
       includeFingering: currentAppMode === 'hanon',
       includeSyllables: currentAppMode === 'hanon',
-      hideInactiveStaffRests: true
+      hideInactiveStaffRests: true,
+      hideGeneratedRests: currentAppMode === 'gpattern',
+      bassStemsUp: currentAppMode === 'gpattern'
     });
     // Equivalent musical input produces an identical score and XML even after
     // immutable status/index changes; intentionally omit array reference.
@@ -529,7 +531,11 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
             if (!group || !mount.contains(group)) continue;
             const box = group.getBoundingClientRect();
             const y = box.top - layer.getBoundingClientRect().top - 12;
-            addLayerLabel(layer, String(note.finger), head.x, y, 'finger');
+            // The bass-to-treble gaze vector shares the bass notehead's X;
+          // offset the finger annotation to avoid covering the dotted path.
+          const fingerX = currentAppMode === 'gpattern' && note.clef === 'bass'
+            ? head.x - 18 : head.x;
+          addLayerLabel(layer, String(note.finger), fingerX, y, 'finger');
             break;
           }
         }
@@ -701,8 +707,8 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     const svgNS = 'http://www.w3.org/2000/svg';
     try {
       for (const guide of guides) {
-        const from = getEngravedNotePoint(renderer, mount, noteOnsets[guide.fromIndex]);
-        const to = getEngravedNotePoint(renderer, mount, noteOnsets[guide.toIndex]);
+        const from = getEngravedNoteBounds(renderer, mount, noteOnsets[guide.fromIndex]);
+        const to = getEngravedNoteBounds(renderer, mount, noteOnsets[guide.toIndex]);
         // SVG pages can differ. Never join notes across unrelated viewports.
         if (!from || !to || from.root !== to.root) continue;
         const group = document.createElementNS(svgNS, 'g');
@@ -714,9 +720,10 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         const path = document.createElementNS(svgNS, 'path');
         // Begin above the bass notehead. Travel vertically toward the treble
         // staff then right to the melody, as the method teaches.
-        const elbowY = to.y - 14;
+        const elbowY = to.y;
+        const endX = Math.max(from.x + 6, to.left - 6);
         path.setAttribute('d',
-          `M ${from.x} ${from.y - 12} L ${from.x} ${elbowY} L ${to.x - 12} ${elbowY}`);
+          `M ${from.x} ${from.top - 6} L ${from.x} ${elbowY} L ${endX} ${elbowY}`);
         path.setAttribute('stroke', '#b45309');
         path.setAttribute('stroke-width', '2.3');
         path.setAttribute('stroke-dasharray', '5 3');
@@ -724,12 +731,12 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
 
         const label = document.createElementNS(svgNS, 'text');
         label.textContent = 'Г ➔';
-        label.setAttribute('x', String(from.x - 11));
-        label.setAttribute('y', String(elbowY - 8));
-        label.setAttribute('text-anchor', 'end');
+        label.setAttribute('x', String(from.x + 6));
+        label.setAttribute('y', String(elbowY - 9));
+        label.setAttribute('text-anchor', 'start');
         label.setAttribute('font-size', '11');
         label.setAttribute('font-weight', 'bold');
-        label.setAttribute('fill', '#92400e');
+        label.setAttribute('fill', '#f59e0b');
 
         group.append(path, label);
         from.root.appendChild(group);
