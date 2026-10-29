@@ -164,7 +164,8 @@ export function appendShadowAttempt(
 ): ShadowSeriesState {
   if (state.lessonId !== lessonId ||
       !Number.isSafeInteger(attemptId) || attemptId <= state.lastAttemptId) return state;
-  const accepted = verdict?.accepted === true;
+  const accepted = verdict?.accepted === true &&
+    verdict.officialCourseCredit === false && verdict.reasons.length === 0;
   const policy = getTwoHandShadowPolicy(lessonId);
   if (!policy) return state;
   const totalAccepted = state.accepted + (accepted ? 1 : 0);
