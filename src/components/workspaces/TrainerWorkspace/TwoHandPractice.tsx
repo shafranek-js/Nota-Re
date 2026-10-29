@@ -16,11 +16,11 @@ import { useAppStore } from '../../../store/useAppStore';
 import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
-import { createLessonTwoHandScore } from '../../../core/training/lessonTwoHandScore';
+import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 import { appendShadowAttempt, evaluateTwoHandShadowAttempt, getTwoHandShadowPolicy,
-  initialShadowSeries } from '../../../core/training/twoHandShadowSeries';
+  initialShadowSeries, nextTwoHandShadowStudy } from '../../../core/training/twoHandShadowSeries';
 
 const MIDI_NAMES = new Map(Object.entries(MIDI_NOTE_MAP).map(([name, note]) => [note.midi, name]));
 
@@ -69,14 +69,17 @@ export const TwoHandPractice: React.FC = () => {
   // trainer preferences or the official per-lesson grade.
   const practiceBpm = courseTrial?.bpm ?? bpm;
   const practiceTonality = courseTrial?.tonality ?? currentTonality;
+  // Canonical index of the CURRENT score. Only explicitly selecting the
+  // next study changes the score; failed runs can replay identical notes.
+  const [studyIndex, setStudyIndex] = useState(0);
   const [pattern, setPattern] = useState<TwoHandPattern>(
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
   const exercise = useMemo(
     () => courseTrial
-      ? createLessonTwoHandScore(courseTrial.lessonId, practiceTonality)
+      ? createLessonTwoHandScore(courseTrial.lessonId, practiceTonality, studyIndex)
       : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
-    [courseTrial?.lessonId, practiceTonality, scoreNoteCount, pattern]
+    [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount, pattern]
   );
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
@@ -103,7 +106,7 @@ export const TwoHandPractice: React.FC = () => {
     activeAttemptRef.current = null;
     const verdict = completed && currentPlan
       ? evaluateTwoHandShadowAttempt(
-          courseTrial.lessonId, exercise.score, exercise.steps, completed, currentPlan
+          courseTrial.lessonId, exercise.score, exercise.steps, completed, currentPlan, studyIndex
         )
       : null; // Deliberate Stop, visibility loss, or interrupted attempt.
     setShadowSeries(previous => appendShadowAttempt(
@@ -348,9 +351,8 @@ export const TwoHandPractice: React.FC = () => {
     assessment && courseTrial ? assessLessonReleases(exercise.score, timed) : null,
     [assessment, courseTrial?.lessonId, exercise, timed]
   );
-  const practiceProgress = shadowPolicy
-    ? (shadowPolicy.consecutive ? shadowSeries.cleanStreak : shadowSeries.accepted)
-    : 0;
+  const practiceProgress = shadowPolicy ? shadowSeries.successfulStudies.length : 0;
+  const suggestedStudy = courseTrial ? nextTwoHandShadowStudy(shadowSeries) : null;
   const restNow = plan !== null && !timed.finished &&
     clockMs >= plan.startMs &&
     !exercise.score.notes.some(note =>
@@ -384,11 +386,28 @@ export const TwoHandPractice: React.FC = () => {
               {courseTrial.lessonId === 11
                 ? 'Учебная партитура: бас на первую долю двух тактов; правая рука вступает на вторую.'
                 : 'Учебная партитура: правая рука — legato восьмыми; левая — staccato четвертями.'}
+              {' '}<strong data-testid="two-hand-study-label">
+                Этюд {studyIndex + 1}/{lessonTwoHandStudyCount(courseTrial.lessonId)}
+              </strong>
             </p>
           )}
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          {courseTrial && (
+            <button type="button" data-testid="two-hand-next-study"
+              disabled={!!plan && !timed.finished || suggestedStudy === null}
+              onClick={() => {
+                if (suggestedStudy === null) return;
+                resetTrial();
+                setStudyIndex(suggestedStudy);
+              }}
+              className="rounded border border-sky-600 px-3 py-1.5 text-xs text-sky-200 disabled:opacity-40">
+              {suggestedStudy === null ? 'Все мини-этюды сыграны' :
+                suggestedStudy === studyIndex ? 'Повторить текущий этюд' :
+                  'Следующий этюд'}
+            </button>
+          )}
           {courseTrial && (
             <button type="button" data-testid="two-hand-back-to-course"
               onClick={() => switchWorkspace('course')}
@@ -435,20 +454,24 @@ export const TwoHandPractice: React.FC = () => {
           </strong> {shadowPolicy.consecutive ? 'чистых повторений подряд' : 'чистых повторений'}.
             {' '}Всего попыток: {shadowSeries.attempts}; чистых: {shadowSeries.accepted};
             ошибок: {shadowSeries.rejected}; прервано: {shadowSeries.aborted}.
+            {' '}Разных успешно сыгранных: {shadowSeries.successfulStudies.length}.
           </p>
           <p data-testid="two-hand-shadow-last-result">
             {shadowSeries.attempts === 0 ? 'Завершённых попыток пока нет.' :
               shadowSeries.lastVerdict === null ? 'Предыдущая попытка остановлена или прервана.' :
               shadowSeries.lastVerdict.accepted
                 ? 'Предыдущий мини-этюд сыгран чисто (только тренировочная проверка).'
-                : 'Предыдущая попытка не соответствует предварительным критериям.'}
+                : shadowSeries.lastVerdict.reasons.includes('duplicate-study')
+                  ? 'Этот мини-этюд уже учтён. Для следующего результата нужна другая партитура.'
+                  : 'Предыдущая попытка не соответствует предварительным критериям.'}
           </p>
           {shadowSeries.practiceTargetReached &&
             <p data-testid="two-hand-shadow-target" className="text-emerald-300">
-              Тренировочная цель серии достигнута. Это НЕ закрывает урок.
+              Все разные тренировочные мини-этюды пройдены. Это НЕ закрывает урок.
             </p>}
           <p className="text-slate-400">
-            Порог средней ошибки вступлений: 110 мс; нужны все ноты и правильные
+            Каждый номер серии имеет свою партитуру; повтор того же номера
+            не считается новым успехом. Порог средней ошибки вступлений: 110 мс; нужны все ноты и правильные
             физические отпускания. В учебной программе точность ≥
             {shadowPolicy.curriculumAccuracyPercent}% и реакция
             {shadowPolicy.curriculumReactionMs} мс относятся к ДРУГОМУ нормативу,
@@ -459,6 +482,7 @@ export const TwoHandPractice: React.FC = () => {
             onClick={() => {
               resetTrial();
               setShadowSeries(initialShadowSeries(courseTrial.lessonId));
+              setStudyIndex(0);
             }}
             className="rounded border border-sky-600/60 px-2 py-1 text-sky-200">
             Сбросить тренировочную серию
