@@ -59,17 +59,27 @@ export function assessPolyphonicPractice(
   if (!allDistinct) throw new Error('Invalid two-hand onset timeline');
 
   const matched = new Set(state.hitOnsets);
+  const expectedKeys = new Set(score.notes.map(note => note.onsetTicks + ':' + note.midi));
+  const attackKeys = new Set(state.acceptedAttacks.map(note => note.onsetTicks + ':' + note.midi));
   const evidenceConsistent =
     state.hits === state.hitOnsets.length &&
     matched.size === state.hitOnsets.length &&
     state.onsetDeviationsMs.length === state.hitOnsets.length &&
     state.hitOnsets.every(tick => expectedOnsets.includes(tick)) &&
     state.onsetDeviationsMs.every(n => Number.isFinite(n) && n >= 0) &&
+    attackKeys.size === state.acceptedAttacks.length &&
+    state.acceptedAttacks.every(note =>
+      expectedKeys.has(note.onsetTicks + ':' + note.midi) &&
+      Number.isFinite(note.atMs)) &&
+    // A full-chord hit must be backed by every note's actual MIDI event.
+    state.hitOnsets.every(tick =>
+      score.notes.filter(note => note.onsetTicks === tick)
+        .every(note => attackKeys.has(note.onsetTicks + ':' + note.midi))) &&
     state.hits + state.misses === steps.length;
 
   const hand = (staff: StaffNumber): HandAssessment => {
     const notes = score.notes.filter(note => note.staff === staff);
-    const matchedCount = notes.filter(note => matched.has(note.onsetTicks)).length;
+    const matchedCount = notes.filter(note => attackKeys.has(note.onsetTicks + ':' + note.midi)).length;
     return {
       staff, expected: notes.length, matched: matchedCount,
       accuracyPercent: notes.length ? Math.round(matchedCount / notes.length * 1000) / 10 : 0
