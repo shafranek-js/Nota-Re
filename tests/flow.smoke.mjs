@@ -79,6 +79,42 @@ try {
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await running.waitFor({ state: 'visible', timeout: 30000 });
   assert.equal(await attempts(), 0, 'new lesson has fresh attempts');
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+
+  // A tab hidden during an active timed lesson must not resume as an
+  // untimed certified lesson after the user returns.
+  await page.evaluate(() => {
+    Object.defineProperty(document, 'hidden', { configurable: true, value: true });
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(),
+    'Практика без зачёта', 'a hidden tab must revoke lesson eligibility');
+  const hiddenAttempts = await attempts();
+  await page.waitForTimeout(1300);
+  assert.equal(await attempts(), hiddenAttempts,
+    'a hidden tab must not produce unseen missed notes');
+  await page.evaluate(() => {
+    delete document.hidden;
+    document.dispatchEvent(new Event('visibilitychange'));
+  });
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(),
+    'Практика без зачёта', 'returning to the tab cannot silently re-enable a graded lesson');
+
+  // Entering imagined/tabletop practice while flow runs must cancel the
+  // audio clock; otherwise missed notes continue behind the practice overlay.
+  await page.getByRole('button', { name: /Курс \(12 уроков\)/ }).click();
+  await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+  await running.waitFor();
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+  await page.getByRole('button', { name: /Режим «Стол»/ }).click();
+  await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
+  assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Практика без зачёта');
+  const tabletopAttempts = await attempts();
+  await page.waitForTimeout(1400);
+  assert.equal(await attempts(), tabletopAttempts,
+    'tabletop mode must not keep grading rhythmic misses on the hidden score');
+
   assert.deepEqual(errors, [], 'no uncaught errors');
 
   console.log('Flow Chrome smoke passed: lesson presets, silent misses, pause/resume and navigation stop.');
