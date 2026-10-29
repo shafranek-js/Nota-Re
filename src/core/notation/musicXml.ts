@@ -285,8 +285,9 @@ function renderEvent(
     xml += '<note>' + midiPitch(event.midi, fifths) + '<duration>' + part.duration + '</duration>' +
       (tieStop ? '<tie type="stop"/>' : '') + (tieStart ? '<tie type="start"/>' : '') +
       '<voice>' + event.staff + '</voice><type>' + part.type + '</type>' +
-      (part.dotted ? '<dot/>' : '') + '<staff>' + event.staff + '</staff>' +
+      (part.dotted ? '<dot/>' : '') +
       (options.bassStemsUp && event.staff === 2 && part.type !== 'whole' ? '<stem>up</stem>' : '') +
+      '<staff>' + event.staff + '</staff>' +
       (notations ? '<notations>' + notations + '</notations>' : '') +
       (firstSegment && options.includeSyllables && event.syllable
         ? '<lyric><syllabic>single</syllabic><text>' + escapeXml(event.syllable) + '</text></lyric>'
