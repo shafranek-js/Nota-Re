@@ -34,6 +34,10 @@ try {
 
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  const openPanel = async (name) => {
+    const button = page.getByTestId(`toolbar-trigger-${name}`);
+    if (await button.getAttribute('aria-expanded') !== 'true') await button.click();
+  };
 
   const svg = page.locator('[aria-label="Нотная партитура OpenSheetMusicDisplay"] svg').first();
   await svg.waitFor({ state: 'visible', timeout: 45000 });
@@ -57,7 +61,7 @@ try {
 
   // Explicitly enter ungraded tabletop mode to advance cursor in smoke
   // tests; regular Space no longer auto-enters a correct pitch.
-  await page.getByTestId('toolbar-trigger-view').click();
+  await openPanel('view');
   await page.getByRole('button', { name: /Режим «Стол»/ }).click();
   await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
   const beforeAssistedStatusChange = await epoch();
@@ -69,7 +73,7 @@ try {
   const indexAfter = Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index'));
   assert.equal(indexAfter, indexBefore + 1, 'exercise should advance exactly one step');
 
-  await page.getByTestId('toolbar-trigger-mode').click();
+  await openPanel('mode');
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
   assert.equal(await renderError.count(), 0, 'OSMD rhythm mode must load');
@@ -124,14 +128,14 @@ try {
   await waitForOverlayRender('[data-notare-gaze-overlay="true"]', beforeGazeResize);
   assert.ok(await gaze.count() > 0, 'G-pattern must reanchor after narrow viewport rerender');
   const beforeRegenerate = await epoch();
-  await page.getByTestId('toolbar-trigger-actions').click();
+  await openPanel('actions');
   await page.getByRole('button', { name: 'Новый', exact: true }).click();
   await waitForOverlayRender('[data-notare-gaze-overlay="true"]', beforeRegenerate);
   assert.ok(await gaze.count() > 0, 'G-pattern must survive regenerating notes');
 
   // Hanon now uses OSMD's engraved fingering, articulation and syllables,
   // with four-note block brackets anchored to the real notehead positions.
-  await page.getByTestId('toolbar-trigger-mode').click();
+  await openPanel('mode');
   await page.getByRole('button', { name: /8\. Ганон/ }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
   const hanonBlock = page.locator('[data-notare-hanon-block="true"]');
@@ -152,7 +156,7 @@ try {
   await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
   await page.keyboard.press('Space');
   assert.equal(Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index')), 1);
-  await page.getByTestId('toolbar-trigger-actions').click();
+  await openPanel('actions');
   await page.getByRole('button', { name: 'Новый', exact: true }).click();
   await page.waitForFunction(() => {
     const score = document.querySelector('[data-testid="osmd-score"]');
@@ -215,7 +219,7 @@ try {
   await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
 
   // A mode switch with landmarks enabled retains OSMD and recreates the guides.
-  await page.getByTestId('toolbar-trigger-mode').click();
+  await openPanel('mode');
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
   await bassMarks.first().waitFor({ state: 'attached', timeout: 15000 });
@@ -223,7 +227,7 @@ try {
   await page.getByRole('button', { name: /Маяки баса/ }).click();
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-bass-landmark="true"]').length === 0);
 
-  await page.getByTestId('toolbar-trigger-mode').click();
+  await openPanel('mode');
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });
   await page.getByRole('button', { name: 'Классический', exact: true }).click();
@@ -235,7 +239,7 @@ try {
   // Experimental two-hand MIDI practice: the RH and LH scores start together,
   // but ONLY physically overlapping MIDI note-ons advance a shared onset.
   await page.waitForFunction(() => typeof window.__twoHandMidi.input.onmidimessage === 'function');
-  await page.getByTestId('toolbar-trigger-rhythm').click();
+  await openPanel('rhythm');
   await page.getByRole('button', { name: /Две руки одновременно · MIDI/ }).click();
   await page.getByTestId('two-hand-practice').waitFor({ state: 'visible' });
   await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
@@ -363,7 +367,7 @@ try {
 
   // A black piano key is spelled Bb under F major but still has MIDI 70;
   // under C major its legacy A# label remains accessible.
-  await page.getByTestId('toolbar-trigger-material').click();
+  await openPanel('material');
   const keyPicker = page.locator('select').filter({ has: page.locator('option[value="F"]') }).first();
   await keyPicker.selectOption('F');
   await page.getByRole('button', { name: 'Клавиша Bb4', exact: true })
