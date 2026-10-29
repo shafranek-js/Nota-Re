@@ -51,6 +51,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/zen-mode.smoke.mjs
+      - name: Verify compact Course toolbar, module filters and always-accessible lesson launch
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/course-compact.smoke.mjs
       - name: Verify three destinations, Course continuation and embedded Studio tools
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
