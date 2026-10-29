@@ -34,7 +34,7 @@ try {
       await results.waitFor({ state: 'visible', timeout: 15000 });
       assert.equal((await results.getByTestId('attempt-correct').innerText()).trim(), '8 / 8');
       assert.equal((await results.getByTestId('attempt-accuracy').innerText()).trim(), '100%');
-      assert.match(await results.getByTestId('attempt-verdict').innerText(), /Свободная практика/);
+      assert.match(await results.getByTestId('attempt-verdict').innerText(), /свободной практики/i);
       assert.equal(await results.getByRole('button', { name: /Следующий урок/ }).count(), 0);
       assert.equal(await page.getByTestId('osmd-score').count(), 0);
       assert.equal(await results.locator('#attempt-result-heading').evaluate(el => document.activeElement === el), true,
