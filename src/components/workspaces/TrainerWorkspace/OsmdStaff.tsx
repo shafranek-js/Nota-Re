@@ -81,7 +81,7 @@ function addLayerLabel(
   node.style.fontSize = '12px';
   node.style.fontWeight = kind === 'finger' || active ? '700' : '500';
   node.style.color = kind === 'finger' ? '#fb7185' :
-    active ? '#38bdf8' : kind === 'measure' ? '#94a3b8' : '#64748b';
+    active ? '#38bdf8' : '#94a3b8';
   node.textContent = value;
   layer.appendChild(node);
 }
@@ -981,7 +981,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         </div>
       </div>)}
 
-      <div className="osmd-dark-theme relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100">
+      <div data-gpattern={currentAppMode === 'gpattern'} className="osmd-dark-theme relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100">
         {currentAppMode === 'photo' && isPhotoMasked && (
           <div data-testid="photo-masked-notice" className="sticky top-0 z-20 mx-auto w-fit px-3 py-1 rounded-b-lg bg-cyan-950 text-cyan-100 text-xs pointer-events-none">
             Такт {actualBar} скрыт — играйте по памяти
