@@ -133,3 +133,27 @@ npm run build  # Проверка TypeScript и production-сборки
 
 [Архитектура и план миграции](docs/ARCHITECTURE.md) · [Roadmap и задачи](https://github.com/shafranek-js/Nota-Re/issues/1)
 
+## GitHub Pages
+
+Публичная версия (после включения Pages): **https://shafranek-js.github.io/Nota-Re/**.
+
+В репозитории откройте **Settings → Pages → Build and deployment → Source: GitHub Actions**.
+Workflow [Deploy GitHub Pages](.github/workflows/pages.yml) автоматически запускается
+**только после успешного `OSMD browser smoke` для push в `main`**.
+Он собирает именно проверенный коммит с базовым URL `/Nota-Re/`, повторно
+выполняет unit-тесты, проверяет готовность статических файлов, включённого
+SoundFont (все части SF3) и AudioWorklet, затем развёртывает каталог `dist`.
+Если Pages ещё не включён, первый запуск может потребовать настройки Source,
+после чего неуспешный workflow можно перезапустить из GitHub Actions.
+
+Локальная разработка и другие хостинги по умолчанию используют базовый путь `/`.
+Для самостоятельной проверки сборки GitHub Pages:
+
+```bash
+npm ci
+NOTARE_PUBLIC_BASE=/Nota-Re/ npm run build
+NOTARE_PUBLIC_BASE=/Nota-Re/ node scripts/verify-pages-build.mjs
+```
+
+Для Windows PowerShell установите переменную окружения через
+`$env:NOTARE_PUBLIC_BASE='/Nota-Re/'` перед командами сборки и проверки.
