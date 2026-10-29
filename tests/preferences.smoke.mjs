@@ -19,7 +19,7 @@ try {
   await page.evaluate(() =>
     localStorage.setItem('notare_course_completed_v3', '[1,2]')
   );
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /2\. Ритмослоги/ }).click();
   await page.getByTestId('toolbar-trigger-material').click();
@@ -61,7 +61,7 @@ try {
   assert.equal('totalAttempts' in saved.preferences, false);
 
   await page.reload({ waitUntil: 'domcontentloaded' });
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   await page.getByTestId('toolbar-trigger-mode').click();
   assert.equal(await page.getByRole('button', { name: /2\. Ритмослоги/ }).getAttribute('aria-pressed'), 'true');
   await page.getByTestId('toolbar-trigger-material').click();
@@ -88,7 +88,7 @@ try {
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
   await page.reload({ waitUntil: 'domcontentloaded' });
   assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/i);
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
 
   // Corrupt data and unsupported schema versions must not brick the app.
@@ -102,7 +102,7 @@ try {
   });
   await page.reload({ waitUntil: 'domcontentloaded' });
   assert.match(await page.locator('header').innerText(), /Курс: 2 \/ 12 уроков/i);
-  await page.getByRole('button', { name: /Тренажёр-Студия/ }).click();
+  await page.getByRole('button', { name: /^Студия$/ }).click();
   assert.equal(await page.locator('input[type="range"]').first().inputValue(), '60');
   await page.getByTestId('toolbar-trigger-material').click();
   assert.equal(await page.locator('select').filter({ has: page.locator('option[value="F"]') }).inputValue(), 'F');
