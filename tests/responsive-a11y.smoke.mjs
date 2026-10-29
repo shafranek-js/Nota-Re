@@ -94,6 +94,30 @@ try {
       await opener.click();
       await page.getByRole('button', { name: 'Готово', exact: true }).click();
       assert.equal(await opener.evaluate(el => el === document.activeElement), true);
+
+      // The MIDI shortcut is an actual deep link, not a second settings page.
+      // It must open the existing diagnostics, transfer focus and use the same
+      // interruption / modal / Escape rules as ordinary Settings.
+      const midiEntry = page.getByTestId('header-midi-diagnostics');
+      await midiEntry.click();
+      await dialog.waitFor({ state: 'visible' });
+      const midiDetails = dialog.getByTestId('midi-audio-diagnostics');
+      assert.equal(await midiDetails.getAttribute('open'), '',
+        'MIDI shortcut automatically expands the original diagnostics');
+      assert.equal(await midiDetails.locator('summary').evaluate(el => el === document.activeElement), true,
+        'focus enters diagnostics rather than the general Settings header');
+      assert.equal(await dialog.getByTestId('midi-hardware-check').count(), 1,
+        'existing physical MIDI self-check stays present');
+      assert.equal(await page.getByTestId('status-bar').evaluate(el => el.inert), true);
+      await page.keyboard.press('Escape');
+      await dialog.waitFor({ state: 'detached' });
+      assert.equal(await midiEntry.evaluate(el => el === document.activeElement), true,
+        'Escape returns focus to the MIDI shortcut');
+      await opener.click();
+      await dialog.waitFor({ state: 'visible' });
+      assert.equal(await dialog.getByTestId('midi-audio-diagnostics').getAttribute('open'), null,
+        'ordinary Settings does not reopen the previous MIDI deep link');
+      await page.keyboard.press('Escape');
     } finally {
       await page.close();
     }
