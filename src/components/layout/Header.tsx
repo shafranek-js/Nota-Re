@@ -1,8 +1,11 @@
 import React from 'react';
 import { useAppStore, WorkspaceTab } from '../../store/useAppStore';
-import { Settings, Volume2, VolumeX, Music, Cable } from 'lucide-react';
+import { Settings, Volume2, VolumeX, Music, Cable, Moon, Sun } from 'lucide-react';
+import type { AppTheme } from '../../core/ui/themePreference';
 
-export const Header: React.FC = () => {
+interface HeaderProps { theme: AppTheme; onToggleTheme: () => void; }
+
+export const Header: React.FC<HeaderProps> = ({ theme, onToggleTheme }) => {
   const {
     currentWorkspace,
     switchWorkspace,
@@ -54,6 +57,25 @@ export const Header: React.FC = () => {
 
       {/* Audio, hardware diagnostics and settings; status metrics stay in the footer. */}
       <div className="flex items-center gap-2 shrink-0">
+        <button
+          type="button"
+          data-testid="theme-toggle"
+          onClick={onToggleTheme}
+          aria-label={theme === 'light' ? 'Включить тёмную тему' : 'Включить светлую тему'}
+          title={theme === 'light' ? 'Включить тёмную тему' : 'Включить светлую тему'}
+          aria-pressed={theme === 'light'}
+          className={`inline-flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg border text-xs font-medium transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${
+            theme === 'light'
+              ? 'bg-amber-500/15 border-amber-500/40 text-amber-300 hover:bg-amber-500/20'
+              : 'bg-slate-800 border-slate-700 text-slate-200 hover:bg-slate-700'
+          }`}
+        >
+          {theme === 'light'
+            ? <Sun className="w-3.5 h-3.5" aria-hidden="true" />
+            : <Moon className="w-3.5 h-3.5" aria-hidden="true" />}
+          <span className="hidden sm:inline">{theme === 'light' ? 'Светлая' : 'Тёмная'}</span>
+        </button>
+
         {/* Звук кнопка */}
         <button
           onClick={toggleAudioMaster}
