@@ -1,10 +1,11 @@
 import React from 'react';
+import type { AppTheme } from '../../../core/ui/themePreference';
 import { useAppStore } from '../../../store/useAppStore';
 import { TONALITY_CONFIG } from '../../../data/tonalities';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { Camera, Volume2 } from 'lucide-react';
 
-export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
+export const GrandStaffSvg: React.FC<{ zen?: boolean; theme: AppTheme }> = ({ zen = false, theme }) => {
   const {
     activeExerciseNotes,
     activeNoteIndex,
@@ -20,6 +21,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
     bpm
   } = useAppStore();
 
+  const light = theme === 'light';
   const tonalityCfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
   const startX = 155;
   const endX = 1650;
@@ -50,7 +52,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   };
 
   return (
-    <div data-theme-lock="dark" className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col justify-between p-2.5 overflow-hidden shadow-inner">
+    <div className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col justify-between p-2.5 overflow-hidden shadow-inner">
       {/* In Zen, retain only the controls relevant to the exercise. */}
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
       <div data-testid={zen ? 'zen-score-actions' : undefined}
@@ -132,11 +134,11 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
           </defs>
 
           {/* Фон нотных линеек */}
-          <rect x="20" y="34" width="1680" height="84" rx="6" fill="#0f172a" opacity="0.35"/>
-          <rect x="20" y="164" width="1680" height="84" rx="6" fill="#0f172a" opacity="0.35"/>
+          <rect x="20" y="34" width="1680" height="84" rx="6" fill={light ? "#dbe5f0" : "#0f172a"} opacity={light ? "0.7" : "0.35"}/>
+          <rect x="20" y="164" width="1680" height="84" rx="6" fill={light ? "#dbe5f0" : "#0f172a"} opacity={light ? "0.7" : "0.35"}/>
 
           {/* 5 линеек скрипичного ключа */}
-          <g stroke="#334155" strokeWidth="1.6">
+          <g stroke={light ? "#64748b" : "#334155"} strokeWidth="1.6">
             <line x1="25" y1="40" x2="1695" y2="40"/>
             <line x1="25" y1="58" x2="1695" y2="58"/>
             <line x1="25" y1="76" x2="1695" y2="76"/>
@@ -145,7 +147,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
           </g>
 
           {/* 5 линеек басового ключа */}
-          <g stroke="#334155" strokeWidth="1.6">
+          <g stroke={light ? "#64748b" : "#334155"} strokeWidth="1.6">
             <line x1="25" y1="170" x2="1695" y2="170"/>
             <line x1="25" y1="188" x2="1695" y2="188"/>
             <line x1="25" y1="206" x2="1695" y2="206"/>
@@ -154,9 +156,9 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
           </g>
 
           {/* Акколада и ключи */}
-          <line x1="25" y1="40" x2="25" y2="242" stroke="#94a3b8" strokeWidth="3.5"/>
-          <text x="34" y="102" fill="#38bdf8" fontSize="72" fontFamily="serif">𝄞</text>
-          <text x="34" y="226" fill="#a855f7" fontSize="60" fontFamily="serif">𝄢</text>
+          <line x1="25" y1="40" x2="25" y2="242" stroke={light ? "#475569" : "#94a3b8"} strokeWidth="3.5"/>
+          <text x="34" y="102" fill={light ? "#0369a1" : "#38bdf8"} fontSize="72" fontFamily="serif">𝄞</text>
+          <text x="34" y="226" fill={light ? "#7e22ce" : "#a855f7"} fontSize="60" fontFamily="serif">𝄢</text>
 
           {/* Ключевые знаки тональности */}
           <g id="key-signature-layer">
@@ -164,10 +166,10 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
               const xPos = 80 + idx * 14;
               return (
                 <g key={idx}>
-                  <text x={xPos} y={s.trebleY} fill="#38bdf8" fontSize="22" fontWeight="bold">
+                  <text x={xPos} y={s.trebleY} fill={light ? "#0369a1" : "#38bdf8"} fontSize="22" fontWeight="bold">
                     {s.type}
                   </text>
-                  <text x={xPos} y={s.bassY} fill="#a855f7" fontSize="22" fontWeight="bold">
+                  <text x={xPos} y={s.bassY} fill={light ? "#7e22ce" : "#a855f7"} fontSize="22" fontWeight="bold">
                     {s.type}
                   </text>
                 </g>
@@ -190,7 +192,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
           )}
 
           {/* Размер 4/4 */}
-          <g fill="#64748b" fontFamily="serif" fontWeight="bold" fontSize="24" textAnchor="middle">
+          <g fill={light ? "#334155" : "#64748b"} fontFamily="serif" fontWeight="bold" fontSize="24" textAnchor="middle">
             <text x="112" y="68">4</text>
             <text x="112" y="102">4</text>
             <text x="112" y="198">4</text>
@@ -239,10 +241,10 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
               const cx = startX + idx * spacingX;
               const cy = n.y;
 
-              let fill = '#e2e8f0';
-              if (n.status === 'current') fill = '#f59e0b';
-              else if (n.status === 'done') fill = '#10b981';
-              else if (n.status === 'missed') fill = '#f43f5e';
+              let fill = light ? '#0f172a' : '#e2e8f0';
+              if (n.status === 'current') fill = light ? '#b45309' : '#f59e0b';
+              else if (n.status === 'done') fill = light ? '#047857' : '#10b981';
+              else if (n.status === 'missed') fill = light ? '#be123c' : '#f43f5e';
 
               const isHalfNote = n.durMultiplier === 2;
               const stemUp = cy >= 76;
@@ -259,7 +261,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
                         y1="40"
                         x2={cx - spacingX / 2}
                         y2="242"
-                        stroke="#475569"
+                        stroke={light ? "#64748b" : "#475569"}
                         strokeWidth="1.6"
                       />
                       <text
@@ -267,7 +269,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
                         y="33"
                         fontSize="11"
                         fontFamily="JetBrains Mono"
-                        fill="#64748b"
+                        fill={light ? "#475569" : "#64748b"}
                       >
                         Такт {idx / 4 + 1}
                       </text>
@@ -380,7 +382,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
                     rx="10.5"
                     ry="7.5"
                     transform={`rotate(-18 ${cx} ${cy})`}
-                    fill={isHalfNote ? '#060a12' : fill}
+                    fill={isHalfNote ? (light ? '#ffffff' : '#060a12') : fill}
                     stroke={fill}
                     strokeWidth={isHalfNote ? '3' : '1'}
                   />
@@ -452,7 +454,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
                     fontSize="11"
                     fontFamily="JetBrains Mono"
                     fontWeight={n.status === 'current' ? 'bold' : 'normal'}
-                    fill={n.status === 'current' ? '#38bdf8' : '#64748b'}
+                    fill={n.status === 'current' ? (light ? '#0369a1' : '#38bdf8') : (light ? '#475569' : '#64748b')}
                   >
                     {n.syllable}
                   </text>
@@ -516,7 +518,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
                 x={photoMaskX + photoMaskWidth / 2}
                 y="160"
                 textAnchor="middle"
-                fill="#94a3b8"
+                fill={light ? "#475569" : "#94a3b8"}
                 fontSize="11"
                 fontFamily="Inter"
               >
