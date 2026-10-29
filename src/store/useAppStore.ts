@@ -67,6 +67,9 @@ export interface AppState {
   showScaleHighlight: boolean;
   showVirtualKeyboard: boolean;
   zenModeEnabled: boolean;
+  /** Ephemeral per-attempt focus gates; never persisted. */
+  zenSessionStarted: boolean;
+  zenDismissedForSession: boolean;
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   isPhotoMasked: boolean;
@@ -134,7 +137,8 @@ export interface AppState {
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
   toggleVirtualKeyboard: () => void;
-  toggleZenMode: () => void;
+  setAutoZenEnabled: (enabled: boolean) => void;
+  dismissZenForSession: () => void;
   setKeyboardLabelMode: (mode: KeyboardLabelMode) => void;
   stopTrainerExercise: () => void;
   setPhotoExposure: (ms: number) => void;
@@ -328,6 +332,10 @@ export const useAppStore = create<AppState>((set, get) => ({
   // All user preference keys live in the versioned, validated snapshot.
   ...loadTrainerPreferences(),
 
+  // Start-to-focus and dismissal are runtime-only, never restored from storage.
+  zenSessionStarted: false,
+  zenDismissedForSession: false,
+
   // Session-only state: never resume graded flow or restore fake results.
   completedLessons: [],
   activeLessonId: null,
@@ -434,6 +442,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set(state => ({
       currentWorkspace: tab,
+      zenSessionStarted: tab === 'trainer' && state.currentWorkspace === 'trainer' ? state.zenSessionStarted : false,
+      zenDismissedForSession: tab === 'trainer' && state.currentWorkspace === 'trainer' ? state.zenDismissedForSession : false,
       studioSection: tab === 'trainer' ? 'practice' : state.studioSection,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
       twoHandTrialLessonId: tab === 'trainer' ? state.twoHandTrialLessonId : null,
@@ -457,6 +467,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentWorkspace: 'trainer',
       studioSection,
       ...(studioSection !== 'practice' ? {
+        zenSessionStarted: false,
+        zenDismissedForSession: false,
         isContinuousFlow: false,
         activeLessonId: null,
         completedExercisesCount: 0,
@@ -554,6 +566,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       studioSection: 'practice',
       activeLessonId: lesson.id,
       trainerPhase: 'playing',
+      zenSessionStarted: true,
+      zenDismissedForSession: false,
       countInBeat: 0,
       isTwoHandPracticeOpen: false,
       twoHandTrialLessonId: null,
@@ -582,6 +596,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       (state.activeNoteIndex > 0 || state.attemptEvents.length > 0);
     set({
       trainerPhase: 'precheck',
+      zenSessionStarted: false,
+      zenDismissedForSession: false,
       countInBeat: 0,
       activeExerciseNotes: resetNotesForRetry(state.activeExerciseNotes),
       activeNoteIndex: 0,
@@ -605,7 +621,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().trainerPhase !== 'countIn') return;
     stopCountIn();
     stopFlowClock();
-    set({ trainerPhase: 'setup', countInBeat: 0 });
+    set({ trainerPhase: 'setup', zenSessionStarted: false, zenDismissedForSession: false, countInBeat: 0 });
   },
 
   startTwoHandCourseTrial: (lessonId) => {
@@ -625,6 +641,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       isContinuousFlow: false,
       isTabletopMode: false,
       trainerPhase: 'playing',
+      zenSessionStarted: false,
+      zenDismissedForSession: false,
       countInBeat: 0,
       completedExercisesCount: 0,
       isExerciseFlawless: false,
@@ -785,8 +803,14 @@ export const useAppStore = create<AppState>((set, get) => ({
     showVirtualKeyboard: !s.showVirtualKeyboard
   })),
 
-  // Presentation-only: do not stop or restart the audio clock, MIDI or scoring.
-  toggleZenMode: () => set((s) => ({ zenModeEnabled: !s.zenModeEnabled })),
+  // Persistent preference; no changes to audio/MIDI/grading on view toggles.
+  setAutoZenEnabled: (zenModeEnabled) => set(state => ({
+    zenModeEnabled,
+    // Changing the future-start preference must not hide Studio mid-exercise.
+    zenDismissedForSession: state.zenSessionStarted ? true : state.zenDismissedForSession
+  })),
+  // Escape only changes this attempt's presentation. Next explicit Start resets it.
+  dismissZenForSession: () => set({ zenDismissedForSession: true }),
 
   setKeyboardLabelMode: (keyboardLabelMode) => set({ keyboardLabelMode }),
 
@@ -798,6 +822,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     photoTimerId = null;
     set({
       trainerPhase: 'setup',
+      zenSessionStarted: false,
+      zenDismissedForSession: false,
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseFlawless: false,
@@ -847,6 +873,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       attemptEvents: [],
       lastAttemptResult: null,
       trainerPhase: 'playing',
+      zenSessionStarted: false,
+      zenDismissedForSession: false,
       countInBeat: 0
     });
     get().regenerateExercise();
@@ -861,7 +889,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     photoTimerId = null;
     const notes = resetNotesForRetry(get().activeExerciseNotes);
     if (!notes.length) {
-      set({ trainerPhase: 'playing' });
+      set({ trainerPhase: 'playing', zenSessionStarted: true, zenDismissedForSession: false });
       get().regenerateExercise();
       return;
     }
@@ -877,6 +905,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       attemptEvents: [],
       lastAttemptResult: null,
       trainerPhase: get().isContinuousFlow ? 'countIn' : 'playing',
+      zenSessionStarted: true,
+      zenDismissedForSession: false,
       countInBeat: 0
     });
     if (get().isContinuousFlow) beginTrainerCountIn(get, patch => set(patch));
@@ -888,7 +918,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     stopFlowClock();
     if (photoTimerId !== null) window.clearTimeout(photoTimerId);
     photoTimerId = null;
-    set({ trainerPhase: 'setup', countInBeat: 0, lastAttemptResult: null, isPhotoMasked: false });
+    set({ trainerPhase: 'setup', zenSessionStarted: false, zenDismissedForSession: false, countInBeat: 0, lastAttemptResult: null, isPhotoMasked: false });
   },
 
   startTrainerExercise: () => get().retryExercise(),

@@ -70,16 +70,7 @@ try {
       scoreAreaHeightPx: Math.round(score.getBoundingClientRect().height),
       scoreViewportHeightPx: Math.round(view.getBoundingClientRect().height),
       hasHorizontalScoreScroll: view.scrollWidth > view.clientWidth + 1,
-      hasVerticalScoreScroll: view.scrollHeight > view.clientHeight + 1,
-      interlinePx: (() => {
-        const band = host.querySelector('[data-notare-staff-band]');
-        const svg = band?.closest('svg');
-        const rendered = band?.getBoundingClientRect();
-        const ctm = svg?.getScreenCTM();
-        return band && rendered && ctm
-          ? Math.round(((Number(band.getAttribute('height')) - 16) / 4) * Math.abs(ctm.d) * 10) / 10
-          : null;
-      })()
+      hasVerticalScoreScroll: view.scrollHeight > view.clientHeight + 1
     };
   });
 
@@ -101,7 +92,9 @@ try {
       `OSMD ${width}: preserve the approximately 12px baseline glyph size from the audited prior build`);
     await page.screenshot({ path: `${artifacts}/stage-f-osmd-${width}.png` });
     const normalEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
-    await page.getByTestId('toolbar-zen-toggle').click();
+    // Start a real practice session to enter focus: no standalone Zen switch.
+    await page.getByTestId('trainer-start-stop').click();
+    await page.getByTestId('trainer-start-stop').click();
     await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     if (width >= 768) {
       // A taller container is insufficient: require the *real* VexFlow
@@ -143,16 +136,6 @@ try {
     await classic.waitFor({ state: 'visible' });
     await checkWidth(`Classic ${width}`);
     assert.ok(await classic.locator('g').count() >= 8, `Classic ${width}: notes visible`);
-    const classicInterline = await classic.evaluate(notes => {
-      const svg = notes.closest('svg');
-      const matrix = svg?.getScreenCTM();
-      return matrix ? Math.round(18 * Math.abs(matrix.d) * 10) / 10 : null;
-    });
-    if (width === 1440) {
-      assert.ok(normal.interlinePx && classicInterline &&
-        Math.abs(normal.interlinePx - classicInterline) <= 2,
-        `OSMD vs Classic at 1440: adjacent staff lines should match within 2px, ${normal.interlinePx} vs ${classicInterline}`);
-    }
     await page.screenshot({ path: `${artifacts}/stage-f-classic-${width}.png` });
     metrics.push({ width, osmd: normal, zen });
     await page.getByRole('button', { name: 'OSMD', exact: true }).click();

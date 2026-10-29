@@ -128,6 +128,8 @@ try {
   // preset. The new examples do not silently replace course certification.
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   await page.getByTestId('two-hand-practice').waitFor({ state: 'detached' });
+  await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+  await page.keyboard.press('Escape');
   await page.getByTestId('course-credit-mode').waitFor({ state: 'visible' });
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
   assert.deepEqual(errors, []);

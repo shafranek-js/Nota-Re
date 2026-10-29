@@ -16,6 +16,10 @@ try {
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
 
       const course = page.getByTestId('course-focused-controls');
+      const zen = page.getByTestId('zen-control-strip');
+      await zen.waitFor({ state: 'visible' });
+      assert.equal(await course.count(), 0, 'certified lesson starts in Zen automatically');
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 40000 });
       assert.equal(await page.getByTestId('trainer-toolbar').count(), 0,
@@ -34,13 +38,18 @@ try {
       assert.match(download.suggestedFilename(), /\.musicxml$/);
       assert.equal((await course.getByTestId('course-credit-mode').innerText()).trim(), 'Зачётная попытка');
 
-      await course.getByTestId('toolbar-zen-toggle').click();
-      await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
-      assert.equal(await course.count(), 0);
-      await page.keyboard.press('Escape');
-      await course.waitFor({ state: 'visible' });
-      assert.equal(await course.getByTestId('toolbar-zen-toggle').evaluate(
-        el => el === document.activeElement), true, 'Zen exit restores focus to course Zen control');
+      await page.waitForFunction(() =>
+        document.querySelector('[data-testid="course-focused-controls"]')?.contains(document.activeElement),
+      null, { timeout: 3000 }).catch(async () => {
+        const diagnostic = await page.evaluate(() => ({
+          active: document.activeElement?.outerHTML?.slice(0, 320) ?? null,
+          target: document.querySelector('[data-testid="course-to-free-setup"]')?.outerHTML?.slice(0, 320) ?? null,
+          zen: document.querySelector('[data-testid="studio-workspace"]')?.getAttribute('data-zen-active')
+        }));
+        throw new Error('Zen focus return failed: ' + JSON.stringify(diagnostic));
+      });
+      assert.equal((await course.getByTestId('course-credit-mode').innerText()).trim(), 'Зачётная попытка',
+        'a view-only dismissal must not revoke certification');
 
       // The learner must intentionally leave the graded attempt before
       // editing free-practice settings. Stop cancels rhythmic deadlines.
@@ -58,6 +67,8 @@ try {
 
       await page.getByRole('button', { name: /^Курс$/ }).click();
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+      await zen.waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       // Opening Settings uses the same well-tested course interruption path
       // as before and cannot silently maintain certification.

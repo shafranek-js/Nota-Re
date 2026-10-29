@@ -12,7 +12,7 @@ export const ZenControlStrip: React.FC = () => {
   const {
     activeLessonId, activeExerciseNotes, activeNoteIndex, bpm,
     isContinuousFlow, audioEnabled, toggleAudioMaster, toggleSettingsDrawer,
-    switchWorkspace, stopTrainerExercise, toggleZenMode
+    switchWorkspace, stopTrainerExercise, dismissZenForSession
   } = useAppStore();
   const exitButton = useRef<HTMLButtonElement>(null);
   const lesson = COURSE_CURRICULUM.find(item => item.id === activeLessonId);
@@ -23,11 +23,10 @@ export const ZenControlStrip: React.FC = () => {
   }, []);
 
   const exitZen = () => {
-    toggleZenMode();
-    // Focus the restored switch after the normal toolbar has committed.
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>('[data-testid="toolbar-zen-toggle"]')?.focus();
-    });
+    // The restored toolbar / graded control takes focus in its own mount
+    // effect, AFTER React commits it. Doing it here via requestAnimationFrame
+    // races with the conditional Zen-to-Studio remount.
+    dismissZenForSession();
   };
 
   useEffect(() => {

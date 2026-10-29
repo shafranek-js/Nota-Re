@@ -11,8 +11,8 @@ import { StudioWorkspace } from './components/workspaces/StudioWorkspace';
 import { TheoryWorkspace } from './components/workspaces/TheoryWorkspace';
 
 export const App: React.FC = () => {
-  const { currentWorkspace, studioSection, initApp, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled } = useAppStore();
-  const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled });
+  const { currentWorkspace, studioSection, initApp, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled, zenSessionStarted, zenDismissedForSession } = useAppStore();
+  const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled, zenSessionStarted, zenDismissedForSession });
   const [scoreRenderer, setScoreRenderer] = useState<ScoreRenderer>(readScoreRendererPreference);
 
   const selectScoreRenderer = (renderer: ScoreRenderer) => {

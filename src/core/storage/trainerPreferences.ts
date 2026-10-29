@@ -5,7 +5,7 @@ import type {
 export type KeyboardLabelMode = 'auto' | 'off' | 'notes' | 'pc';
 
 export const TRAINER_PREFERENCES_KEY = 'notare-trainer-preferences-v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export interface TrainerPreferences {
   selectedLessonId: number;
@@ -21,6 +21,7 @@ export interface TrainerPreferences {
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   showVirtualKeyboard: boolean;
+  /** Auto-enter Zen after explicitly starting an exercise (persistent). */
   zenModeEnabled: boolean;
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
@@ -41,7 +42,7 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   showBassLandmarks: false,
   showScaleHighlight: false,
   showVirtualKeyboard: true,
-  zenModeEnabled: false,
+  zenModeEnabled: true,
   keyboardLabelMode: 'auto',
   photoExposureMs: 1800,
   audioEnabled: true
@@ -132,8 +133,17 @@ export function loadTrainerPreferences(): TrainerPreferences {
     const raw = localStorage.getItem(TRAINER_PREFERENCES_KEY);
     if (!raw) return { ...DEFAULT_TRAINER_PREFERENCES };
     const envelope = objectOrNull(JSON.parse(raw));
-    if (envelope?.version !== SCHEMA_VERSION) return { ...DEFAULT_TRAINER_PREFERENCES };
-    return validateTrainerPreferences(envelope.preferences);
+    if (envelope?.version === SCHEMA_VERSION) {
+      return validateTrainerPreferences(envelope.preferences);
+    }
+    if (envelope?.version === 1) {
+      // v1 Zen was a manual, off-by-default toolbar button. A saved false
+      // does not represent consent to opt out of the NEW start-time default.
+      // Keep all other validated preferences; enable the new behavior.
+      const previous = objectOrNull(envelope.preferences) ?? {};
+      return validateTrainerPreferences({ ...previous, zenModeEnabled: true });
+    }
+    return { ...DEFAULT_TRAINER_PREFERENCES };
   } catch {
     return { ...DEFAULT_TRAINER_PREFERENCES };
   }
