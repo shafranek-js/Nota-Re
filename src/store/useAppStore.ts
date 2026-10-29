@@ -8,7 +8,7 @@ import {
   nextAudioDeadline, remainingAudioMs
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
-import { advanceAssistedNotes } from '../core/training/assistedStep';
+import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
   loadCourseProgressFromStorage, 
@@ -602,7 +602,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
     const { activeExerciseNotes, activeNoteIndex } = get();
     const target = activeExerciseNotes[activeNoteIndex];
-    const transition = advanceAssistedNotes(activeExerciseNotes, activeNoteIndex);
+    const transition = advanceExerciseNoteStatuses(activeExerciseNotes, activeNoteIndex);
     if (!target || !transition) return;
     audioEngine.playPianoTone(target.freq, 0.25, target.articulation === 'staccato');
     const { notes, nextIndex, finished } = transition;
@@ -707,17 +707,20 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
 
     if (isCorrect) {
-      target.status = 'done';
+      const transition = advanceExerciseNoteStatuses(activeExerciseNotes, activeNoteIndex);
+      if (!transition) return;
+      const { notes, nextIndex, finished } = transition;
       const prevBar = Math.floor(activeNoteIndex / 4);
-      const nextIdx = activeNoteIndex + 1;
-      const newBar = Math.floor(nextIdx / 4);
+      const newBar = Math.floor(nextIndex / 4);
 
-      if (nextIdx >= activeExerciseNotes.length) {
+      // The final note must be committed before finishExercise() recomputes
+      // lesson credit and generates a new score.
+      set({ activeExerciseNotes: notes });
+      if (finished) {
         finishExercise(get, patch => set(patch));
       } else {
-        activeExerciseNotes[nextIdx].status = 'current';
         set({
-          activeNoteIndex: nextIdx,
+          activeNoteIndex: nextIndex,
           noteShownTimestamp: performance.now()
         });
         if (get().currentAppMode === 'photo' && newBar !== prevBar) {
