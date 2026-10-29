@@ -9,6 +9,7 @@ import {
 } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
+import { getTwoHandCourseTrialPreset } from '../core/training/twoHandCourseTrial';
 import { invalidateInterruptedTimedLesson } from '../core/training/flowInterruption';
 import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
@@ -53,6 +54,8 @@ export interface AppState {
   isTabletopMode: boolean;
   /** Dedicated, ungraded physical-MIDI polyphonic practice. */
   isTwoHandPracticeOpen: boolean;
+  /** Ephemeral course-linked trial, never a certified lesson. */
+  twoHandTrialLessonId: number | null;
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   photoExposureMs: number;
@@ -96,6 +99,7 @@ export interface AppState {
   toggleLessonCompleted: (id: number) => void;
   resetCourseProgress: () => void;
   startActiveLessonInTrainer: () => void;
+  startTwoHandCourseTrial: (lessonId: number) => void;
   goToNextLessonAndStart: () => void;
 
   setAppMode: (mode: AppMode) => void;
@@ -248,6 +252,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeLessonId: null,
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
+  twoHandTrialLessonId: null,
   isPhotoMasked: false,
   midiInputsCount: 0,
 
@@ -339,6 +344,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set(state => ({
       currentWorkspace: tab,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
+      twoHandTrialLessonId: tab === 'trainer' ? state.twoHandTrialLessonId : null,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
       activeLessonId: tab === 'trainer' ? state.activeLessonId : null
     }));
@@ -413,12 +419,35 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeLessonId: lesson.id,
       trainerPhase: 'playing',
       isTwoHandPracticeOpen: false,
+      twoHandTrialLessonId: null,
       isTabletopMode: false
     });
 
     // regenerateExercise arms one deadline when the preset requests flow;
     // never flip an already explicitly assigned boolean.
     get().regenerateExercise();
+  },
+
+  startTwoHandCourseTrial: (lessonId) => {
+    // Only two documented, diagnostic lesson-linked examples exist. Invalid
+    // lesson IDs cannot launch a fake assessment or change course progress.
+    if (!getTwoHandCourseTrialPreset(lessonId)) return;
+    stopFlowClock();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    set({
+      currentWorkspace: 'trainer',
+      selectedLessonId: lessonId,
+      isTwoHandPracticeOpen: true,
+      twoHandTrialLessonId: lessonId,
+      activeLessonId: null,
+      isContinuousFlow: false,
+      isTabletopMode: false,
+      trainerPhase: 'playing',
+      completedExercisesCount: 0,
+      isExerciseFlawless: false,
+      lastAttemptResult: null
+    });
   },
 
   goToNextLessonAndStart: () => {
@@ -432,7 +461,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setAppMode: (mode) => {
-    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false });
+    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false, twoHandTrialLessonId: null });
     get().regenerateExercise();
   },
 
@@ -551,6 +580,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     stopFlowClock();
     set({
       isTwoHandPracticeOpen: opening,
+      twoHandTrialLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
       completedExercisesCount: 0,
@@ -598,6 +628,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       ...DEFAULT_TRAINER_PREFERENCES,
       isContinuousFlow: false,
       isTwoHandPracticeOpen: false,
+      twoHandTrialLessonId: null,
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseAssisted: false,
