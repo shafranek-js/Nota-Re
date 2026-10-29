@@ -14,6 +14,7 @@ import { judgeExerciseNote } from '../core/training/noteJudgment';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
 import { resetNotesForRetry } from '../core/training/trainerSession';
+import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } from '../core/training/countInTiming';
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { 
@@ -85,6 +86,7 @@ export interface AppState {
   lastAttemptResult: AttemptSnapshot | null;
   /** Explicit practice lifecycle, independent of rhythmic flow. */
   trainerPhase: TrainerPhase;
+  countInBeat: number;
 
   // Методы управления
   initApp: () => () => void;
@@ -96,6 +98,10 @@ export interface AppState {
   toggleLessonCompleted: (id: number) => void;
   resetCourseProgress: () => void;
   startActiveLessonInTrainer: () => void;
+  prepareSelectedLessonInTrainer: () => void;
+  openTrainerPrecheck: () => void;
+  completeTrainerPrecheck: () => void;
+  cancelTrainerCountIn: () => void;
   goToNextLessonAndStart: () => void;
 
   setAppMode: (mode: AppMode) => void;
@@ -128,6 +134,18 @@ export interface AppState {
 }
 
 let photoTimerId: number | null = null;
+let countInTimeoutId: number | null = null;
+let countInEpoch = 0;
+let countInClickCancels: Array<() => void> = [];
+
+function stopCountIn(): void {
+  ++countInEpoch;
+  if (countInTimeoutId !== null) window.clearTimeout(countInTimeoutId);
+  countInTimeoutId = null;
+  countInClickCancels.forEach(cancel => cancel());
+  countInClickCancels = [];
+}
+
 let flowTimeoutId: number | null = null;
 let flowEpoch = 0;
 let flowOnsetAudioTime: number | null = null;
@@ -191,6 +209,52 @@ function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): 
     get().advanceFlowStep();
   };
   flowTimeoutId = window.setTimeout(wake, Math.min(noteDurationMs(note, state.bpm), 250));
+}
+
+/**
+ * Count-in is separate from flow deadlines: grading is forbidden until all
+ * four preparatory clicks have elapsed. Use the audio clock for scheduling
+ * and discard a delayed/suspended or backgrounded transition.
+ */
+function beginTrainerCountIn(get: () => AppState, set: (patch: Partial<AppState>) => void): void {
+  stopCountIn();
+  stopFlowClock();
+  const state = get();
+  if (state.currentWorkspace !== 'trainer' || !state.isContinuousFlow) return;
+  const beatSeconds = countInBeatDurationMs(state.bpm) / 1000;
+  const audioStart = audioEngine.ensureAudioContext()?.currentTime ?? null;
+  const firstClickAudio = audioStart === null ? null : audioStart + 0.07;
+  const fallbackStartMs = performance.now() + 70;
+  const epoch = countInEpoch;
+  for (let i = 0; i < COUNT_IN_BEATS; i += 1) {
+    countInClickCancels.push(audioEngine.scheduleMetronomeClick(i === 0,
+      firstClickAudio === null ? undefined : firstClickAudio + i * beatSeconds));
+  }
+  set({ trainerPhase: 'countIn', countInBeat: 1 });
+  const wake = () => {
+    if (epoch !== countInEpoch || get().trainerPhase !== 'countIn') return;
+    const audioNow = audioEngine.currentAudioTime();
+    const elapsed = firstClickAudio !== null && audioNow !== null
+      ? (audioNow - firstClickAudio) * 1000
+      : performance.now() - fallbackStartMs;
+    const lateBy = elapsed - COUNT_IN_BEATS * countInBeatDurationMs(state.bpm);
+    if (document.hidden || get().isSettingsOpen || get().currentWorkspace !== 'trainer' || lateBy > 350) {
+      stopCountIn();
+      set({ trainerPhase: 'setup', countInBeat: 0 });
+      return;
+    }
+    if (countInFinished(elapsed, state.bpm)) {
+      stopCountIn();
+      set({ trainerPhase: 'playing', countInBeat: 0, noteShownTimestamp: performance.now() });
+      armFlowClock(get, firstClickAudio === null ? undefined : firstClickAudio + COUNT_IN_BEATS * beatSeconds);
+      if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
+      return;
+    }
+    const beat = countInIndex(elapsed, state.bpm);
+    if (beat !== get().countInBeat) set({ countInBeat: beat });
+    countInTimeoutId = window.setTimeout(wake, 45);
+  };
+  countInTimeoutId = window.setTimeout(wake, 45);
 }
 
 function finishExercise(
@@ -268,6 +332,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   attemptEvents: [],
   lastAttemptResult: null,
   trainerPhase: 'playing',
+  countInBeat: 0,
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
@@ -312,6 +377,10 @@ export const useAppStore = create<AppState>((set, get) => ({
     void midiManager.init();
 
     const pauseWhenHidden = () => {
+      if (document.hidden && get().trainerPhase === 'countIn') {
+        get().cancelTrainerCountIn();
+        return;
+      }
       if (document.hidden && get().isContinuousFlow) {
         stopFlowClock();
         set(invalidateInterruptedTimedLesson());
@@ -322,6 +391,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().regenerateExercise();
     return () => {
       document.removeEventListener('visibilitychange', pauseWhenHidden);
+      stopCountIn();
       stopFlowClock();
       if (photoTimerId !== null) window.clearTimeout(photoTimerId);
       photoTimerId = null;
@@ -335,12 +405,17 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   switchWorkspace: (tab) => {
     // No hidden metronome deadlines or missed answers while reading the course.
-    if (tab !== 'trainer') stopFlowClock();
+    if (tab !== 'trainer') {
+      stopFlowClock();
+      stopCountIn();
+    }
     set(state => ({
       currentWorkspace: tab,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
-      activeLessonId: tab === 'trainer' ? state.activeLessonId : null
+      activeLessonId: tab === 'trainer' ? state.activeLessonId : null,
+      trainerPhase: tab === 'trainer' ? state.trainerPhase : state.trainerPhase === 'countIn' ? 'setup' : state.trainerPhase,
+      countInBeat: tab === 'trainer' ? state.countInBeat : 0
     }));
   },
 
@@ -348,10 +423,17 @@ export const useAppStore = create<AppState>((set, get) => ({
     const opening = !get().isSettingsOpen;
     // Opening a modal must not silently grade missed notes while the player
     // is checking their MIDI hardware or audio settings.
-    if (opening) stopFlowClock();
-    const interruptedFlow = opening && get().isContinuousFlow && get().trainerPhase === 'playing';
+    if (opening) {
+      stopFlowClock();
+      stopCountIn();
+    }
+    // Opening Settings disables flow even during preparation, so the course
+    // may not remain certified against an untimed altered preset.
+    const interruptedFlow = opening && get().isContinuousFlow && get().activeLessonId !== null;
     set({
       isSettingsOpen: opening,
+      trainerPhase: opening && get().trainerPhase === 'countIn' ? 'setup' : get().trainerPhase,
+      countInBeat: opening ? 0 : get().countInBeat,
       isContinuousFlow: opening ? false : get().isContinuousFlow,
       // A flow lesson interrupted by Settings cannot silently continue as
       // an untimed certified run. Relaunch the course preset to qualify.
@@ -394,6 +476,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   startActiveLessonInTrainer: () => {
+    stopCountIn();
     stopFlowClock();
     const { selectedLessonId } = get();
     const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
@@ -412,6 +495,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentWorkspace: 'trainer',
       activeLessonId: lesson.id,
       trainerPhase: 'playing',
+      countInBeat: 0,
       isTwoHandPracticeOpen: false,
       isTabletopMode: false
     });
@@ -419,6 +503,49 @@ export const useAppStore = create<AppState>((set, get) => ({
     // regenerateExercise arms one deadline when the preset requests flow;
     // never flip an already explicitly assigned boolean.
     get().regenerateExercise();
+  },
+
+  prepareSelectedLessonInTrainer: () => {
+    // Existing direct-start button remains unchanged for previously issued
+    // course presets and their browser regression contract.
+    get().startActiveLessonInTrainer();
+    get().openTrainerPrecheck();
+  },
+
+  openTrainerPrecheck: () => {
+    stopFlowClock();
+    stopCountIn();
+    if (photoTimerId !== null) window.clearTimeout(photoTimerId);
+    photoTimerId = null;
+    const state = get();
+    const interruptingCourse = state.activeLessonId !== null &&
+      (state.activeNoteIndex > 0 || state.attemptEvents.length > 0);
+    set({
+      trainerPhase: 'precheck',
+      countInBeat: 0,
+      activeExerciseNotes: resetNotesForRetry(state.activeExerciseNotes),
+      activeNoteIndex: 0,
+      attemptEvents: [],
+      isExerciseAssisted: false,
+      isExerciseFlawless: true,
+      lastKeyResult: null,
+      lastAttemptResult: null,
+      isPhotoMasked: false,
+      isTwoHandPracticeOpen: false,
+      ...(interruptingCourse ? { activeLessonId: null, completedExercisesCount: 0 } : {})
+    });
+  },
+
+  completeTrainerPrecheck: () => {
+    if (get().trainerPhase !== 'precheck') return;
+    get().startTrainerExercise();
+  },
+
+  cancelTrainerCountIn: () => {
+    if (get().trainerPhase !== 'countIn') return;
+    stopCountIn();
+    stopFlowClock();
+    set({ trainerPhase: 'setup', countInBeat: 0 });
   },
 
   goToNextLessonAndStart: () => {
@@ -469,11 +596,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setBpm: (bpm) => {
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     set({ bpm, activeLessonId: null, noteShownTimestamp: performance.now() });
     if (get().isContinuousFlow) armFlowClock(get);
   },
 
   toggleContinuousFlow: () => {
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     const enabled = !get().isContinuousFlow;
     set({
       isContinuousFlow: enabled,
@@ -547,6 +676,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleTwoHandPractice: () => {
     const opening = !get().isTwoHandPracticeOpen;
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     // Never continue a timed course or credit an imagined MIDI trial.
     stopFlowClock();
     set({
@@ -591,6 +721,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   resetTrainerPreferences: () => {
+    stopCountIn();
     stopFlowClock();
     audioEngine.clearPreviewTimeouts();
     audioEngine.setAudioEnabled(DEFAULT_TRAINER_PREFERENCES.audioEnabled);
@@ -604,7 +735,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
-      trainerPhase: 'playing'
+      trainerPhase: 'playing',
+      countInBeat: 0
     });
     get().regenerateExercise();
   },
@@ -612,6 +744,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   clearLastAttemptResult: () => set({ lastAttemptResult: null }),
 
   retryExercise: () => {
+    stopCountIn();
     stopFlowClock();
     if (photoTimerId !== null) window.clearTimeout(photoTimerId);
     photoTimerId = null;
@@ -632,17 +765,19 @@ export const useAppStore = create<AppState>((set, get) => ({
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
-      trainerPhase: 'playing'
+      trainerPhase: get().isContinuousFlow ? 'countIn' : 'playing',
+      countInBeat: 0
     });
-    armFlowClock(get);
-    if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
+    if (get().isContinuousFlow) beginTrainerCountIn(get, patch => set(patch));
+    else if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
   },
 
   returnToTrainerSetup: () => {
+    stopCountIn();
     stopFlowClock();
     if (photoTimerId !== null) window.clearTimeout(photoTimerId);
     photoTimerId = null;
-    set({ trainerPhase: 'setup', lastAttemptResult: null, isPhotoMasked: false });
+    set({ trainerPhase: 'setup', countInBeat: 0, lastAttemptResult: null, isPhotoMasked: false });
   },
 
   startTrainerExercise: () => get().retryExercise(),
@@ -662,6 +797,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   regenerateExercise: () => {
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     audioEngine.clearPreviewTimeouts();
     const { currentAppMode, currentFilter, currentTonality, scoreNoteCount, currentHanonType } = get();
 
@@ -682,11 +818,12 @@ export const useAppStore = create<AppState>((set, get) => ({
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
-      trainerPhase: get().trainerPhase === 'setup' ? 'setup' : 'playing'
+      trainerPhase: get().trainerPhase === 'setup' || get().trainerPhase === 'precheck' ? get().trainerPhase : 'playing',
+      countInBeat: 0
     });
     armFlowClock(get);
 
-    if (currentAppMode === 'photo') {
+    if (currentAppMode === 'photo' && get().trainerPhase === 'playing') {
       get().triggerPhotoFlash();
     }
   },

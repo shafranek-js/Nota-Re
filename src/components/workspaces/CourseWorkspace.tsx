@@ -12,7 +12,8 @@ export const CourseWorkspace: React.FC = () => {
     completedLessons,
     toggleLessonCompleted,
     resetCourseProgress,
-    startActiveLessonInTrainer
+    startActiveLessonInTrainer,
+    prepareSelectedLessonInTrainer
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
@@ -264,6 +265,10 @@ export const CourseWorkspace: React.FC = () => {
                 title="Сбросить весь прогресс курса"
               >
                 <RotateCcw className="w-4 h-4" />
+              </button>
+              <button type="button" onClick={prepareSelectedLessonInTrainer}
+                className="px-3 py-2 rounded-xl border border-sky-500/40 bg-slate-800 hover:bg-slate-700 text-sky-200 font-semibold text-xs transition">
+                Сначала анализ нот
               </button>
               <button 
                 onClick={startActiveLessonInTrainer}

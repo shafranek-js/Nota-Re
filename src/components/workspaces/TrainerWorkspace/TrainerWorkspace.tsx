@@ -7,6 +7,7 @@ import { GrandStaffSvg } from './GrandStaffSvg';
 import { TargetInfoBar } from './TargetInfoBar';
 import { PianoKeyboard } from './PianoKeyboard';
 import { AttemptResultCard } from './AttemptResultCard';
+import { PreplayChecklist, CountInScreen } from './PreplayChecklist';
 
 // The OSMD bundle is only downloaded when its renderer is selected.
 const OsmdStaff = React.lazy(() => import('./OsmdStaff').then(m => ({ default: m.OsmdStaff })));
@@ -18,7 +19,7 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, startTrainerExercise } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, startTrainerExercise, openTrainerPrecheck } = useAppStore();
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
@@ -26,6 +27,9 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
 
   // Results replace the practice surface. No hidden keyboard can score a new
   // note until the learner explicitly chooses a next action.
+  if (trainerPhase === 'precheck' && !isTwoHandPracticeOpen) return <PreplayChecklist />;
+  if (trainerPhase === 'countIn' && !isTwoHandPracticeOpen) return <CountInScreen />;
+
   if (trainerPhase === 'results' && !isTwoHandPracticeOpen) {
     return <AttemptResultCard />;
   }
@@ -40,6 +44,14 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
           <button type="button" onClick={startTrainerExercise}
             className="rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-sm text-slate-950 hover:bg-emerald-400">
             Начать упражнение
+          </button>
+        </div>
+      )}
+      {!isTwoHandPracticeOpen && (
+        <div className="shrink-0 flex items-center px-1">
+          <button type="button" onClick={openTrainerPrecheck}
+            className="rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1 text-xs text-sky-300 hover:bg-sky-900/40">
+            Анализ перед игрой
           </button>
         </div>
       )}
