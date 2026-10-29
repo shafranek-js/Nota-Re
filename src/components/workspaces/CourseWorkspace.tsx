@@ -109,7 +109,7 @@ export const CourseWorkspace: React.FC = () => {
             </button>
           </div>
 
-          <div data-testid="course-lesson-list" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-1 pr-0.5 pt-1.5">
+          <div data-testid="course-list-scroll" className="lg:flex-1 lg:min-h-0 lg:overflow-y-auto custom-scroll space-y-1 pr-0.5 pt-1.5">
             {filteredLessons.map(item => {
               const isSelected = item.id === selectedLessonId;
               const itemDone = completedLessons.includes(item.id);
@@ -168,7 +168,7 @@ export const CourseWorkspace: React.FC = () => {
         </div>
 
         {/* Карточка выбранного урока */}
-        <div data-testid="course-lesson-panel" className="lg:col-span-7 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2.5 lg:overflow-hidden lg:min-h-0">
+        <div data-testid="course-detail-panel" className="lg:col-span-7 min-w-0 flex flex-col bg-slate-900/90 border border-slate-800 rounded-xl px-3 py-2.5 lg:overflow-hidden lg:min-h-0">
             {/* Шапка карточки */}
             <div data-testid="course-selected-header" className="relative z-10 -mx-3 -mt-2.5 px-3 py-2.5 flex flex-wrap items-center justify-between gap-2 border-b border-slate-800 bg-slate-900">
               <div>
