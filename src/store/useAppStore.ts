@@ -667,7 +667,9 @@ export const useAppStore = create<AppState>((set, get) => ({
         ? audioNow >= flowDeadlineAudioTime
         : rt >= noteDurationMs(target, get().bpm)
     );
-    const isCorrect = noteName === target.noteName && !isLate;
+    // Spelling is a notational property: Bb and A# are the SAME MIDI key.
+    // Grade physical pitch, not the key-name alias used by a UI/MIDI device.
+    const isCorrect = played?.midi === target.midi && !isLate;
 
     set((s) => {
       const newTotal = s.totalAttempts + 1;
