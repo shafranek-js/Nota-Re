@@ -66,6 +66,29 @@ try {
     .first().evaluate(node => node.style.fill), 'rgb(245, 158, 11)',
     'active notehead must be amber rather than VexFlow default black');
 
+  // Teaching labels use an external (unclipped) layer, rather than SVG text.
+  const layer = page.getByTestId('osmd-pedagogy-layer');
+  assert.ok(await layer.locator('[data-notare-pedagogy="measure"]').count() >= 3,
+    'later measure names must all be visible');
+  assert.ok(await layer.locator('[data-notare-pedagogy="syllable"]').count() >= 4,
+    'rhythm syllables must appear below notes');
+  assert.ok(await score.locator('[data-notare-staff-band]').count() >= 2,
+    'both staves must have muted background bands');
+  const spacing = await score.evaluate(host => {
+    const svgNode = host.querySelector('[aria-label="Нотная партитура OpenSheetMusicDisplay"] svg');
+    const viewport = host.querySelector('.osmd-dark-theme');
+    const measure = host.querySelector('[data-notare-pedagogy="measure"]');
+    return {
+      topGap: svgNode.getBoundingClientRect().top - viewport.getBoundingClientRect().top,
+      labelBottom: measure.getBoundingClientRect().bottom,
+      viewportTop: viewport.getBoundingClientRect().top,
+      outsideSvg: !svgNode.contains(measure)
+    };
+  });
+  assert.ok(spacing.topGap >= 15, 'engraving must not touch the score viewport ceiling');
+  assert.ok(spacing.labelBottom > spacing.viewportTop + 5, 'measure captions must not be clipped');
+  assert.ok(spacing.outsideSvg, 'measure captions must not be inside the clipped OSMD page');
+
   // OSMD may clear and rebuild its SVG asynchronously after a resize.
   // Wait for a NEW completed engraving epoch plus a restored overlay, rather
   // than observing the old overlay just before it disappears.
@@ -111,6 +134,12 @@ try {
   assert.equal(await page.locator('[data-notare-masked="true"]').first().evaluate(el => getComputedStyle(el).visibility),
     'hidden', 'the graphical note group must really be invisible');
 
+  const shutter = score.locator('[data-notare-lookahead-curtain="true"]');
+  await shutter.waitFor({ state: 'visible', timeout: 10000 });
+  assert.match(await shutter.innerText(), /БЕГУНОК: СМОТРИТЕ ВПЕРЁД/);
+  assert.ok(await shutter.evaluate(node => node.getBoundingClientRect().width) >= 32,
+    'lookahead shutter must cover the previously played side');
+
   // Photo exercise must first reveal the score, then hide actual note SVGs
   // after the existing exposure timer. "Flash" must reveal them again.
   await openPanel('mode');
@@ -118,6 +147,7 @@ try {
   await svg.waitFor({ state: 'visible', timeout: 30000 });
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'visible', timeout: 10000 });
   await page.locator('[data-notare-masked="true"]').first().waitFor({ state: 'attached', timeout: 10000 });
+  await score.locator('[data-notare-photo-curtain="true"]').waitFor({ state: 'visible', timeout: 10000 });
   await page.getByRole('button', { name: 'Вспышка такта' }).click();
   await page.getByTestId('photo-masked-notice').waitFor({ state: 'hidden', timeout: 5000 });
   await page.waitForFunction(() => document.querySelectorAll('[data-notare-masked="true"]').length === 0);
