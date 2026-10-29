@@ -106,16 +106,16 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
               Подключение нотного движка…
             </div>
           }>
-            <OsmdStaff onRequestLegacy={() => onSelectRenderer('legacy')} />
+            <OsmdStaff zen={zenActive} onRequestLegacy={() => onSelectRenderer('legacy')} />
           </Suspense>
         ) : (
-          <GrandStaffSvg />
+          <GrandStaffSvg zen={zenActive} />
         )}
         <TargetInfoBar zen={zenActive} />
       </div>
 
       <div className={showVirtualKeyboard ? 'shrink-0' : 'hidden'} aria-hidden={!showVirtualKeyboard}>
-        <PianoKeyboard />
+        <PianoKeyboard zen={zenActive} />
       </div>
       </>}
     </section>
