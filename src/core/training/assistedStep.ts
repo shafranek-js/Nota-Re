@@ -1,12 +1,12 @@
 import type { ExerciseNote } from '../../types/music';
 
 /**
- * Pure step transition for simulated/tabletop play. Assistance is not MIDI
+ * Pure status transition for an answered exercise note. Assistance is not MIDI
  * evidence and must never alter the prior state snapshot or count as grading.
  * New array identity is also a cancellation token for the end-of-exercise
  * regeneration timer in useAppStore.
  */
-export function advanceAssistedNotes(
+export function advanceExerciseNoteStatuses(
   activeExerciseNotes: readonly ExerciseNote[],
   activeNoteIndex: number
 ): { notes: ExerciseNote[]; nextIndex: number; finished: boolean } | null {
