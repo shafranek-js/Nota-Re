@@ -1,4 +1,5 @@
 import React, { useEffect, useId, useRef, useState } from 'react';
+import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
 import type { AppMode, FilterType, HanonType, SpeechType, TonalityKey } from '../../../types/music';
 import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences';
 import { useAppStore } from '../../../store/useAppStore';
@@ -40,7 +41,7 @@ const controlClass = 'rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-
 const activeClass = 'rounded-lg border border-emerald-500/60 bg-emerald-500 text-slate-950 px-3 py-2 text-xs font-semibold focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400';
 const inactiveClass = 'rounded-lg border border-slate-700 bg-slate-900 text-slate-200 px-3 py-2 text-xs hover:border-sky-500 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400';
 
-export const TrainerToolbar: React.FC = () => {
+export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRenderer: (renderer: ScoreRenderer) => void }> = ({ renderer, onSelectRenderer }) => {
   const root = useRef<HTMLDivElement>(null);
   const id = useId().replace(/:/g, '');
   const [panel, setPanel] = useState<Panel | null>(null);
@@ -53,7 +54,7 @@ export const TrainerToolbar: React.FC = () => {
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
     keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice,
-    startTrainerExercise, stopTrainerExercise, activeLessonId, zenModeEnabled, toggleZenMode
+    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, toggleZenMode
   } = useAppStore();
 
   useEffect(() => {
@@ -240,6 +241,11 @@ export const TrainerToolbar: React.FC = () => {
           )}
           {panel === 'view' && (
             <>
+              <div role="group" aria-label="Способ отображения нот" className="flex flex-wrap items-center gap-2">
+                <span className="text-xs text-slate-400">Нотный движок:</span>
+                {optionButton('OSMD', renderer === 'osmd', () => onSelectRenderer('osmd'))}
+                {optionButton('Классический', renderer === 'legacy', () => onSelectRenderer('legacy'))}
+              </div>
               <div className="flex flex-wrap gap-2">
                 {optionButton(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
                   showVirtualKeyboard, toggleVirtualKeyboard)}
@@ -271,6 +277,12 @@ export const TrainerToolbar: React.FC = () => {
           )}
           {panel === 'actions' && (
             <div className="flex flex-wrap gap-2">
+              <button type="button" className={controlClass} onClick={() => {
+                setPanel(null);
+                openTrainerPrecheck();
+              }} title="Открыть методический анализ перед игрой">
+                Анализ перед игрой
+              </button>
               <button type="button" className={controlClass} onClick={previewNotes}
                 title="Слуховое предслышание: прослушать мелодию голосом">
                 <span className="inline-flex items-center gap-1"><Mic className="w-3 h-3"/> Петь / прослушать</span>
