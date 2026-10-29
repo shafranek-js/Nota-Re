@@ -395,7 +395,7 @@ export const TwoHandPractice: React.FC = () => {
           </ul>
         </div>
       )}
-      {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>
+      {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>}
       <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? timedFeedbackText[timed.feedback] : feedbackText[trial.feedback]}</p>
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
         <div ref={mountRef} aria-label="Независимые партии двух рук OpenSheetMusicDisplay"
