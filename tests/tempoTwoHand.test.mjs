@@ -25,7 +25,7 @@ test('musical tick timeline follows BPM and has no cumulative JS clock drift', (
 });
 
 test('count-in notes do not count; simultaneous RH/LH within beat and overlap do', () => {
-  let s = reduceTimedPractice(initialTimedPractice(), score, steps, plan, on(48, 9980));
+  let s = reduceTimedPractice(initialTimedPractice(), score, steps, plan, on(48, 9800));
   assert.equal(s.stepIndex, 0);
   assert.equal(s.feedback, 'count-in');
   s = reduceTimedPractice(s, score, steps, plan, off(48, 9990));
@@ -92,4 +92,14 @@ test('late notes and wrong times do not award any course-equivalent hit', () => 
   assert.equal(s.stepIndex, 1, 'onset is already missed after the deadline');
   assert.equal(s.misses, 1);
   assert.equal(s.hits, 0);
+});
+
+test('slightly early first attacks count within the symmetric beat window', () => {
+  let s = reduceTimedPractice(initialTimedPractice(), score, steps, plan, on(48, 9999, 2));
+  assert.equal(s.stepIndex, 0);
+  assert.equal(s.feedback, 'partial');
+  s = reduceTimedPractice(s, score, steps, plan, on(60, 10003));
+  assert.equal(s.stepIndex, 1);
+  assert.equal(s.hits, 1);
+  assert.equal(s.misses, 0);
 });
