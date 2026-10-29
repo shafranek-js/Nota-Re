@@ -50,7 +50,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   };
 
   return (
-    <div className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col justify-between p-2.5 overflow-hidden shadow-inner">
+    <div data-theme-lock="dark" className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col justify-between p-2.5 overflow-hidden shadow-inner">
       {/* In Zen, retain only the controls relevant to the exercise. */}
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
       <div data-testid={zen ? 'zen-score-actions' : undefined}
