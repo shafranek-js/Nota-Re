@@ -6,6 +6,7 @@ import { createScoreFromExercise, toMusicXml } from '../../../core/notation/musi
 import { getMaskedNoteIndices, getNoteOnsets, TICKS_PER_MEASURE } from '../../../core/notation/scoreMasks';
 import { getIntervalGuides } from '../../../core/notation/intervalGuides';
 import { getGazeGuides } from '../../../core/notation/gazeGuides';
+import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -115,7 +116,10 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
   const xml = useMemo(() => {
     if (!activeExerciseNotes.length) return null;
     const score = createScoreFromExercise(activeExerciseNotes, currentTonality);
-    return toMusicXml(score, { includeFingering: currentAppMode === 'hanon' });
+    return toMusicXml(score, {
+      includeFingering: currentAppMode === 'hanon',
+      includeSyllables: currentAppMode === 'hanon'
+    });
   }, [activeExerciseNotes, currentTonality, currentAppMode]);
 
   useEffect(() => {
@@ -421,6 +425,88 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     } catch (error) {
       console.error('OSMD gaze guides failed', error);
       setErrorMessage('Не удалось разместить траекторию «Г» на нотах OSMD. Используйте классический стан.');
+      setLoadState('error');
+    } finally {
+      positionCursorAtTicks(renderer, currentOnsetTicks());
+    }
+    return clear;
+  }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
+
+
+  // Hanon blocks are teaching annotations, not a replacement for engraving.
+  // OSMD engraves articulation, syllables and finger numbers from MusicXML.
+  // Brackets below are anchored to the generated noteheads, recalculated
+  // after each resize and each newly generated exercise.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    const selector = '[data-notare-hanon-block="true"]';
+    const clear = () => mount.querySelectorAll(selector).forEach(el => el.remove());
+    clear();
+    if (loadState !== 'ready' || currentAppMode !== 'hanon' || !osmdRef.current) return;
+
+    const renderer = osmdRef.current;
+    const blocks = getHanonBlocks(activeExerciseNotes);
+    const svgNS = 'http://www.w3.org/2000/svg';
+
+    try {
+      for (const block of blocks) {
+        const points: EngravedPoint[] = [];
+        for (let index = block.firstIndex; index <= block.lastIndex; index++) {
+          const point = getEngravedNotePoint(renderer, mount, noteOnsets[index]);
+          if (point) points.push(point);
+        }
+        // A block can span a wrapped system/page; never connect noteheads
+        // across a wrap. Draw each contiguous visible fragment separately.
+        const segments: EngravedPoint[][] = [];
+        for (const point of points) {
+          const segment = segments[segments.length - 1];
+          const previous = segment?.[segment.length - 1];
+          if (!segment || previous.root !== point.root || point.x < previous.x - 10) {
+            segments.push([point]);
+          } else {
+            segment.push(point);
+          }
+        }
+        for (const segment of segments) {
+          const root = segment[0].root;
+          const minX = Math.min(...segment.map(point => point.x)) - 11;
+          const maxX = Math.max(...segment.map(point => point.x)) + 11;
+          const topY = Math.min(...segment.map(point => point.y)) - 43;
+
+          const group = document.createElementNS(svgNS, 'g');
+          group.setAttribute('data-notare-hanon-block', 'true');
+          group.setAttribute('data-notare-hanon-number', String(block.number));
+          group.setAttribute('aria-hidden', 'true');
+          group.setAttribute('pointer-events', 'none');
+
+          const bracket = document.createElementNS(svgNS, 'path');
+          bracket.setAttribute('d',
+            `M ${minX} ${topY + 9} L ${minX} ${topY} L ${maxX} ${topY} L ${maxX} ${topY + 9}`);
+          bracket.setAttribute('fill', 'none');
+          bracket.setAttribute('stroke', '#be123c');
+          bracket.setAttribute('stroke-width', '1.6');
+
+          const label = document.createElementNS(svgNS, 'text');
+          label.textContent = `БЛОК #${block.number}`;
+          label.setAttribute('x', String((minX + maxX) / 2));
+          label.setAttribute('y', String(topY - 6));
+          label.setAttribute('text-anchor', 'middle');
+          label.setAttribute('font-size', '11');
+          label.setAttribute('font-weight', 'bold');
+          label.setAttribute('fill', '#9f1239');
+
+          group.append(bracket, label);
+          root.appendChild(group);
+        }
+      }
+      if (!mount.querySelector(selector)) {
+        setErrorMessage('Не удалось разместить блоки Ганона. Используйте классический стан.');
+        setLoadState('error');
+      }
+    } catch (error) {
+      console.error('OSMD Hanon block guides failed', error);
+      setErrorMessage('Не удалось разместить блоки Ганона. Используйте классический стан.');
       setLoadState('error');
     } finally {
       positionCursorAtTicks(renderer, currentOnsetTicks());

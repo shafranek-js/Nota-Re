@@ -108,14 +108,53 @@ try {
   await waitForOverlayRender('[data-notare-gaze-overlay="true"]', beforeRegenerate);
   assert.ok(await gaze.count() > 0, 'G-pattern must survive regenerating notes');
 
-  // Hanon still has instructional block overlays only in Classic.
+  // Hanon now uses OSMD's engraved fingering, articulation and syllables,
+  // with four-note block brackets anchored to the real notehead positions.
   await page.getByRole('button', { name: /8\. Ганон/ }).click();
-  await page.getByText(/временно использует классический стан/).waitFor();
+  await page.getByTestId('osmd-score').waitFor({ state: 'visible' });
+  const hanonBlock = page.locator('[data-notare-hanon-block="true"]');
+  await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
+  assert.ok(await hanonBlock.count() >= 2, 'Hanon OSMD should have multiple real block guides');
+  assert.equal(await hanonBlock.first().getAttribute('data-notare-hanon-number'), '1');
+  assert.ok(await hanonBlock.first().locator('path').count() > 0,
+    'Hanon block must use a real SVG bracket');
+  assert.equal(await renderError.count(), 0, 'Hanon OSMD should not fail');
+
+  const beforeHanonResize = await epoch();
+  await page.setViewportSize({ width: 768, height: 900 });
+  await waitForOverlayRender('[data-notare-hanon-block="true"]', beforeHanonResize);
+  // Hanon sequences are deterministic: regenerating can produce exactly
+  // the same MusicXML, so OSMD should NOT need an extra engraving pass.
+  // Advance an ungraded tabletop step, then verify regeneration resets it
+  // while the existing block annotations remain attached.
+  await page.getByRole('region', { name: 'Прокручиваемая клавиатура фортепиано' }).focus();
+  await page.keyboard.press('Space');
+  assert.equal(Number(await page.getByTestId('osmd-score').getAttribute('data-active-note-index')), 1);
+  await page.getByRole('button', { name: 'Новый', exact: true }).click();
+  await page.waitForFunction(() => {
+    const score = document.querySelector('[data-testid="osmd-score"]');
+    return score?.getAttribute('data-active-note-index') === '0' &&
+      !!score.querySelector('[data-notare-hanon-block="true"]');
+  }, null, { timeout: 15000 });
+  assert.ok(await hanonBlock.count() > 0, 'Hanon brackets survive exercise reset');
+
+  // Explicit Classic choice still works on narrow screens even in Hanon.
+  await page.setViewportSize({ width: 375, height: 900 });
+  await page.getByRole('button', { name: 'Классический', exact: true }).click();
   const classicSvg = page.locator('svg[viewBox="0 0 1720 305"]');
   await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
   const classicBox = await classicSvg.boundingBox();
   assert.ok(classicBox && classicBox.height > 80 && classicBox.width > 0,
     'Classic staff must retain actual drawing area on 375px phones');
+  await page.getByRole('button', { name: 'OSMD', exact: true }).click();
+  await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
+
+  // Bass landmarks still require Classic until that teaching overlay migrates.
+  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await page.getByText(/временно использует классический стан/).waitFor();
+  await classicSvg.waitFor({ state: 'visible', timeout: 15000 });
+  await page.getByRole('button', { name: /Маяки баса/ }).click();
+  await hanonBlock.first().waitFor({ state: 'attached', timeout: 20000 });
 
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   await svg.waitFor({ state: 'visible', timeout: 30000 });

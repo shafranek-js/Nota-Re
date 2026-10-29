@@ -29,9 +29,9 @@ export const TrainerWorkspace: React.FC = () => {
     try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
   };
 
-  // Interval and G-pattern guides derive their geometry from OSMD notes.
-  // Hanon blocks and bass landmarks still require legacy overlays.
-  const requiresLegacy = currentAppMode === 'hanon' || showBassLandmarks;
+  // Interval, G-pattern and Hanon guides use OSMD's own note geometry.
+  // Bass landmarks retain the classic fallback until they are migrated.
+  const requiresLegacy = showBassLandmarks;
   const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
 
   return (
