@@ -21,7 +21,6 @@ function getInitialRenderer(): ScoreRenderer {
 }
 
 export const TrainerWorkspace: React.FC = () => {
-  const { currentAppMode, showBassLandmarks } = useAppStore();
   const [preferredRenderer, setPreferredRenderer] = useState<ScoreRenderer>(getInitialRenderer);
 
   const selectRenderer = (next: ScoreRenderer) => {
@@ -29,10 +28,9 @@ export const TrainerWorkspace: React.FC = () => {
     try { localStorage.setItem(RENDERER_STORAGE_KEY, next); } catch { /* storage optional */ }
   };
 
-  // Interval, G-pattern and Hanon guides use OSMD's own note geometry.
-  // Bass landmarks retain the classic fallback until they are migrated.
-  const requiresLegacy = showBassLandmarks;
-  const renderOsmd = preferredRenderer === 'osmd' && !requiresLegacy;
+  // All eight training modes (including bass landmarks) now use OSMD.
+  // The original Classic renderer is retained for manual visual acceptance.
+  const renderOsmd = preferredRenderer === 'osmd';
 
   return (
     <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-y-auto lg:overflow-hidden">
@@ -66,11 +64,7 @@ export const TrainerWorkspace: React.FC = () => {
               Классический
             </button>
           </div>
-          {preferredRenderer === 'osmd' && requiresLegacy && (
-            <span className="text-amber-300">
-              Этот режим временно использует классический стан для специальных подсказок.
-            </span>
-          )}
+
         </div>
 
         {renderOsmd ? (

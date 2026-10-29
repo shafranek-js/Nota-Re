@@ -7,6 +7,7 @@ import { getMaskedNoteIndices, getNoteOnsets, TICKS_PER_MEASURE } from '../../..
 import { getIntervalGuides } from '../../../core/notation/intervalGuides';
 import { getGazeGuides } from '../../../core/notation/gazeGuides';
 import { getHanonBlocks } from '../../../core/notation/hanonBlocks';
+import { getBassLandmarkSegments } from '../../../core/notation/bassLandmarks';
 import { Volume2, Camera } from 'lucide-react';
 
 const speechLabels: Record<string, string> = {
@@ -514,6 +515,102 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
     return clear;
   }, [activeExerciseNotes, noteOnsets, currentAppMode, loadState, renderEpoch]);
 
+
+  // Bass landmarks are a transparent guide on the EXISTING OSMD staff.
+  // VexFlow owns the five staff lines: getYForLine(1)=F3 (4th line from
+  // bottom), getYForLine(4)=G2 (bottom line) in a standard F clef.
+  // Do not estimate y from our exercise notes or re-create a custom staff.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    const selector = '[data-notare-bass-landmark="true"]';
+    const clear = () => mount.querySelectorAll(selector).forEach(element => element.remove());
+    clear();
+    if (!showBassLandmarks || loadState !== 'ready' || !osmdRef.current) return;
+
+    const svgNS = 'http://www.w3.org/2000/svg';
+    type VexStave = {
+      getX: () => number;
+      getWidth: () => number;
+      getYForLine: (index: number) => number;
+    };
+    type StaveMeasure = { getVFStave?: () => VexStave };
+    let drawn = 0;
+
+    try {
+      const pages = osmdRef.current.GraphicSheet.MusicPages;
+      const svgPages = mount.querySelectorAll('svg');
+
+      pages.forEach((page, pageIndex) => {
+        const svg = svgPages.item(pageIndex);
+        if (!(svg instanceof SVGSVGElement)) return;
+
+        page.MusicSystems.forEach(system => {
+          // The canonical MusicXML piano score has exactly two staves,
+          // ordered treble (0) then bass (1). Never mark the treble staff.
+          if (system.StaffLines.length !== 2) return;
+          const bass = system.StaffLines[1];
+          if (bass.ParentStaff.StafflineCount !== 5) return;
+          const measures = bass.Measures;
+          if (!measures.length) return;
+          const first = (measures[0] as StaveMeasure).getVFStave?.();
+          const last = (measures[measures.length - 1] as StaveMeasure).getVFStave?.();
+          if (!first || !last) return;
+
+          const x1 = first.getX();
+          const x2 = last.getX() + last.getWidth();
+          const landmarks = getBassLandmarkSegments({
+            x: x1,
+            width: x2 - x1,
+            lineY: line => first.getYForLine(line)
+          });
+          if (landmarks.length !== 2) return;
+          for (const landmark of landmarks) {
+            const group = document.createElementNS(svgNS, 'g');
+            group.setAttribute('data-notare-bass-landmark', 'true');
+            group.setAttribute('data-landmark-pitch', landmark.pitch);
+            group.setAttribute('data-staff-line-index', String(landmark.lineFromTop));
+            group.setAttribute('data-origin', 'vexflow-stave');
+            group.setAttribute('aria-hidden', 'true');
+            group.setAttribute('pointer-events', 'none');
+
+            const line = document.createElementNS(svgNS, 'line');
+            line.setAttribute('x1', String(landmark.x1));
+            line.setAttribute('x2', String(landmark.x2));
+            line.setAttribute('y1', String(landmark.y));
+            line.setAttribute('y2', String(landmark.y));
+            line.setAttribute('stroke', landmark.pitch === 'F3' ? '#9333ea' : '#4f46e5');
+            line.setAttribute('stroke-width', '2');
+            line.setAttribute('stroke-opacity', '0.68');
+            line.setAttribute('stroke-dasharray', '6 4');
+
+            const label = document.createElementNS(svgNS, 'text');
+            label.setAttribute('x', String(landmark.x2 - 5));
+            label.setAttribute('y', String(landmark.y - 5));
+            label.setAttribute('text-anchor', 'end');
+            label.setAttribute('font-size', '11');
+            label.setAttribute('font-weight', 'bold');
+            label.setAttribute('fill', landmark.pitch === 'F3' ? '#7e22ce' : '#3730a3');
+            label.textContent = landmark.label;
+            group.append(line, label);
+            svg.appendChild(group);
+            drawn++;
+          }
+        });
+      });
+      if (drawn === 0) {
+        setErrorMessage('Не удалось найти линейки басового ключа в OSMD. Используйте классический стан.');
+        setLoadState('error');
+      }
+    } catch (error) {
+      console.error('OSMD bass landmarks failed', error);
+      setErrorMessage('Не удалось разместить маяки басового ключа. Используйте классический стан.');
+      setLoadState('error');
+    }
+
+    return clear;
+  }, [showBassLandmarks, loadState, renderEpoch]);
+
   return (
     <div data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       <div className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
@@ -535,7 +632,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy }) => {
           )}
           <button
             onClick={toggleBassLandmarks}
-            title="Включить ориентиры басового ключа (временно использует классический стан)"
+            title="Показать ориентиры F3 и G2 на линейках басового ключа OSMD"
             className="px-2 py-0.5 bg-slate-950 border border-slate-800 rounded-md text-purple-300"
           >
             𝄢 Маяки баса: {showBassLandmarks ? 'ВКЛ' : 'ВЫКЛ'}
