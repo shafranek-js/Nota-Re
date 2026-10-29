@@ -743,7 +743,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleUserTriggerNote: (noteName, fromMidi = false) => {
     // The hardware must remain audible during diagnostics, but neither
     // background MIDI nor keyboard shortcuts may inflate a course result.
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen || get().trainerPhase !== 'playing') return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
+    if (get().trainerPhase === 'setup') {
+      // Setup may preview virtual notes, but no practice attempts are judged.
+      const preview = MIDI_NOTE_MAP[noteName];
+      if (preview && !fromMidi) audioEngine.playPianoTone(preview.freq, 0.35);
+      return;
+    }
+    if (get().trainerPhase !== 'playing') return;
     const { 
       activeExerciseNotes, 
       activeNoteIndex, 
