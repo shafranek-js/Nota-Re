@@ -18,6 +18,7 @@ export const TrainerToolbar: React.FC = () => {
     bpm,
     setBpm,
     isContinuousFlow,
+    trainerPhase,
     toggleContinuousFlow,
     regenerateExercise,
     activeExerciseNotes
@@ -158,7 +159,7 @@ export const TrainerToolbar: React.FC = () => {
           }`}
         >
           {isContinuousFlow ? <Pause className="w-3 h-3" /> : <Play className="w-3 h-3" />}
-          <span>{isContinuousFlow ? 'Поток: ИДЁТ' : 'Поток: Пауза'}</span>
+          <span>{isContinuousFlow && trainerPhase === 'playing' ? 'Поток: ИДЁТ' : isContinuousFlow ? 'Поток: готов' : 'Поток: Пауза'}</span>
         </button>
 
         {/* Вокальный образец (Сольфеджио) */}

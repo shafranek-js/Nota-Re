@@ -6,6 +6,7 @@ import { TrainerToolbar } from './TrainerToolbar';
 import { GrandStaffSvg } from './GrandStaffSvg';
 import { TargetInfoBar } from './TargetInfoBar';
 import { PianoKeyboard } from './PianoKeyboard';
+import { AttemptResultCard } from './AttemptResultCard';
 
 // The OSMD bundle is only downloaded when its renderer is selected.
 const OsmdStaff = React.lazy(() => import('./OsmdStaff').then(m => ({ default: m.OsmdStaff })));
@@ -17,16 +18,31 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, startTrainerExercise } = useAppStore();
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
   const renderOsmd = renderer === 'osmd';
 
+  // Results replace the practice surface. No hidden keyboard can score a new
+  // note until the learner explicitly chooses a next action.
+  if (trainerPhase === 'results' && !isTwoHandPracticeOpen) {
+    return <AttemptResultCard />;
+  }
+
   return (
     <section className="flex-1 min-h-0 w-full flex flex-col justify-between p-2 gap-1.5 overflow-y-auto lg:overflow-hidden">
       {!isTwoHandPracticeOpen && <TrainerBanner />}
       {!isTwoHandPracticeOpen && <TrainerToolbar />}
+      {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
+        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-2" role="status" data-testid="trainer-setup">
+          <p className="text-sm text-sky-100">Настройте упражнение и начните игру. Ноты пока не оцениваются.</p>
+          <button type="button" onClick={startTrainerExercise}
+            className="rounded-lg bg-emerald-500 px-4 py-2 font-semibold text-sm text-slate-950 hover:bg-emerald-400">
+            Начать упражнение
+          </button>
+        </div>
+      )}
       <div className="shrink-0 flex items-center gap-2 px-1">
         <button type="button" aria-pressed={isTwoHandPracticeOpen} onClick={toggleTwoHandPractice}
           className={'rounded-lg border px-3 py-1 text-xs font-semibold ' +
