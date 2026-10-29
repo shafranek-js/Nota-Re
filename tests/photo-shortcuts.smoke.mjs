@@ -48,6 +48,7 @@ try {
   await page.getByRole('button', { name: 'Классический', exact: true }).click();
   assert.ok(await page.locator('svg[viewBox="0 0 1720 305"]').isVisible());
   assert.equal((await target.innerText()).trim(), 'По памяти');
+  await page.getByTestId('toolbar-trigger-mode').click();
   await page.getByRole('button', { name: /1\. Рефлекс/ }).click();
   assert.match((await target.innerText()).trim(), /^[A-G][#b]?[0-9]$/);
 
