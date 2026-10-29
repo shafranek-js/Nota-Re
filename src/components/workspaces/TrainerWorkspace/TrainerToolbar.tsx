@@ -53,7 +53,7 @@ export const TrainerToolbar: React.FC = () => {
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
     keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice,
-    startTrainerExercise, stopTrainerExercise, activeLessonId, zenModeEnabled, toggleZenMode
+    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, toggleZenMode
   } = useAppStore();
 
   useEffect(() => {
@@ -271,6 +271,12 @@ export const TrainerToolbar: React.FC = () => {
           )}
           {panel === 'actions' && (
             <div className="flex flex-wrap gap-2">
+              <button type="button" className={controlClass} onClick={() => {
+                setPanel(null);
+                openTrainerPrecheck();
+              }} title="Открыть методический анализ перед игрой">
+                Анализ перед игрой
+              </button>
               <button type="button" className={controlClass} onClick={previewNotes}
                 title="Слуховое предслышание: прослушать мелодию голосом">
                 <span className="inline-flex items-center gap-1"><Mic className="w-3 h-3"/> Петь / прослушать</span>
