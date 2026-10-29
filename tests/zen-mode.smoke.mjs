@@ -90,8 +90,12 @@ try {
       await page.keyboard.press('Escape');
       await fullBar.waitFor({ state: 'visible' });
       assert.equal(await page.getByTestId('toolbar-zen-toggle').getAttribute('aria-pressed'), 'false');
-      assert.equal(await page.getByTestId('toolbar-zen-toggle').evaluate(node => node === document.activeElement),
-        true, 'Escape restores focus to the Zen switch');
+      // Exiting Zen focuses the re-mounted toolbar button on the next
+      // requestAnimationFrame. Assert the final focus state, not a race with
+      // the synchronous React visibility update.
+      await page.waitForFunction(() =>
+        document.activeElement === document.querySelector('[data-testid="toolbar-zen-toggle"]'),
+      null, { timeout: 3000 });
 
       // Focus remains a persisted presentation preference; it is not a
       // grading or timer setting, and Setup should always show the toolbar.
