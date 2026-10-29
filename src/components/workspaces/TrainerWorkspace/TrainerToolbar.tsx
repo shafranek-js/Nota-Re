@@ -153,7 +153,7 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
       {panel && (
         <section id={`${id}-panel`} data-testid={`toolbar-panel-${panel}`}
           role="region" aria-labelledby={`${id}-${panel}`}
-          className="min-w-0 border-t border-slate-700 px-3 py-3 space-y-2 max-h-[min(48vh,380px)] overflow-y-auto">
+          className={`min-w-0 border-t border-slate-700 px-3 max-h-[min(48vh,380px)] overflow-y-auto ${panel === 'view' ? 'py-1.5' : 'py-3 space-y-2'}`}>
           {panel === 'mode' && (
             <>
               <p className="text-xs text-slate-400">Выберите методику чтения с листа.</p>
@@ -240,22 +240,21 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
             </>
           )}
           {panel === 'view' && (
-            <>
-              <div role="group" aria-label="Способ отображения нот" className="flex flex-wrap items-center gap-2">
-                <span className="text-xs text-slate-400">Нотный движок:</span>
+            <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap custom-scroll pb-1" data-testid="view-controls-row">
+              <span className="shrink-0 text-xs text-slate-400">Ноты:</span>
+              <div role="group" aria-label="Способ отображения нот" className="flex shrink-0 items-center gap-1">
                 {optionButton('OSMD', renderer === 'osmd', () => onSelectRenderer('osmd'))}
                 {optionButton('Классический', renderer === 'legacy', () => onSelectRenderer('legacy'))}
               </div>
-              <div className="flex flex-wrap gap-2">
-                {optionButton(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
-                  showVirtualKeyboard, toggleVirtualKeyboard)}
-                {optionButton('Звукоряд тональности', showScaleHighlight, toggleScaleHighlight)}
-                {optionButton('Тактильная ширма (18:20)', isBlindfolded, toggleBlindfoldKeys)}
-                {optionButton('Режим «Стол» (22:05)', isTabletopMode, toggleTabletopMode)}
-                {optionButton('Маяки баса', showBassLandmarks, toggleBassLandmarks)}
-              </div>
-              <label className="flex flex-col gap-1 w-fit text-xs text-slate-300">
-                Подписи виртуальных клавиш
+              <span className="mx-1 h-5 shrink-0 border-l border-slate-700" aria-hidden="true" />
+              {optionButton(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
+                showVirtualKeyboard, toggleVirtualKeyboard)}
+              {optionButton('Звукоряд тональности', showScaleHighlight, toggleScaleHighlight)}
+              {optionButton('Тактильная ширма (18:20)', isBlindfolded, toggleBlindfoldKeys)}
+              {optionButton('Режим «Стол» (22:05)', isTabletopMode, toggleTabletopMode)}
+              {optionButton('Маяки баса', showBassLandmarks, toggleBassLandmarks)}
+              <label className="shrink-0 inline-flex items-center gap-1.5 text-xs text-slate-300">
+                Подписи клавиш
                 <select aria-label="Подписи виртуальных клавиш" value={keyboardLabelMode}
                   onChange={event => setKeyboardLabelMode(event.target.value as KeyboardLabelMode)}
                   className={controlClass}>
@@ -263,17 +262,17 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
                 </select>
               </label>
               {currentAppMode === 'photo' && (
-                <label className="flex flex-col gap-1 w-fit text-xs text-slate-300">
-                  Окно экспозиции фото-памяти
+                <label className="shrink-0 inline-flex items-center gap-1.5 text-xs text-slate-300">
+                  Экспозиция
                   <select aria-label="Экспозиция фото-памяти" value={photoExposureMs}
                     onChange={event => setPhotoExposure(Number(event.target.value))} className={controlClass}>
-                    <option value={1100}>1,1 секунды</option>
-                    <option value={1800}>1,8 секунды</option>
-                    <option value={2400}>2,4 секунды</option>
+                    <option value={1100}>1,1 с</option>
+                    <option value={1800}>1,8 с</option>
+                    <option value={2400}>2,4 с</option>
                   </select>
                 </label>
               )}
-            </>
+            </div>
           )}
           {panel === 'actions' && (
             <div className="flex flex-wrap gap-2">
@@ -299,11 +298,11 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
               </button>
             </div>
           )}
-          <p className="text-[11px] text-slate-500">
+          {panel !== 'view' && <p className="text-[11px] text-slate-500">
             {activeLessonId !== null
               ? 'Изменение учебных параметров завершает зачёт текущего урока.'
               : 'Настройки упражнения автоматически сохраняются на этом устройстве.'}
-          </p>
+          </p>}
         </section>
       )}
     </div>
