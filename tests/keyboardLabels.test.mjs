@@ -1,14 +1,15 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { resolveKeyboardLabels } from '../src/core/training/keyboardLabels.ts';
+import { DEFAULT_TRAINER_PREFERENCES } from '../src/core/storage/trainerPreferences.ts';
 
-test('MIDI-aware defaults hide PC key legends while retaining note names', () => {
-  assert.equal(resolveKeyboardLabels('auto', 0), 'pc');
-  assert.equal(resolveKeyboardLabels('auto', 2), 'notes');
+test('virtual piano shows note names by default without requiring MIDI hardware', () => {
+  assert.equal(DEFAULT_TRAINER_PREFERENCES.keyboardLabelMode, 'notes');
+  assert.equal(resolveKeyboardLabels(DEFAULT_TRAINER_PREFERENCES.keyboardLabelMode), 'notes');
 });
-test('explicit overrides remain independent of hardware', () => {
-  for (const mode of ['off', 'notes', 'pc']) {
-    assert.equal(resolveKeyboardLabels(mode, 0), mode);
-    assert.equal(resolveKeyboardLabels(mode, 1), mode);
+
+test('explicit note names, no labels and PC shortcuts remain available', () => {
+  for (const mode of ['notes', 'off', 'pc']) {
+    assert.equal(resolveKeyboardLabels(mode), mode);
   }
 });
