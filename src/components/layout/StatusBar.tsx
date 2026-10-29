@@ -73,7 +73,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Режим, тональность и темп">
               {MODE_LABELS[currentAppMode] ?? currentAppMode} · {currentTonality} · {bpm} BPM
             </span>
-            <span title="Точность попаданий за текущую сессию">
+            <span title="Точность попаданий в текущей сессии">
               Точность: <span className="text-slate-300">{accuracy === null ? '—' : `${accuracy}%`} ({totalAttempts})</span>
             </span>
             <span title="Текущая и лучшая серия верных нот">
