@@ -43,6 +43,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/preplay-countin.smoke.mjs
+      - name: Verify four-group Studio toolbar and MIDI-aware keyboard
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/compact-toolbar.smoke.mjs
       - name: Exercise OSMD with real browser
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
