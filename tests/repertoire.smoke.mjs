@@ -52,13 +52,24 @@ try {
       await filePicker.setInputFiles({ name: 'invalid.musicxml', mimeType: 'text/xml',
         buffer: Buffer.from('<!DOCTYPE score-partwise [<!ENTITY x SYSTEM "https://invalid/evil">]><score-partwise/>') });
       await page.getByTestId('repertoire-import-error').waitFor({ state: 'visible' });
-      assert.match(await page.getByTestId('repertoire-import-error').innerText(), /DTD/);
+      assert.match(await page.getByTestId('repertoire-import-error').innerText(), /(DOCTYPE|DTD|ENTITY)/);
       assert.equal(await page.getByTestId('repertoire-preview').count(), 0);
 
       // Exercise renderer still works after invalid upload.
       assert.ok(await page.getByTestId('studio-score-area').isVisible());
 
       if (width === 1440) {
+        // Older MusicXML exports routinely contain the canonical Recordare
+        // DTD. It is stripped before parsing, not rejected as a hostile file.
+        const standardDtd = '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">';
+        const withDtd = DEMO_XML.replace('<score-partwise', standardDtd + '\n<score-partwise');
+        await filePicker.setInputFiles({ name: 'classic-export.xml', mimeType: 'text/xml',
+          buffer: Buffer.from(withDtd) });
+        await preview.waitFor({ state: 'visible', timeout: 35000 });
+        await page.getByTestId('repertoire-score').locator('svg').first()
+          .waitFor({ state: 'visible', timeout: 45000 });
+        await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
+
         // A multi-part score is rendered without inventing an ExerciseNote
         // sequence, deleting a voice, or claiming it can be graded.
         await filePicker.setInputFiles({ name: 'two-parts.musicxml',
