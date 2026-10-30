@@ -77,6 +77,25 @@ try {
         await scroll.evaluate(el => { el.scrollLeft = el.scrollWidth - el.clientWidth; });
         assert.ok(await scroll.evaluate(el => el.scrollLeft > 50),
           'readers must be able to reach later measures without scrolling the whole page');
+        // On a manually panned score the NEXT played note must automatically
+        // become visible. Without following, later noteheads disappear offscreen.
+        const rightmost = await scroll.evaluate(el => el.scrollLeft);
+        const oldIndex = Number(await score.getAttribute('data-active-note-index'));
+        const currentNote = (await page.getByTestId('active-target-note').innerText()).trim();
+        assert.match(currentNote, /^[A-G][#b]?[0-9]$/);
+        await page.getByRole('button', { name: `Клавиша ${currentNote}`, exact: true }).click();
+        await page.waitForFunction(previousIndex => {
+          const host = document.querySelector('[data-testid="osmd-score"]');
+          const viewport = document.querySelector('[data-testid="osmd-scroll-region"]');
+          const ring = host?.querySelector('[data-notare-active-ring="true"]');
+          if (!host || !viewport || !ring ||
+              Number(host.getAttribute('data-active-note-index')) <= previousIndex) return false;
+          const b = ring.getBoundingClientRect(), v = viewport.getBoundingClientRect();
+          const center = (b.left + b.right) / 2;
+          return center >= v.left + 8 && center <= v.right - 8;
+        }, oldIndex, { timeout: 7000 });
+        assert.ok(await scroll.evaluate(el => el.scrollLeft) < rightmost,
+          `${width}: advancing to the next target must pan away from a stale rightmost view`);
       }
     } finally {
       await page.close();
