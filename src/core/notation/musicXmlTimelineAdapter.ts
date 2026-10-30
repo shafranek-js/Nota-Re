@@ -78,7 +78,7 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
   }
   // Repeat structures must be expanded musically before a linear timeline can
   // represent performance order. The original score is still rendered by OSMD.
-  if (root.querySelector('repeat, ending, multiple-rest, measure-repeat, grace, cue, unpitched, transpose')) {
+  if (root.querySelector('repeat, ending, multiple-rest, measure-repeat, grace, cue, unpitched, transpose, ornaments, tremolo')) {
     return unsupported('Повторы, грации, транспозиция или нетоновые события требуют отдельного адаптера.');
   }
   if (root.querySelector('direction > direction-type > words, sound[dacapo], sound[dalsegno], sound[segno], sound[coda]')) {
@@ -111,6 +111,7 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
   const tempos: ScoreTempoChange[] = [];
   let start = quarter(0);
   for (let m = 0; m < count; m++) {
+    const firstEventInMeasure = events.length;
     const measureId = 'measure-' + (m + 1);
     let commonMeter: ScoreMeter | null = null;
     let commonFifths: number | undefined;
@@ -183,6 +184,7 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
             );
             const chord = child(element, 'chord') !== null;
             const rest = child(element, 'rest') !== null;
+            if (rest && child(element, 'pitch')) return unsupported('Пауза содержит нотную высоту.');
             if (chord && (rest || lastNoteOnset === null)) {
               return unsupported('Аккорд не связан с предыдущей нотой.');
             }
@@ -224,6 +226,10 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
           }
           case 'direction':
           case 'sound': {
+            if (element.querySelector('metronome') &&
+                !element.querySelector('sound[tempo]')) {
+              return unsupported('Метрономное обозначение без численного темпа требует отдельного адаптера.');
+            }
             if (element.querySelector('offset')) return unsupported('Смещение темпа требует отдельного адаптера.');
             const sound = element.localName === 'sound' ? element : child(element, 'sound');
             const bpm = sound?.getAttribute('tempo');
@@ -270,8 +276,8 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
     }
     // Per-part timing must fit the shared bar. Otherwise the musical model
     // cannot safely agree with the engraved measure.
-    for (const parsed of events) {
-      if (parsed.event.measureId !== measureId) continue;
+    for (let i = firstEventInMeasure; i < events.length; i++) {
+      const parsed = events[i]!;
       if (compareQuarter(addQuarter(parsed.event.onset, parsed.event.duration),
           addQuarter(start, duration)) > 0) {
         return unsupported('Ноты выходят за границу такта.');
