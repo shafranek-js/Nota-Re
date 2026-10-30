@@ -17,6 +17,10 @@ try {
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
 
       const course = page.getByTestId('course-focused-controls');
+      const zen = page.getByTestId('zen-control-strip');
+      await zen.waitFor({ state: 'visible' });
+      assert.equal(await course.count(), 0, 'certified lesson starts in Zen automatically');
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 40000 });
       assert.equal(await page.getByTestId('trainer-toolbar').count(), 0,
@@ -42,13 +46,18 @@ try {
       assert.match(download.suggestedFilename(), /\.musicxml$/);
       assert.equal((await course.getByTestId('course-credit-mode').innerText()).trim(), 'Зачётная попытка');
 
-      await course.getByTestId('toolbar-zen-toggle').click();
-      await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
-      assert.equal(await course.count(), 0);
-      await page.keyboard.press('Escape');
-      await course.waitFor({ state: 'visible' });
-      assert.equal(await course.getByTestId('toolbar-zen-toggle').evaluate(
-        el => el === document.activeElement), true, 'Zen exit restores focus to course Zen control');
+      await page.waitForFunction(() =>
+        document.querySelector('[data-testid="course-focused-controls"]')?.contains(document.activeElement),
+      null, { timeout: 3000 }).catch(async () => {
+        const diagnostic = await page.evaluate(() => ({
+          active: document.activeElement?.outerHTML?.slice(0, 320) ?? null,
+          target: document.querySelector('[data-testid="course-to-free-setup"]')?.outerHTML?.slice(0, 320) ?? null,
+          zen: document.querySelector('[data-testid="studio-workspace"]')?.getAttribute('data-zen-active')
+        }));
+        throw new Error('Zen focus return failed: ' + JSON.stringify(diagnostic));
+      });
+      assert.equal((await course.getByTestId('course-credit-mode').innerText()).trim(), 'Зачётная попытка',
+        'a view-only dismissal must not revoke certification');
 
       // The learner must intentionally leave the graded attempt before
       // editing free-practice settings. Stop cancels rhythmic deadlines.
@@ -60,6 +69,8 @@ try {
       const studioLaunch = page.getByTestId('studio-start-course');
       assert.match(await studioLaunch.innerText(), /Начать зачёт урока 3/);
       await studioLaunch.click();
+      await zen.waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       assert.equal(await page.getByTestId('studio-start-course').count(), 0);
       await course.getByTestId('course-to-free-setup').click();
@@ -73,6 +84,8 @@ try {
 
       await page.getByRole('button', { name: /^Курс$/ }).click();
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+      await zen.waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       // Opening Settings uses the same well-tested course interruption path
       // as before and cannot silently maintain certification.
@@ -109,6 +122,8 @@ try {
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     const focused = savedPage.getByTestId('course-focused-controls');
     await focused.waitFor({ state: 'visible' });
     assert.match(await focused.innerText(), /3 \/ 10 ном/);
@@ -125,6 +140,8 @@ try {
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
     await savedPage.getByTestId('course-lesson-2').click();
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /0 \/ 15 ном/);
     // A restored seventh Lookahead score must choose actual Photo-memory mode.
     await savedPage.evaluate(() => {
@@ -140,6 +157,8 @@ try {
     await savedPage.getByTestId('course-lesson-10').click();
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 7 \/ 15/);
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     const stage = savedPage.getByTestId('lesson-ten-stage');
     await stage.waitFor({ state: 'visible' });
     assert.match(await stage.innerText(), /Этап 2: Фото-память \(8\)/);

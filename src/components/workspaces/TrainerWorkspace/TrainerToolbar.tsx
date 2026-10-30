@@ -1,4 +1,4 @@
-import React, { useEffect, useId, useRef, useState } from 'react';
+import React, { useEffect, useLayoutEffect, useId, useRef, useState } from 'react';
 import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
 import type { AppMode, FilterType, HanonType, SpeechType, TonalityKey } from '../../../types/music';
 import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences';
@@ -6,7 +6,7 @@ import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MetronomeToggle } from './MetronomeToggle';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
-import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
+import { ChevronDown, ClipboardCheck, FileDown, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
 
@@ -54,8 +54,16 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
     keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice,
-    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, toggleZenMode
+    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, zenSessionStarted, zenDismissedForSession, setAutoZenEnabled
   } = useAppStore();
+
+  useLayoutEffect(() => {
+    if (zenSessionStarted && zenDismissedForSession) {
+      root.current?.querySelector<HTMLButtonElement>('[data-testid="toolbar-trigger-view"]')?.focus();
+    }
+    // Focus after returning from the temporarily dismissed Zen view.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   useEffect(() => {
     if (!panel) return;
@@ -139,11 +147,19 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
               isContinuousFlow ? 'Поток: готов' : 'Поток: Пауза'}
           </span>
         </button>
-        <div className="ml-auto shrink-0 flex gap-1.5">
-          <button type="button" onClick={toggleZenMode} data-testid="toolbar-zen-toggle"
-            aria-pressed={zenModeEnabled} title="Во время игры скрывать отвлекающие панели; Esc возвращает их"
-            className={zenModeEnabled ? activeClass : controlClass}>
-            <span className="inline-flex items-center gap-1"><Focus className="w-3.5 h-3.5" aria-hidden="true"/> Zen</span>
+        <div data-testid={trainerPhase === 'setup' ? 'trainer-setup' : undefined}
+          role="group"
+          aria-label={trainerPhase === 'setup' ? 'Упражнение готово; ноты ещё не оцениваются' : 'Управление упражнением'}
+          className="ml-auto shrink-0 flex gap-1.5">
+          <button type="button" data-testid="toolbar-precheck" onClick={() => {
+            setPanel(null);
+            openTrainerPrecheck();
+          }} title="Необязательный анализ нот перед первым звуком"
+            className={controlClass}>
+            <span className="inline-flex items-center gap-1">
+              <ClipboardCheck aria-hidden="true" className="w-3.5 h-3.5"/>
+              Анализ
+            </span>
           </button>
           <button type="button"
             onClick={trainerPhase === 'setup' ? startTrainerExercise : stopTrainerExercise}
@@ -249,6 +265,13 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
           )}
           {panel === 'view' && (
             <div className="flex min-w-0 items-center gap-2 overflow-x-auto whitespace-nowrap custom-scroll pb-1" data-testid="view-controls-row">
+              <label className="inline-flex shrink-0 items-center gap-1.5 rounded-lg border border-sky-700/40 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 cursor-pointer">
+                <input type="checkbox" data-testid="auto-zen-setting"
+                  checked={zenModeEnabled} onChange={event => setAutoZenEnabled(event.target.checked)}
+                  className="accent-emerald-500" />
+                Авто Zen при старте
+              </label>
+              <span className="mx-0.5 h-5 shrink-0 border-l border-slate-700" aria-hidden="true" />
               <span className="shrink-0 text-xs text-slate-400">Ноты:</span>
               <div role="group" aria-label="Способ отображения нот" className="flex shrink-0 items-center gap-1">
                 {optionButton('OSMD', renderer === 'osmd', () => onSelectRenderer('osmd'))}
@@ -285,12 +308,6 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
           )}
           {panel === 'actions' && (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={controlClass} onClick={() => {
-                setPanel(null);
-                openTrainerPrecheck();
-              }} title="Открыть методический анализ перед игрой">
-                Анализ перед игрой
-              </button>
               <button type="button" className={controlClass} onClick={previewNotes}
                 title="Слуховое предслышание: прослушать мелодию голосом">
                 <span className="inline-flex items-center gap-1"><Mic className="w-3 h-3"/> Петь / прослушать</span>

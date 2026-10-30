@@ -13,7 +13,7 @@ export const ZenControlStrip: React.FC = () => {
   const {
     activeLessonId, activeExerciseNotes, activeNoteIndex, completedExercisesCount, bpm,
     isContinuousFlow, audioEnabled, toggleAudioMaster, toggleSettingsDrawer,
-    switchWorkspace, stopTrainerExercise, toggleZenMode
+    switchWorkspace, stopTrainerExercise, dismissZenForSession
   } = useAppStore();
   const exitButton = useRef<HTMLButtonElement>(null);
   const lesson = COURSE_CURRICULUM.find(item => item.id === activeLessonId);
@@ -24,11 +24,8 @@ export const ZenControlStrip: React.FC = () => {
   }, []);
 
   const exitZen = () => {
-    toggleZenMode();
-    // Focus the restored switch after the normal toolbar has committed.
-    window.requestAnimationFrame(() => {
-      document.querySelector<HTMLButtonElement>('[data-testid="toolbar-zen-toggle"]')?.focus();
-    });
+    // The restored controls focus after React commits the normal toolbar.
+    dismissZenForSession();
   };
 
   useEffect(() => {

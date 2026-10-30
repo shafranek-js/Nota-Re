@@ -32,6 +32,9 @@ try {
       return node;
     };
   });
+  // Precise clock regression needs the manual preview/flow controls visible.
+  await page.addInitScript(() => localStorage.setItem('notare-trainer-preferences-v1',
+    JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })));
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.getByTitle('Открыть настройки').click();
   await page.getByRole('button', { name: 'Синтезатор', exact: true }).click();

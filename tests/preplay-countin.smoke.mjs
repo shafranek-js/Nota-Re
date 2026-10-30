@@ -78,7 +78,9 @@ try {
       await page.getByRole('button', { name: 'Начать упражнение' }).click();
       await countIn.waitFor({ state: 'visible', timeout: 2500 });
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 9500 });
-      await page.getByRole('button', { name: 'Поток: ИДЁТ' }).waitFor();
+      await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+      assert.equal(await page.getByTestId('trainer-count-in').count(), 0,
+        'Zen is entered only after the four-beat count-in has finished');
       assert.equal(await countIn.count(), 0);
       assert.ok(await page.getByTestId('status-bar').isVisible());
       const sizes = await page.evaluate(() => ({

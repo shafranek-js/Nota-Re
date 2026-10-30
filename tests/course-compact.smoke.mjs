@@ -101,6 +101,8 @@ try {
       await page.screenshot({ path: `artifacts/course-compact-${viewport.width}.png`, fullPage: false });
       await launch.scrollIntoViewIfNeeded();
       await launch.click();
+      await page.getByTestId('zen-control-strip').waitFor({ state: 'visible', timeout: 15000 });
+      await page.keyboard.press('Escape');
       await page.getByTestId('course-credit-mode').waitFor({ state: 'visible', timeout: 15000 });
       assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
       assert.equal(await page.getByRole('navigation', { name: 'Рабочие пространства' })

@@ -101,7 +101,9 @@ try {
       `OSMD ${width}: preserve the approximately 12px baseline glyph size from the audited prior build`);
     await page.screenshot({ path: `${artifacts}/stage-f-osmd-${width}.png` });
     const normalEpoch = Number(await page.getByTestId('osmd-score').getAttribute('data-osmd-render-epoch'));
-    await page.getByTestId('toolbar-zen-toggle').click();
+    // A real Start (not a manual focus toggle) enters Zen automatically.
+    await page.getByTestId('trainer-start-stop').click();
+    await page.getByTestId('trainer-start-stop').click();
     await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     if (width >= 768) {
       // A taller container is insufficient: require the *real* VexFlow

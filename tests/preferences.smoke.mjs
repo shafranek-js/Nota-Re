@@ -45,7 +45,8 @@ try {
   await settings.locator('select').filter({ has: page.locator('option[value="coord"]') }).selectOption('coord');
   await page.getByRole('button', { name: 'Готово', exact: true }).click();
   const saved = await prefs();
-  assert.equal(saved.version, 1);
+  assert.equal(saved.version, 2);
+  assert.equal(saved.preferences.zenModeEnabled, true);
   assert.equal(saved.preferences.selectedLessonId, 8);
   assert.equal(saved.preferences.currentAppMode, 'rhythm');
   assert.equal(saved.preferences.currentTonality, 'F');
