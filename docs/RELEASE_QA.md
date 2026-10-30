@@ -163,3 +163,23 @@ then again on the merged `main` commit. Chrome tests cover:
 
 Do not mark issues #3, #4, #5 or #6 fully accepted based solely on CI.
 Track remaining physical-device and visual UAT evidence in the issues.
+
+## Lesson 1: note recognition versus speed (2026-10-30)
+
+- Lesson 1 automatically certifies on **10 complete unassisted graded exercises**
+  with **at least 90% series pitch accuracy**. Reaction speed is measured but
+  is **not** a certification gate for this introductory lesson; the numerical
+  800ms goal is an optional training benchmark, not a validated diagnostic.
+- Lessons 2–10 retain their existing speed + accuracy + complete timing
+  evidence gates, pending a separate pedagogical review.
+- The Results screen explains each criterion and its measured status. An
+  optional **Отдельная проверка скорости (без зачёта)** replays the same notes,
+  requires all correct notes and finite input timestamps, and never changes
+  persisted course evidence or marks the lesson complete.
+- An older completed series that was blocked by speed is not silently
+  retro-certified on page reload. Another *fully graded* lesson-1 exercise
+  evaluates the already-saved evidence under the new criterion.
+- Browser regression `tests/lesson-one-credit.smoke.mjs` uses pre-existing
+  slow-but-accurate evidence, completes genuine on-screen notes, verifies
+  certification and a separate no-credit speed attempt. Unit regressions
+  cover missing/assisted/wrong inputs, speed evidence and policy boundaries.

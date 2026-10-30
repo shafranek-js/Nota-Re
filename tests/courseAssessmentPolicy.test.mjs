@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { allowsAutomaticLessonCredit, isTwoHandCourseLesson
+import { allowsAutomaticLessonCredit, isTwoHandCourseLesson, requiresSpeedForLessonCredit
 } from '../src/core/training/courseAssessmentPolicy.ts';
 
 test('automatic single-note certification excludes two-hand lessons', () => {
@@ -14,5 +14,12 @@ test('automatic single-note certification excludes two-hand lessons', () => {
   }
   for (const id of [null, 0, 13, -1, 1.5, NaN]) {
     assert.equal(allowsAutomaticLessonCredit(id), false);
+  }
+});
+
+test('only first lesson treats speed as optional diagnostic', () => {
+  assert.equal(requiresSpeedForLessonCredit(1), false);
+  for (const id of [2, 3, 10, 11, 12, null]) {
+    assert.equal(requiresSpeedForLessonCredit(id), true);
   }
 });
