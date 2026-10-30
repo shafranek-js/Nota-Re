@@ -1343,7 +1343,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     // The first graded slot is queued against the AudioContext clock. Input
     // during the small lead-in *before* its real onset must not count as an
     // on-time hit (including when the countdown UI has just disappeared).
-    if (isContinuousFlow && flowOnsetAudioTime !== null && audioNow !== null &&
+    if (isContinuousFlow && get().activeLessonId === 3 &&
+        flowOnsetAudioTime !== null && audioNow !== null &&
         audioNow < flowOnsetAudioTime) return;
     const rt = isContinuousFlow && flowOnsetAudioTime !== null && audioNow !== null
       ? Math.max(0, Math.round((audioNow - flowOnsetAudioTime) * 1000))
