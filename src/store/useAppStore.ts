@@ -138,6 +138,7 @@ export interface AppState {
   selectNextCourseLesson: () => void;
   toggleLessonCompleted: (id: number) => void;
   resetCourseProgress: () => void;
+  restartSelectedLessonWindow: () => void;
   startActiveLessonInTrainer: () => void;
   beginSpeedChallenge: () => void;
   exitSpeedChallenge: () => void;
@@ -725,6 +726,18 @@ export const useAppStore = create<AppState>((set, get) => ({
     clearAllTwoHandShadowSeries();
     set({ completedLessons: [], courseSeries: {}, courseWindows: {},
       courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
+  },
+
+  restartSelectedLessonWindow: () => {
+    const state = get();
+    const id = state.selectedLessonId;
+    if (state.currentWorkspace !== 'course' || !allowsAutomaticLessonCredit(id) ||
+        !(state.courseWindows[id]?.length)) return;
+    if (!window.confirm(`Начать новую зачётную серию урока ${id}? Результаты текущего окна будут очищены. Общая история и уже полученный зачёт сохранятся.`)) return;
+    const courseWindows = { ...state.courseWindows };
+    delete courseWindows[id];
+    set({ courseWindows });
+    saveRecentCourseWindows(courseWindows);
   },
 
   startActiveLessonInTrainer: () => {

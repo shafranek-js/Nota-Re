@@ -31,6 +31,7 @@ try {
       assert.match(await detail.getByTestId('course-lifetime-count').innerText(), /30/);
       assert.match(await detail.getByTestId('course-recent-count').innerText(),
         seeded ? /14 \/ 15/ : /0 \/ 15/);
+      if (seeded) assert.ok(await detail.getByTestId('restart-course-window').isVisible());
       await detail.getByTestId('course-launch-selected').click();
       const target = page.getByTestId('active-target-note');
       await target.waitFor({ state: 'visible', timeout: 30000 });

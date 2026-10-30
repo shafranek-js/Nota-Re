@@ -22,6 +22,7 @@ export const CourseWorkspace: React.FC = () => {
     courseWindows,
     toggleLessonCompleted,
     resetCourseProgress,
+    restartSelectedLessonWindow,
     startActiveLessonInTrainer,
     prepareSelectedLessonInTrainer
   } = useAppStore();
@@ -295,6 +296,14 @@ export const CourseWorkspace: React.FC = () => {
               </p>
               {!isTwoHand && lesson.id === 10 && (
                 <p className="text-xs text-sky-300 mt-1">Два обязательных этапа: 7 упражнений «Бегунок», затем 8 «Фото-память».</p>
+              )}
+
+              {!isTwoHand && recentCount > 0 && (
+                <button type="button" data-testid="restart-course-window"
+                  onClick={restartSelectedLessonWindow}
+                  className="mt-2 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:border-amber-500/50 hover:text-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+                  Начать новую зачётную серию (история сохранится)
+                </button>
               )}
 
               {/* Сводка пресета */}
