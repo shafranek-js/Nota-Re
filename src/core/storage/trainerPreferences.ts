@@ -5,7 +5,7 @@ import type {
 export type KeyboardLabelMode = 'off' | 'notes' | 'pc';
 
 export const TRAINER_PREFERENCES_KEY = 'notare-trainer-preferences-v1';
-const SCHEMA_VERSION = 1;
+const SCHEMA_VERSION = 2;
 
 export interface TrainerPreferences {
   selectedLessonId: number;
@@ -21,6 +21,7 @@ export interface TrainerPreferences {
   showBassLandmarks: boolean;
   showScaleHighlight: boolean;
   showVirtualKeyboard: boolean;
+  /** Persisted start-time Zen preference (not the active session). */
   zenModeEnabled: boolean;
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
@@ -41,7 +42,7 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   showBassLandmarks: false,
   showScaleHighlight: false,
   showVirtualKeyboard: true,
-  zenModeEnabled: false,
+  zenModeEnabled: true,
   keyboardLabelMode: 'notes',
   photoExposureMs: 1800,
   audioEnabled: true
@@ -135,8 +136,14 @@ export function loadTrainerPreferences(): TrainerPreferences {
     const raw = localStorage.getItem(TRAINER_PREFERENCES_KEY);
     if (!raw) return { ...DEFAULT_TRAINER_PREFERENCES };
     const envelope = objectOrNull(JSON.parse(raw));
-    if (envelope?.version !== SCHEMA_VERSION) return { ...DEFAULT_TRAINER_PREFERENCES };
-    return validateTrainerPreferences(envelope.preferences);
+    if (envelope?.version === SCHEMA_VERSION) return validateTrainerPreferences(envelope.preferences);
+    if (envelope?.version === 1) {
+      // The previous Zen toggle was manual and off by default. Keep all other
+      // validated settings but adopt the new start-time Zen default.
+      const previous = objectOrNull(envelope.preferences) ?? {};
+      return validateTrainerPreferences({ ...previous, zenModeEnabled: true });
+    }
+    return { ...DEFAULT_TRAINER_PREFERENCES };
   } catch {
     return { ...DEFAULT_TRAINER_PREFERENCES };
   }
