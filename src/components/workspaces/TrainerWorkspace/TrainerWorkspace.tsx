@@ -1,4 +1,4 @@
-import React, { Suspense } from 'react';
+import React, { Suspense, useEffect } from 'react';
 import type { ScoreRenderer } from '../../../core/notation/scoreRendererPreference';
 import type { AppTheme } from '../../../core/ui/themePreference';
 import { useAppStore } from '../../../store/useAppStore';
@@ -24,29 +24,43 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer, theme }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, showVirtualKeyboard, zenModeEnabled, zenSessionStarted, zenDismissedForSession, currentWorkspace, studioSection, activeLessonId, selectedLessonId } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, showVirtualKeyboard, zenModeEnabled, zenSessionStarted, zenDismissedForSession, currentWorkspace, studioSection, activeLessonId, selectedLessonId, beginVisibleCountIn } = useAppStore();
   const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled, zenSessionStarted, zenDismissedForSession });
 
   // All eight training modes (including bass landmarks) now use OSMD.
   // The original Classic renderer is retained for manual visual acceptance.
   const renderOsmd = renderer === 'osmd';
-  const courseLessonActive = trainerPhase === 'playing' && activeLessonId !== null && activeLessonId === selectedLessonId;
+  const countIn = trainerPhase === 'countIn' && !isTwoHandPracticeOpen;
+  const courseLessonActive = (trainerPhase === 'playing' || countIn) &&
+    activeLessonId !== null && activeLessonId === selectedLessonId;
+
+  // Classic SVG is synchronous, OSMD reports its actual completed engraving.
+  // Both start the same store-owned audio-clock only after a visible score.
+  useEffect(() => {
+    if (!countIn || renderOsmd) return;
+    const frame = window.requestAnimationFrame(() => beginVisibleCountIn());
+    return () => window.cancelAnimationFrame(frame);
+  }, [countIn, renderOsmd, beginVisibleCountIn]);
 
   // Results replace the practice surface. No hidden keyboard can score a new
   // note until the learner explicitly chooses a next action.
   if (trainerPhase === 'precheck' && !isTwoHandPracticeOpen) return <PreplayChecklist />;
-  if (trainerPhase === 'countIn' && !isTwoHandPracticeOpen) return <CountInScreen />;
 
   if (trainerPhase === 'results' && !isTwoHandPracticeOpen) {
     return <AttemptResultCard />;
   }
 
   return (
-    <section data-testid="studio-workspace" data-zen-active={zenActive} className={`flex-1 min-h-0 w-full flex flex-col justify-between gap-1.5 overflow-y-auto lg:overflow-hidden ${zenActive ? 'p-1 sm:p-1.5' : 'p-2'}`}>
-      {zenActive && <ZenControlStrip />}
-      {!zenActive && !isTwoHandPracticeOpen && (courseLessonActive
-        ? <CourseLessonControls />
-        : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>)}
+    <section data-testid="studio-workspace" data-zen-active={zenActive} className={`relative flex-1 min-h-0 w-full flex flex-col justify-between gap-1.5 overflow-y-auto lg:overflow-hidden ${zenActive ? 'p-1 sm:p-1.5' : 'p-2'}`}>
+      {countIn && <CountInScreen />}
+      {zenActive && <div className="shrink-0" inert={countIn}><ZenControlStrip /></div>}
+      {!zenActive && !isTwoHandPracticeOpen && (
+        <div className="shrink-0" inert={countIn}>
+          {courseLessonActive
+            ? <CourseLessonControls />
+            : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>}
+        </div>
+      )}
       {isTwoHandPracticeOpen && (
         <div className="shrink-0 flex items-center gap-2 px-1">
           <button type="button" onClick={toggleTwoHandPractice}
@@ -69,7 +83,8 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
               Подключение нотного движка…
             </div>
           }>
-            <OsmdStaff theme={theme} zen={zenActive} onRequestLegacy={() => onSelectRenderer('legacy')} />
+            <OsmdStaff theme={theme} zen={zenActive} onScoreReady={beginVisibleCountIn}
+              onRequestLegacy={() => onSelectRenderer('legacy')} />
           </Suspense>
         ) : (
           <GrandStaffSvg theme={theme} zen={zenActive} />
@@ -77,7 +92,8 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
         <TargetInfoBar zen={zenActive} />
       </div>
 
-      <div className={showVirtualKeyboard ? 'shrink-0' : 'hidden'} aria-hidden={!showVirtualKeyboard}>
+      <div className={showVirtualKeyboard ? 'shrink-0' : 'hidden'}
+        inert={countIn} aria-hidden={!showVirtualKeyboard || countIn}>
         <PianoKeyboard zen={zenActive} />
       </div>
       </>}
