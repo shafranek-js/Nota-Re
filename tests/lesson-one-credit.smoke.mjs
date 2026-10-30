@@ -20,7 +20,7 @@ try {
   });
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   assert.match(await page.getByTestId('course-detail-panel').innerText(),
-    /Скорость \(необязательная тренировка\)/);
+    /Скорость \(необязательная тренировка\)/i);
   await page.getByTestId('course-launch-selected').click();
   const target = page.getByTestId('active-target-note');
   await target.waitFor({ state: 'visible', timeout: 30000 });
