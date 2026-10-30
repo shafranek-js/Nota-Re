@@ -8,7 +8,8 @@ export function allowsAutomaticLessonCredit(lessonId: number | null): boolean {
     lessonId >= 1 && lessonId <= 10;
 }
 
-/** The first lesson certifies note recognition; speed is a separate optional drill. */
+/** Raw visual-to-key delay is not a measured rhythm or motor proficiency.
+ * Speed targets remain optional diagnostics in *all* course lessons. */
 export function requiresSpeedForLessonCredit(lessonId: number | null): boolean {
-  return lessonId !== 1;
+  return false;
 }

@@ -31,6 +31,10 @@ import {
   loadCourseSeriesFromStorage, saveCourseSeriesToStorage, clearCourseSeriesFromStorage
 } from '../core/storage/courseSeriesStorage';
 import type { CourseSeries } from '../core/storage/courseSeriesStorage';
+import { appendCourseWindow, evaluateCourseWindow, gradedScoreFromEvents, lessonTenLookaheadCount,
+  qualifiesLegacyLessonOne } from '../core/training/recentCourseWindow';
+import type { RecentCourseWindows } from '../core/training/recentCourseWindow';
+import { loadRecentCourseWindows, saveRecentCourseWindows, clearRecentCourseWindows } from '../core/storage/recentCourseStorage';
 import { clearAllTwoHandShadowSeries } from '../core/storage/twoHandShadowStorage';
 import {
   DEFAULT_TRAINER_PREFERENCES, loadTrainerPreferences,
@@ -56,6 +60,8 @@ export interface AppState {
   completedLessons: number[];
   /** Graded, fully completed exercises survive reload; live timing never does. */
   courseSeries: CourseSeries;
+  /** Exact individual graded scores since v2; never synthesize them from v1 totals. */
+  courseWindows: RecentCourseWindows;
   activeLessonId: number | null;
   /** Optional, session-only ungraded speed trial; never stored as course credit. */
   speedChallengeTargetMs: number | null;
@@ -408,6 +414,9 @@ function finishExercise(
 ): void {
   const state = get();
   const lesson = COURSE_CURRICULUM.find(item => item.id === state.activeLessonId);
+  const existingWindow = lesson ? (state.courseWindows[lesson.id] ?? []) : [];
+  const stageCount = lesson?.id === 10 ? lessonTenLookaheadCount(existingWindow) :
+    state.courseEvidence.completedExercises;
   const result = evaluateLessonCredit({
     previous: state.courseEvidence,
     noteCount: state.activeExerciseNotes.length,
@@ -419,8 +428,18 @@ function finishExercise(
     requireSpeed: requiresSpeedForLessonCredit(lesson?.id ?? null),
     lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId &&
       allowsAutomaticLessonCredit(lesson.id) &&
-      canCreditLessonMode(lesson.id, state.courseEvidence.completedExercises, state.currentAppMode))
+      canCreditLessonMode(lesson.id, stageCount, state.currentAppMode))
   });
+
+  const updatedWindow = lesson && result.credited
+    ? appendCourseWindow(existingWindow, gradedScoreFromEvents(state.currentAppMode, state.attemptEvents),
+        lesson.id, lesson.normReps)
+    : existingWindow;
+  const windowResult = lesson ? evaluateCourseWindow(updatedWindow, lesson.id,
+    lesson.normReps, lesson.normAcc) : null;
+  const legacyOne = lesson?.id === 1 && result.credited &&
+    qualifiesLegacyLessonOne(existingWindow, state.courseEvidence, lesson.normReps, lesson.normAcc);
+  const certified = result.credited && Boolean(windowResult?.passed || legacyOne);
 
   // Snapshot the completed score before regenerating its notes.
   const lastAttemptResult = createAttemptSnapshot({
@@ -432,16 +451,18 @@ function finishExercise(
     events: state.attemptEvents,
     clean: state.isExerciseFlawless,
     assisted: state.isExerciseAssisted,
-    lessonPassed: result.passed
+    lessonPassed: certified
   });
   set({ courseEvidence: result.evidence, completedExercisesCount: result.creditedRepetitions,
     lastAttemptResult, trainerPhase: 'results' });
   if (lesson && result.credited) {
     const courseSeries = { ...get().courseSeries, [lesson.id]: result.evidence };
-    set({ courseSeries });
+    const courseWindows = { ...get().courseWindows, [lesson.id]: updatedWindow };
+    set({ courseSeries, courseWindows });
     saveCourseSeriesToStorage(courseSeries);
+    saveRecentCourseWindows(courseWindows);
   }
-  if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
+  if (lesson && certified && !state.completedLessons.includes(lesson.id)) {
     const completedLessons = [...state.completedLessons, lesson.id];
     saveCourseProgressToStorage(completedLessons);
     set({ completedLessons });
@@ -468,6 +489,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   // Session-only state: never resume graded flow or restore fake results.
   completedLessons: [],
   courseSeries: {},
+  courseWindows: {},
   activeLessonId: null,
   speedChallengeTargetMs: null,
   isContinuousFlow: false,
@@ -500,7 +522,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
     const courseSeries = loadCourseSeriesFromStorage();
-    set({ completedLessons: saved, courseSeries });
+    const courseWindows = loadRecentCourseWindows();
+    set({ completedLessons: saved, courseSeries, courseWindows });
     audioEngine.setAudioEnabled(get().audioEnabled);
 
     // Save preference changes only, not thousands of note/status updates.
@@ -698,8 +721,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetCourseProgress: () => {
     clearCourseProgressFromStorage();
     clearCourseSeriesFromStorage();
+    clearRecentCourseWindows();
     clearAllTwoHandShadowSeries();
-    set({ completedLessons: [], courseSeries: {},
+    set({ completedLessons: [], courseSeries: {}, courseWindows: {},
       courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
   },
 
@@ -748,9 +772,10 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   beginSpeedChallenge: () => {
     const current = get();
-    // Only an actual finished lesson-1 attempt may launch this independent drill.
-    if (current.trainerPhase !== 'results' || current.lastAttemptResult?.lessonId !== 1) return;
-    const lesson = COURSE_CURRICULUM.find(item => item.id === 1);
+    // All automatically scored course lessons offer an independent speed drill.
+    if (current.trainerPhase !== 'results' ||
+        !allowsAutomaticLessonCredit(current.lastAttemptResult?.lessonId ?? null)) return;
+    const lesson = COURSE_CURRICULUM.find(item => item.id === current.lastAttemptResult?.lessonId);
     if (!lesson) return;
     stopCountIn();
     stopFlowClock();
@@ -1153,9 +1178,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     audioEngine.clearPreviewTimeouts();
     const { currentAppMode, currentFilter, currentTonality, scoreNoteCount, currentHanonType,
-      activeLessonId, courseEvidence } = get();
+      activeLessonId, courseEvidence, courseWindows } = get();
+    const assessmentCount = activeLessonId === 10
+      ? lessonTenLookaheadCount(courseWindows[10] ?? [])
+      : courseEvidence.completedExercises;
     const exerciseMode = assessmentModeForLesson(activeLessonId,
-      courseEvidence.completedExercises, currentAppMode);
+      assessmentCount, currentAppMode);
 
     const notes = generateExerciseNotes({
       mode: exerciseMode,

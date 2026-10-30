@@ -11,7 +11,7 @@ import { MetronomeToggle } from './MetronomeToggle';
  */
 export const ZenControlStrip: React.FC = () => {
   const {
-    activeLessonId, activeExerciseNotes, activeNoteIndex, completedExercisesCount, bpm,
+    activeLessonId, activeExerciseNotes, activeNoteIndex, courseWindows, bpm,
     isContinuousFlow, audioEnabled, toggleAudioMaster, toggleSettingsDrawer,
     switchWorkspace, stopTrainerExercise, dismissZenForSession,
     speedChallengeTargetMs, exitSpeedChallenge
@@ -54,7 +54,7 @@ export const ZenControlStrip: React.FC = () => {
       </span>
       {lesson && (
         <span className="shrink-0 text-emerald-300 font-medium" data-testid="zen-course-credit">
-          Зачёт {completedExercisesCount}/{lesson.normReps}
+          Зачёт {courseWindows[lesson.id]?.length ?? 0}/{lesson.normReps}
         </span>
       )}
       {speedChallengeTargetMs !== null && (
