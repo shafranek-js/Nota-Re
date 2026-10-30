@@ -21,7 +21,7 @@ import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } 
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { assessmentModeForLesson, canCreditLessonMode } from '../core/training/lessonStages';
-import { allowsAutomaticLessonCredit, isTwoHandCourseLesson } from '../core/training/courseAssessmentPolicy';
+import { allowsAutomaticLessonCredit, isTwoHandCourseLesson, requiresSpeedForLessonCredit } from '../core/training/courseAssessmentPolicy';
 import { 
   loadCourseProgressFromStorage, 
   saveCourseProgressToStorage, 
@@ -57,6 +57,8 @@ export interface AppState {
   /** Graded, fully completed exercises survive reload; live timing never does. */
   courseSeries: CourseSeries;
   activeLessonId: number | null;
+  /** Optional, session-only ungraded speed trial; never stored as course credit. */
+  speedChallengeTargetMs: number | null;
 
   // Настройки тренажёра
   currentAppMode: AppMode;
@@ -131,6 +133,8 @@ export interface AppState {
   toggleLessonCompleted: (id: number) => void;
   resetCourseProgress: () => void;
   startActiveLessonInTrainer: () => void;
+  beginSpeedChallenge: () => void;
+  exitSpeedChallenge: () => void;
   startTwoHandCourseTrial: (lessonId: number) => void;
   prepareSelectedLessonInTrainer: () => void;
   openTrainerPrecheck: () => void;
@@ -412,6 +416,7 @@ function finishExercise(
     targetRepetitions: lesson?.normReps ?? Infinity,
     requiredAccuracy: lesson?.normAcc ?? 100,
     maximumReactionMs: lesson?.normSpeed ?? 0,
+    requireSpeed: requiresSpeedForLessonCredit(lesson?.id ?? null),
     lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId &&
       allowsAutomaticLessonCredit(lesson.id) &&
       canCreditLessonMode(lesson.id, state.courseEvidence.completedExercises, state.currentAppMode))
@@ -464,6 +469,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   completedLessons: [],
   courseSeries: {},
   activeLessonId: null,
+  speedChallengeTargetMs: null,
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
   isRepertoirePreviewOpen: false,
@@ -586,6 +592,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     set(state => ({
       currentWorkspace: tab,
+      speedChallengeTargetMs: tab === 'trainer' ? state.speedChallengeTargetMs : null,
       zenSessionStarted: tab === 'trainer' && state.currentWorkspace === 'trainer' ? state.zenSessionStarted : false,
       zenDismissedForSession: tab === 'trainer' && state.currentWorkspace === 'trainer' ? state.zenDismissedForSession : false,
       studioSection: tab === 'trainer' ? 'practice' : state.studioSection,
@@ -613,6 +620,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentWorkspace: 'trainer',
       studioSection,
       ...(studioSection !== 'practice' ? {
+        speedChallengeTargetMs: null,
         zenSessionStarted: false,
         zenDismissedForSession: false,
         isContinuousFlow: false,
@@ -696,6 +704,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   startActiveLessonInTrainer: () => {
+    set({ speedChallengeTargetMs: null });
     stopCountIn();
     stopFlowClock();
     const { selectedLessonId } = get();
@@ -735,6 +744,31 @@ export const useAppStore = create<AppState>((set, get) => ({
     // regenerateExercise arms one deadline when the preset requests flow;
     // never flip an already explicitly assigned boolean.
     get().regenerateExercise();
+  },
+
+  beginSpeedChallenge: () => {
+    const current = get();
+    // Only an actual finished lesson-1 attempt may launch this independent drill.
+    if (current.trainerPhase !== 'results' || current.lastAttemptResult?.lessonId !== 1) return;
+    const lesson = COURSE_CURRICULUM.find(item => item.id === 1);
+    if (!lesson) return;
+    stopCountIn();
+    stopFlowClock();
+    set({
+      activeLessonId: null,
+      speedChallengeTargetMs: lesson.normSpeed,
+      isContinuousFlow: false,
+      isTabletopMode: false,
+      isExerciseAssisted: false,
+      isTwoHandPracticeOpen: false
+    });
+    // Retry the same actual notes. This session is *not* course-eligible.
+    get().retryExercise();
+  },
+
+  exitSpeedChallenge: () => {
+    if (get().speedChallengeTargetMs === null) return;
+    get().switchWorkspace('course');
   },
 
   prepareSelectedLessonInTrainer: () => {
@@ -797,6 +831,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTwoHandPracticeOpen: true,
       twoHandTrialLessonId: lessonId,
       activeLessonId: null,
+      speedChallengeTargetMs: null,
       isContinuousFlow: false,
       isTabletopMode: false,
       trainerPhase: 'playing',
@@ -988,6 +1023,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       zenSessionStarted: false,
       zenDismissedForSession: false,
       activeLessonId: null,
+      speedChallengeTargetMs: null,
       completedExercisesCount: 0,
       courseEvidence: EMPTY_LESSON_EVIDENCE,
       isExerciseFlawless: false,
@@ -1039,6 +1075,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTwoHandPracticeOpen: false,
       twoHandTrialLessonId: null,
       activeLessonId: null,
+      speedChallengeTargetMs: null,
       completedExercisesCount: 0,
       courseEvidence: EMPTY_LESSON_EVIDENCE,
       isExerciseAssisted: false,

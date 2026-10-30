@@ -79,6 +79,8 @@ export interface LessonCredit {
   readonly targetRepetitions: number;
   readonly requiredAccuracy: number;
   readonly maximumReactionMs: number;
+  /** Explicit exemption only for lesson 1. All other lessons still require speed. */
+  readonly requireSpeed?: boolean;
   readonly lessonActive: boolean;
 }
 
@@ -123,12 +125,36 @@ export function evaluateLessonCredit(input: LessonCredit): {
   const passed = credited &&
     evidence.completedExercises >= input.targetRepetitions &&
     accuracy !== null && accuracy >= input.requiredAccuracy &&
-    averageReactionMs !== null && averageReactionMs <= input.maximumReactionMs &&
-    // A missing/invalid time for a supposedly correct note is not proof of speed.
-    evidence.reactionSamples === evidence.correctNotes &&
-    evidence.correctNotes > 0;
+    (input.requireSpeed === false || (
+      averageReactionMs !== null && averageReactionMs <= input.maximumReactionMs &&
+      // A missing/invalid time for a supposedly correct note is not proof of speed.
+      evidence.reactionSamples === evidence.correctNotes &&
+      evidence.correctNotes > 0
+    ));
   return {
     evidence, credited, creditedRepetitions: evidence.completedExercises,
     accuracy, averageReactionMs, passed
+  };
+}
+
+/** One independent, ungraded note-reading speed attempt. No course evidence is changed. */
+export function evaluateSpeedChallenge(input: {
+  readonly noteCount: number;
+  readonly events: readonly import('./exerciseAttempt').AttemptEvent[];
+  readonly maximumReactionMs: number;
+}): { passed: boolean; averageReactionMs: number | null } {
+  const reactions = input.events.map(e => e.reactionMs);
+  const valid = Number.isInteger(input.noteCount) && input.noteCount > 0 &&
+    input.events.length === input.noteCount &&
+    Number.isFinite(input.maximumReactionMs) && input.maximumReactionMs > 0 &&
+    input.events.every((event, index) =>
+      event.noteIndex === index && event.outcome === 'correct' &&
+      event.reactionMs !== null && Number.isFinite(event.reactionMs) && event.reactionMs >= 0);
+  const averageReactionMs = valid
+    ? (reactions as number[]).reduce((sum, ms) => sum + ms, 0) / reactions.length
+    : null;
+  return {
+    passed: valid && averageReactionMs !== null && averageReactionMs <= input.maximumReactionMs,
+    averageReactionMs
   };
 }
