@@ -90,8 +90,9 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
         void importFile(files[0]);
       }}>
       {!zenActive && (
-        <nav aria-label="Разделы Студии"
-          className="shrink-0 min-w-0 px-2 pt-1.5 flex items-center gap-1 overflow-x-auto whitespace-nowrap custom-scroll">
+        <div className="shrink-0 min-w-0 px-2 pt-1.5 flex items-center gap-2">
+          <nav aria-label="Разделы Студии"
+            className="min-w-0 flex-1 flex items-center gap-1 overflow-x-auto whitespace-nowrap custom-scroll">
           {sections.map(section => {
             const selected = studioSection === section.id;
             return (
@@ -108,6 +109,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               </button>
             );
           })}
+          </nav>
           {studioSection === 'practice' && (
             <div className="ml-auto shrink-0 flex items-center gap-2">
               <input type="file" ref={pickerRef} className="sr-only"
@@ -130,7 +132,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
               </button>
             </div>
           )}
-        </nav>
+        </div>
       )}
       {studioSection === 'practice' && importError && (
         <div role="alert" data-testid="repertoire-import-error"
