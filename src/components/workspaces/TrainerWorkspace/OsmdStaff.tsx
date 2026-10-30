@@ -109,6 +109,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, onScoreRe
   const {
     activeExerciseNotes,
     activeNoteIndex,
+    trainerPhase,
     currentTonality,
     currentAppMode,
     currentFilter,
@@ -973,7 +974,7 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, onScoreRe
   return (
     <div data-testid="osmd-score" data-osmd-render-epoch={renderEpoch} data-active-note-index={activeNoteIndex} className="flex-1 min-h-0 w-full bg-slate-900/65 border border-slate-800/90 rounded-2xl relative flex flex-col p-2.5 overflow-hidden shadow-inner">
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
-      <div data-testid={zen ? 'zen-score-actions' : undefined} className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
+      <div data-testid={zen ? 'zen-score-actions' : undefined} inert={trainerPhase === 'countIn'} className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 border-b border-slate-800/60 pb-1.5 text-xs">
         {!zen && <div className="flex items-center flex-wrap gap-2.5">
           <span className="flex items-center gap-1.5 font-mono text-slate-300 bg-slate-950/90 px-2.5 py-0.5 rounded-md border border-slate-800">
             <span className="w-2 h-2 rounded-full bg-sky-400 animate-pulse" />
