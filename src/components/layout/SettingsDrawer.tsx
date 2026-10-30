@@ -419,7 +419,7 @@ export const SettingsDrawer: React.FC = () => {
             Версия релиза: v{BUILD_INFO.version} · Сборка: {BUILD_INFO.revision} · {BUILD_INFO.environment}
           </p>
           <p className="w-full text-[11px] text-slate-500" data-testid="settings-build-explanation">
-            Версия релиза меняется при выпуске новой версии. Код сборки соответствует Git-коммиту и обновляется при новой публикации.
+            Номер версии автоматически растёт с новыми коммитами основной ветки. Код сборки соответствует Git-коммиту; локальная сборка обновится после перезапуска dev-сервера. Если Git-история недоступна, отображается версия с суффиксом SHA.
           </p>
           <button
             type="button"

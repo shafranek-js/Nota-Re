@@ -7,14 +7,18 @@ import assert from 'node:assert/strict';
 import { execFileSync } from 'node:child_process';
 import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
+import { resolveReleaseVersion } from '../scripts/release-version.mjs';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
 const envSha = process.env.NOTARE_BUILD_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
 const revision = (envSha && /^[a-f0-9]{7,40}$/i.test(envSha)
   ? envSha : execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim()
 ).slice(0, 7);
-const expected = `v${version} · сборка ${revision}`;
-const expectedSettings = `Версия релиза: v${version} · Сборка: ${revision} · production`;
+const released = resolveReleaseVersion({ baseVersion: version, revision });
+assert.notEqual(released.version, version,
+  'release identity must advance beyond the fixed package.json base');
+const expected = `v${released.version} · сборка ${revision}`;
+const expectedSettings = `Версия релиза: v${released.version} · Сборка: ${revision} · production`;
 const browser = await chromium.launch({
   headless: true, executablePath: process.env.CHROME_PATH, args: ['--no-sandbox']
 });

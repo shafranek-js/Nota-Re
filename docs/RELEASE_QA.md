@@ -5,20 +5,36 @@ must be performed on an actual keyboard, speaker and mobile browser.
 
 ## Release identity
 
-The permanent **bottom technical status bar** shows
-`v<package version> · <short Git commit> · dev/production` and remains
-visible on a 320-pixel screen, including while Studio Zen Mode is active. The application version comes from `package.json` and
-the short revision from the commit used during Vite compilation.
+The bottom technical status bar and Settings expose a **monotonically
+advancing release version** and a 7-character Git revision:
+`v3.0.<patch> · сборка <commit>` (plus `dev`/`production` in Settings).
+Both fields are injected at Vite startup/build, never from localStorage.
 
-- Locally, confirm `git rev-parse --short=7 HEAD` matches the header;
-  restart `npm run dev` after pulling changes to refresh build metadata.
-- In CI, `GITHUB_SHA` identifies the exact compiled checkout. On Cloudflare
-  Pages, `CF_PAGES_COMMIT_SHA` identifies the deployed source.
-- For uncommitted edits, the revision is the last committed source, **not**
-  a checksum of unsaved working-tree changes; the `dev` indicator makes
-  this distinction clear. Source archives without Git may show `unknown`.
-- The package version may remain unchanged across maintenance commits.
-  Use **both** the version and short SHA to determine whether a fix is loaded.
+- `package.json` `3.0.0` is a **base version**, not a manually updated
+  artifact number. The patch is the number of first-parent commits after
+  the version epoch `f773eb938b36456859c092e1adada53c3e729e1e`
+  (the last main version that displayed v3.0.0). Every merged main commit
+  advances the displayed patch by one; the SHA identifies the exact files.
+- Identical Git commits produce identical displayed versions in dev, CI and
+  GitHub Pages. No clocks, CI run-number counters, dirty-worktree state,
+  or manually maintained per-commit version edits are involved.
+- Actions checkout uses `fetch-depth: 0` for complete version history.
+  Source archives, shallow checkouts and other unsupported build systems
+  use an **explicit fallback** `v3.0.0+g<sha>`, rather than falsely
+  presenting the frozen `v3.0.0`. A complete checkout is required for
+  sequential numeric patch versions.
+- To start a new minor or major series, update the base package version
+  **and epoch** together in a reviewed release PR, with a matching npm
+  lockfile update. The epoch must correspond to that new base release.
+- Local dev reports the actual checked-out source commit. After
+  `git pull --ff-only origin main`, **restart `npm run dev`** to refresh
+  Vite's compile-time metadata. Updating the hosted site does not update
+  an already-running local dev server. The `dev` label remains visible
+  in Settings; an uncommitted edit is not represented by the SHA.
+- Chrome checks 320 and 1440 px and verifies both exact current Git SHA
+  and computed version in the status bar and Settings, including reload.
+  Node unit tests cover baseline patch 0, successive commits, missing
+  history, invalid package versions and independent source builds.
 
 ## Automated acceptance gates
 
