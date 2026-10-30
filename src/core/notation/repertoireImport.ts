@@ -149,7 +149,8 @@ export function inspectMusicXmlText(text: string): {
 }
 
 export async function inspectRepertoireFile(file: File): Promise<RepertoireFileInfo> {
-  const ext = file.name.split('.').at(-1)?.toLowerCase();
+  const nameParts = file.name.split('.');
+  const ext = nameParts[nameParts.length - 1]?.toLowerCase();
   if (!['xml', 'musicxml', 'mxl'].includes(ext ?? '')) {
     return invalid('Поддерживаются только файлы .musicxml, .xml и .mxl.');
   }
