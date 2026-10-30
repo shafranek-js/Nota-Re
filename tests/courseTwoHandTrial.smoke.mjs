@@ -148,11 +148,13 @@ try {
   assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /2\/15/);
   await page.getByTestId('course-launch-selected').click();
   assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '2/15');
+  assert.match(await page.getByTestId('two-hand-study-label').innerText(), /Этюд 3\/15/);
   await page.getByTestId('two-hand-back-to-course').click();
   await page.getByTestId('course-lesson-12').click();
   assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /1\/20/);
   await page.getByTestId('course-launch-selected').click();
   assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '1/20');
+  assert.match(await page.getByTestId('two-hand-study-label').innerText(), /Этюд 2\/20/);
   await page.getByTestId('two-hand-shadow-reset').click();
   await page.getByTestId('two-hand-back-to-course').click();
   assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /0\/20/);
