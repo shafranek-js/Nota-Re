@@ -21,36 +21,85 @@ test('metronome measure accents use real onset, not every fourth note', () => {
   assert.equal(startsMeasure(notes, notes.length), false);
 });
 
+const lessonEvent = (noteIndex, outcome = 'correct', reactionMs = 400) => ({
+  noteIndex, outcome, reactionMs, expectedNote: 'C4',
+  playedNote: outcome === 'missed' ? null : 'C4'
+});
+const previous = {
+  completedExercises: 9, judgedNotes: 144, correctNotes: 135,
+  reactionTotalMs: 135 * 400, reactionSamples: 135
+};
 const normal = {
-  clean: true, assisted: false, completedBefore: 9, targetRepetitions: 10,
-  totalAttempts: 160, correctHits: 160, reactionTimes: [250, 350, 400],
+  previous, noteCount: 16,
+  events: Array.from({ length: 16 }, (_, i) => lessonEvent(i, i === 0 ? 'wrong-pitch' : 'correct')),
+  assisted: false, targetRepetitions: 10,
   requiredAccuracy: 90, maximumReactionMs: 800, lessonActive: true
 };
 
-test('award only sufficiently measured, independently played repetitions', () => {
-  assert.equal(evaluateLessonCredit(normal).passed, true);
-  assert.equal(evaluateLessonCredit({ ...normal, completedBefore: 8 }).passed, false);
-  assert.equal(evaluateLessonCredit({ ...normal, lessonActive: false }).passed, false);
-  assert.equal(evaluateLessonCredit({ ...normal, reactionTimes: [] }).passed, false);
-  assert.equal(evaluateLessonCredit({ ...normal, totalAttempts: 0, correctHits: 0 }).passed, false);
-  assert.equal(evaluateLessonCredit({ ...normal, reactionTimes: [300, 9000] }).passed, false);
+test('completed exercises count despite an incorrect pitch; course uses series accuracy', () => {
+  const result = evaluateLessonCredit(normal);
+  assert.equal(result.credited, true);
+  assert.equal(result.creditedRepetitions, 10);
+  assert.equal(result.evidence.correctNotes, 150);
+  assert.equal(result.evidence.judgedNotes, 160);
+  assert.equal(result.accuracy, 93.75);
+  assert.equal(result.passed, true);
 });
 
-test('no credit for misses, incorrect notes or assisted steps', () => {
+test('do not certify before the normative number or without active lesson', () => {
+  assert.equal(evaluateLessonCredit({ ...normal, previous: { ...previous, completedExercises: 8 } }).passed, false);
+  const free = evaluateLessonCredit({ ...normal, lessonActive: false });
+  assert.equal(free.credited, false);
+  assert.deepEqual(free.evidence, previous);
+  assert.equal(free.passed, false);
+});
+
+test('misses and corrections count as failed strikes, not clean notes', () => {
+  const events = [lessonEvent(0, 'wrong-pitch'), lessonEvent(0, 'correct'),
+    lessonEvent(1, 'missed'), lessonEvent(2, 'correct')];
+  const result = evaluateLessonCredit({ ...normal, noteCount: 3, events,
+    previous: { completedExercises: 0, judgedNotes: 0, correctNotes: 0, reactionTotalMs: 0, reactionSamples: 0 },
+    targetRepetitions: 1 });
+  assert.equal(result.creditedRepetitions, 1);
+  assert.equal(result.evidence.judgedNotes, 4);
+  assert.equal(result.evidence.correctNotes, 2);
+  assert.equal(result.accuracy, 50);
+  assert.equal(result.passed, false);
+});
+
+test('assistance or incomplete evidence never increases an existing series', () => {
   for (const input of [
-    { clean: false }, { assisted: true }, { clean: false, totalAttempts: 160, correctHits: 0 }
+    { assisted: true }, { events: [lessonEvent(0)] },
+    { events: [...normal.events, lessonEvent(0, 'assisted')] }
   ]) {
     const result = evaluateLessonCredit({ ...normal, ...input });
-    assert.equal(result.creditedRepetitions, 0);
+    assert.equal(result.credited, false);
+    assert.deepEqual(result.evidence, previous);
     assert.equal(result.passed, false);
   }
 });
 
-test('accuracy uses real misses and does not round a below-threshold result up', () => {
-  const result = evaluateLessonCredit({
-    ...normal, totalAttempts: 199, correctHits: 179,
-    requiredAccuracy: 90
+test('course speed uses all correct note reactions, not the last 15 samples', () => {
+  const result = evaluateLessonCredit({ ...normal, previous: {
+    ...previous, reactionTotalMs: 135 * 900
+  } });
+  assert.equal(result.passed, false);
+  assert.ok(result.averageReactionMs > 800);
+});
+
+test('invalid reaction times cannot produce a false pass', () => {
+  const result = evaluateLessonCredit({ ...normal,
+    events: normal.events.map((event, i) =>
+      i === 1 ? { ...event, reactionMs: Number.NaN } : event)
   });
+  assert.equal(result.passed, false);
+  assert.equal(result.evidence.reactionSamples, 149);
+});
+
+test('accuracy threshold is exact and includes wrong or missed slots', () => {
+  const result = evaluateLessonCredit({ ...normal, previous: {
+    ...previous, correctNotes: 128
+  } });
   assert.ok(result.accuracy < 90);
   assert.equal(result.passed, false);
 });

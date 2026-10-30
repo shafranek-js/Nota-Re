@@ -36,41 +36,78 @@ export function startsMeasure(notes: readonly FlowNote[], index: number): boolea
   return Math.abs(beats / 4 - Math.round(beats / 4)) < 1e-8;
 }
 
+export interface LessonEvidence {
+  /** Count complete, independently played exercise scores, not perfect scores. */
+  readonly completedExercises: number;
+  readonly judgedNotes: number;
+  readonly correctNotes: number;
+  readonly reactionTotalMs: number;
+  readonly reactionSamples: number;
+}
+
+export const EMPTY_LESSON_EVIDENCE: LessonEvidence = Object.freeze({
+  completedExercises: 0, judgedNotes: 0, correctNotes: 0,
+  reactionTotalMs: 0, reactionSamples: 0
+});
+
 export interface LessonCredit {
-  readonly clean: boolean;
+  readonly previous: LessonEvidence;
+  readonly noteCount: number;
+  readonly events: readonly import('./exerciseAttempt').AttemptEvent[];
   readonly assisted: boolean;
-  readonly completedBefore: number;
   readonly targetRepetitions: number;
-  readonly totalAttempts: number;
-  readonly correctHits: number;
-  readonly reactionTimes: readonly number[];
   readonly requiredAccuracy: number;
   readonly maximumReactionMs: number;
   readonly lessonActive: boolean;
 }
 
 /**
- * A repetition is creditable only if every note was played independently
- * without misses or wrong pitches. Automatic lesson passing additionally
- * requires real timing samples and the actual preset lesson to be active.
+ * A lesson is evaluated across completed exercise scores. A wrong strike,
+ * correction or rhythmic miss lowers series accuracy; it does not erase the
+ * earlier work. Each expected note must have an actual grading event.
+ * Assisted exercises cannot increase the series or fabricate timing evidence.
  */
 export function evaluateLessonCredit(input: LessonCredit): {
+  evidence: LessonEvidence;
+  credited: boolean;
   creditedRepetitions: number;
-  accuracy: number;
+  accuracy: number | null;
   averageReactionMs: number | null;
   passed: boolean;
 } {
-  const creditedRepetitions = input.clean && !input.assisted ? input.completedBefore + 1 : 0;
-  const accuracy = input.totalAttempts > 0
-    ? 100 * input.correctHits / input.totalAttempts : 0;
-  const recent = input.reactionTimes.slice(-15);
-  const averageReactionMs = recent.length
-    ? recent.reduce((sum, rt) => sum + rt, 0) / recent.length : null;
+  const graded = input.events.filter(event => event.outcome !== 'assisted');
+  const coveredNotes = new Set(graded.map(event => event.noteIndex));
+  const complete = input.noteCount > 0 &&
+    coveredNotes.size === input.noteCount &&
+    graded.every(event => Number.isInteger(event.noteIndex) &&
+      event.noteIndex >= 0 && event.noteIndex < input.noteCount);
+  const credited = input.lessonActive && !input.assisted && complete &&
+    !input.events.some(event => event.outcome === 'assisted');
+  const correct = graded.filter(event => event.outcome === 'correct');
+  const validReactions = correct.map(event => event.reactionMs).filter(
+    (value): value is number => value !== null && Number.isFinite(value) && value >= 0
+  );
+  const evidence: LessonEvidence = credited ? {
+    completedExercises: input.previous.completedExercises + 1,
+    judgedNotes: input.previous.judgedNotes + graded.length,
+    correctNotes: input.previous.correctNotes + correct.length,
+    reactionTotalMs: input.previous.reactionTotalMs +
+      validReactions.reduce((sum, value) => sum + value, 0),
+    reactionSamples: input.previous.reactionSamples + validReactions.length
+  } : input.previous;
+  const accuracy = evidence.judgedNotes > 0
+    ? 100 * evidence.correctNotes / evidence.judgedNotes : null;
+  const averageReactionMs = evidence.reactionSamples > 0
+    ? evidence.reactionTotalMs / evidence.reactionSamples : null;
   const passed = input.lessonActive &&
-    creditedRepetitions >= input.targetRepetitions &&
-    input.totalAttempts > 0 &&
-    accuracy >= input.requiredAccuracy &&
-    averageReactionMs !== null &&
-    averageReactionMs <= input.maximumReactionMs;
-  return { creditedRepetitions, accuracy, averageReactionMs, passed };
+    evidence.completedExercises >= input.targetRepetitions &&
+    accuracy !== null && accuracy >= input.requiredAccuracy &&
+    averageReactionMs !== null && averageReactionMs <= input.maximumReactionMs &&
+    // A missing/invalid time for a supposedly correct note is not proof of speed.
+    evidence.reactionSamples === evidence.correctNotes &&
+    evidence.correctNotes > 0;
+  return {
+    evidence, credited, creditedRepetitions: evidence.completedExercises,
+    accuracy, averageReactionMs, passed
+  };
 }

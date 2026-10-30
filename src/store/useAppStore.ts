@@ -5,8 +5,9 @@ import { audioEngine } from '../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../data/notes';
 import {
   noteDurationMs, startsMeasure, evaluateLessonCredit,
-  nextAudioDeadline, remainingAudioMs
+  nextAudioDeadline, remainingAudioMs, EMPTY_LESSON_EVIDENCE
 } from '../core/training/flowTiming';
+import type { LessonEvidence } from '../core/training/flowTiming';
 import { midiManager } from '../core/midi/MidiManager';
 import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
 import { getTwoHandCourseTrialPreset } from '../core/training/twoHandCourseTrial';
@@ -83,6 +84,8 @@ export interface AppState {
   currentStreak: number;
   bestStreak: number;
   completedExercisesCount: number;
+  /** Session-only independent evidence for course certification. */
+  courseEvidence: LessonEvidence;
   reactionTimes: number[];
   lastTriggeredNote: string | null;
   lastKeyResult: { noteName: string; isCorrect: boolean } | null;
@@ -286,13 +289,11 @@ function finishExercise(
   const state = get();
   const lesson = COURSE_CURRICULUM.find(item => item.id === state.activeLessonId);
   const result = evaluateLessonCredit({
-    clean: state.isExerciseFlawless,
+    previous: state.courseEvidence,
+    noteCount: state.activeExerciseNotes.length,
+    events: state.attemptEvents,
     assisted: state.isExerciseAssisted,
-    completedBefore: state.completedExercisesCount,
     targetRepetitions: lesson?.normReps ?? Infinity,
-    totalAttempts: state.totalAttempts,
-    correctHits: state.correctHits,
-    reactionTimes: state.reactionTimes,
     requiredAccuracy: lesson?.normAcc ?? 100,
     maximumReactionMs: lesson?.normSpeed ?? 0,
     lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId)
@@ -310,7 +311,8 @@ function finishExercise(
     assisted: state.isExerciseAssisted,
     lessonPassed: result.passed
   });
-  set({ completedExercisesCount: result.creditedRepetitions, lastAttemptResult, trainerPhase: 'results' });
+  set({ courseEvidence: result.evidence, completedExercisesCount: result.creditedRepetitions,
+    lastAttemptResult, trainerPhase: 'results' });
   if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
     const completedLessons = [...state.completedLessons, lesson.id];
     saveCourseProgressToStorage(completedLessons);
@@ -346,6 +348,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   currentStreak: 0,
   bestStreak: 0,
   completedExercisesCount: 0,
+  courseEvidence: EMPTY_LESSON_EVIDENCE,
   reactionTimes: [],
   lastTriggeredNote: null,
   lastKeyResult: null,
@@ -542,7 +545,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetCourseProgress: () => {
     clearCourseProgressFromStorage();
-    set({ completedLessons: [] });
+    set({ completedLessons: [], courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
   },
 
   startActiveLessonInTrainer: () => {
@@ -738,7 +741,8 @@ export const useAppStore = create<AppState>((set, get) => ({
         reactionMs: null
       }] : state.attemptEvents,
       currentStreak: unanswered ? 0 : state.currentStreak,
-      completedExercisesCount: unanswered ? 0 : state.completedExercisesCount,
+      // A rhythmic miss lowers accuracy, not the completed-exercise count.
+      completedExercisesCount: state.completedExercisesCount,
       isExerciseFlawless: state.isExerciseFlawless && !unanswered,
       lastKeyResult: null
     });
@@ -812,6 +816,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       trainerPhase: 'setup',
       activeLessonId: null,
       completedExercisesCount: 0,
+      courseEvidence: EMPTY_LESSON_EVIDENCE,
       isExerciseFlawless: false,
       isPhotoMasked: false,
       lastKeyResult: null
@@ -854,6 +859,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       twoHandTrialLessonId: null,
       activeLessonId: null,
       completedExercisesCount: 0,
+      courseEvidence: EMPTY_LESSON_EVIDENCE,
       isExerciseAssisted: false,
       isExerciseFlawless: true,
       attemptEvents: [],
@@ -911,6 +917,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       correctHits: 0,
       currentStreak: 0,
       completedExercisesCount: 0,
+      courseEvidence: EMPTY_LESSON_EVIDENCE,
       reactionTimes: [],
       lastTriggeredNote: null,
       lastKeyResult: null,
@@ -984,7 +991,7 @@ export const useAppStore = create<AppState>((set, get) => ({
         activeExerciseNotes: notes,
         isExerciseAssisted: true,
         isExerciseFlawless: false,
-        completedExercisesCount: 0,
+        completedExercisesCount: get().completedExercisesCount,
         attemptEvents,
         lastAttemptResult
       });
@@ -1000,7 +1007,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       noteShownTimestamp: performance.now(),
       isExerciseAssisted: true,
       isExerciseFlawless: false,
-      completedExercisesCount: 0,
+      completedExercisesCount: get().completedExercisesCount,
       attemptEvents
     });
     if (get().isContinuousFlow) armFlowClock(get);
@@ -1079,7 +1086,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           reactionMs: Number.isFinite(rt) && rt >= 0 ? rt : null
         }],
         isExerciseFlawless: s.isExerciseFlawless && isCorrect,
-        completedExercisesCount: !isCorrect ? 0 : s.completedExercisesCount
+        completedExercisesCount: s.completedExercisesCount
       };
     });
 

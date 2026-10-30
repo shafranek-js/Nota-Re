@@ -32,7 +32,7 @@ export interface AttemptSnapshot {
   readonly accuracyPercent: number | null;
   /** Only valid correct answers supply reaction samples. */
   readonly averageReactionMs: number | null;
-  /** Describes a fully clean, unassisted exercise within a selected lesson. */
+  /** Independent and complete score, even when some notes were incorrect. */
   readonly creditEligible: boolean;
   /** Actual lesson-credit evaluation, not inferred from attempt percentages. */
   readonly lessonPassed: boolean;
@@ -83,8 +83,11 @@ export function createAttemptSnapshot(input: AttemptSnapshotInput): AttemptSnaps
     assistedSteps,
     accuracyPercent: judgedEvents ? (100 * correctHits / judgedEvents) : null,
     averageReactionMs,
-    creditEligible: input.lessonId !== null && input.clean && !input.assisted &&
-      assistedSteps === 0 && judgedEvents >= input.noteCount && correctHits === judgedEvents,
+    creditEligible: input.lessonId !== null && !input.assisted && assistedSteps === 0 &&
+      input.noteCount > 0 && new Set(events.filter(event => event.outcome !== 'assisted')
+        .map(event => event.noteIndex)).size === input.noteCount &&
+      events.every(event => Number.isInteger(event.noteIndex) &&
+        event.noteIndex >= 0 && event.noteIndex < input.noteCount),
     lessonPassed: input.lessonPassed && input.lessonId !== null && !input.assisted && assistedSteps === 0
   });
 }

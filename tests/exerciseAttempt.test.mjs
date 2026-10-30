@@ -44,7 +44,7 @@ test('assisted exercises cannot be marked credit eligible or given invented timi
   assert.equal(snapshot.creditEligible, false);
 });
 
-test('clean played exercise can be eligible without falsely claiming course passed', () => {
+test('independent completed exercise can be eligible without falsely claiming course passed', () => {
   const events = [0, 1, 2, 3].map(i => event(i, 'correct', 'C4', 350 + i * 100));
   const snapshot = createAttemptSnapshot({
     ...base, clean: true, lessonPassed: false, events
@@ -74,4 +74,16 @@ test('empty or invalid timing samples never produce NaN or false course completi
   assert.equal(snapshot.averageReactionMs, null);
   assert.equal(snapshot.creditEligible, false);
   assert.equal(snapshot.accuracyPercent, 100);
+});
+
+
+test('incorrect but completed independent exercise is eligible for series scoring', () => {
+  const snapshot = createAttemptSnapshot({
+    ...base, noteCount: 2,
+    events: [event(0, 'wrong-pitch', 'D4'), event(0, 'correct'),
+      event(1, 'correct')],
+    clean: false
+  });
+  assert.equal(snapshot.creditEligible, true);
+  assert.equal(snapshot.lessonPassed, false);
 });
