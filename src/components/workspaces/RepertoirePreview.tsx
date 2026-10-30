@@ -33,7 +33,10 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         const osmd = new OpenSheetMusicDisplay(mount, {
           autoResize: true,
           backend: 'svg',
-          drawTitle: true,
+          // The file header already shows the title. OSMD's page title can
+          // overflow narrow SVG viewports and duplicates the file metadata.
+          drawTitle: false,
+          drawSubtitle: false,
           darkMode: theme === 'dark',
           // This also validates decompressed XML from MXL, not just plain files.
           onXMLRead: xml => {
