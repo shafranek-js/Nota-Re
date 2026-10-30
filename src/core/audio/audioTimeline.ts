@@ -164,11 +164,19 @@ export class LoopAudioClockQueue {
   private position = 0;
   private active: { end: number; cancel: CancelScheduled }[] = [];
 
+  private readonly now: () => number;
+  private readonly emit: (tone: TimedTone, at: number) => CancelScheduled;
+  private readonly lookaheadSeconds: number;
+
   constructor(
-    private readonly now: () => number,
-    private readonly emit: (tone: TimedTone, at: number) => CancelScheduled,
-    private readonly lookaheadSeconds = 0.12
-  ) {}
+    now: () => number,
+    emit: (tone: TimedTone, at: number) => CancelScheduled,
+    lookaheadSeconds = 0.12
+  ) {
+    this.now = now;
+    this.emit = emit;
+    this.lookaheadSeconds = lookaheadSeconds;
+  }
 
   get isPlaying(): boolean { return this.timer !== null; }
 
