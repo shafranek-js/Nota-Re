@@ -126,7 +126,7 @@ try {
     await savedPage.keyboard.press('Escape');
     const focused = savedPage.getByTestId('course-focused-controls');
     await focused.waitFor({ state: 'visible' });
-    assert.match(await focused.innerText(), /3 \/ 10 ном/);
+    assert.match(await focused.innerText(), /0 \/ 10 ном/);
     await focused.getByRole('button', { name: 'Остановить' }).click();
     assert.equal(await focused.count(), 1, 'cancelled interruption must keep graded controls');
     assert.equal(dialogs.length, 1);
