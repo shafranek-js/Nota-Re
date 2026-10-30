@@ -15,6 +15,8 @@ const revision = (envSha && /^[a-f0-9]{7,40}$/i.test(envSha)
   ? envSha : execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim()
 ).slice(0, 7);
 const released = resolveReleaseVersion({ baseVersion: version, revision });
+assert.equal(released.source, 'git-history',
+  'CI must checkout the complete Git history to generate the incrementing patch version');
 assert.notEqual(released.version, version,
   'release identity must advance beyond the fixed package.json base');
 const expected = `v${released.version} · сборка ${revision}`;
