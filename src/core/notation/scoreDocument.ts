@@ -299,7 +299,9 @@ export function normalizeScoreDocument(input: ScoreDocument): ScoreDocument {
   const byVoice = new Map<string, typeof events>();
   for (const event of events) {
     const key = JSON.stringify([event.partId, event.staff, event.voice]);
-    byVoice.set(key, [...(byVoice.get(key) ?? []), event]);
+    const voiceEvents = byVoice.get(key);
+    if (voiceEvents) voiceEvents.push(event);
+    else byVoice.set(key, [event]);
   }
   for (const voiceEvents of byVoice.values()) {
     const ordered = [...voiceEvents].sort((a, b) => compareQuarter(a.onset, b.onset) ||
