@@ -12,6 +12,19 @@ try {
     const page = await browser.newPage({ viewport: { width, height: 880 } });
     page.on('pageerror', error => errors.push(error.message));
     await page.addInitScript(() => {
+      // Opt in before startup; no default metronome sound is implied.
+      localStorage.setItem('notare-trainer-preferences-v1', JSON.stringify({
+        version: 1, preferences: { metronomeEnabled: true }
+      }));
+      // Record acoustic scheduling calls, not JavaScript setTimeout timings.
+      window.__strongClicks = [];
+      const nativeStart = OscillatorNode.prototype.start;
+      OscillatorNode.prototype.start = function(when = 0) {
+        if (this.type === 'sine' && Math.abs(this.frequency.value - 1046.5) < 0.2) {
+          window.__strongClicks.push(when);
+        }
+        return nativeStart.call(this, when);
+      };
       const input = { id: 'preplay-test-midi', state: 'connected', onmidimessage: null };
       const access = { inputs: new Map([[input.id, input]]), onstatechange: null };
       Object.defineProperty(navigator, 'requestMIDIAccess', {
@@ -42,6 +55,11 @@ try {
       await preplay.getByTestId('precheck-continue').click();
       const countIn = page.getByTestId('trainer-count-in');
       await countIn.waitFor({ state: 'visible', timeout: 2500 });
+      const downbeats = await page.evaluate(() => window.__strongClicks);
+      assert.equal(downbeats.length, 2,
+        'count-in and first playing downbeat must both be scheduled before JS clock transition');
+      assert.ok(Math.abs(downbeats[1] - downbeats[0] - 4) < 0.001,
+        '60 BPM: first flow beat belongs exactly four quarter-beats after count-in starts');
       assert.equal(await page.getByTestId('osmd-score').count(), 0,
         'no score nor piano shortcut controls while preparing four beats');
       await page.evaluate(() => window.__preplayMidi.send([0x90, 60, 99]));
