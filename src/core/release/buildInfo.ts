@@ -1,7 +1,8 @@
 /**
  * Build metadata is injected by Vite at compile time.
- * Version changes only with package.json; revision changes on each commit.
- * A dirty/uncommitted dev worktree is not represented by the Git SHA.
+ * Version patch advances automatically on every first-parent commit since
+ * the v3.0.0 baseline; revision identifies the exact compiled checkout.
+ * Local uncommitted edits are not represented by the Git SHA.
  */
 export const BUILD_INFO = {
   version: __NOTARE_APP_VERSION__,

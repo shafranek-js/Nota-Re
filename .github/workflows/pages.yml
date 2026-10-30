@@ -30,6 +30,8 @@ jobs:
       - uses: actions/checkout@v4
         with:
           ref: ${{ github.event.workflow_run.head_sha }}
+          # Required for a deterministic release patch from commit history.
+          fetch-depth: 0
           persist-credentials: false
       - uses: actions/setup-node@v4
         with:
