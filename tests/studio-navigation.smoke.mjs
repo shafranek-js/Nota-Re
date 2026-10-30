@@ -11,6 +11,7 @@ const errors = [];
 try {
   for (const width of [320, 768, 1440]) {
     const page = await browser.newPage({ viewport: { width, height: width === 320 ? 720 : 920 } });
+    page.on('dialog', dialog => { void dialog.accept(); });
     page.on('pageerror', error => errors.push(`${width}: ${error.message}`));
     await page.addInitScript(() => {
       localStorage.setItem('notare_course_completed_v3', '[1,2]');

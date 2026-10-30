@@ -6,6 +6,7 @@ const browser = await chromium.launch({
 });
 const page = await browser.newPage({ viewport: { width: 1920, height: 960 } });
 const errors = [];
+page.on('dialog', dialog => { void dialog.accept(); });
 page.on('pageerror', error => errors.push(error.message));
 
 async function attempts() {

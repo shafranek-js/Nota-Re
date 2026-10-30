@@ -288,6 +288,22 @@ function beginTrainerCountIn(get: () => AppState, set: (patch: Partial<AppState>
   countInTimeoutId = window.setTimeout(wake, 45);
 }
 
+/** Confirm meaningful graded interruption; already completed exercises stay saved. */
+function confirmAssessmentExit(get: () => AppState): boolean {
+  const state = get();
+  if (state.activeLessonId === null || state.trainerPhase === 'results' ||
+      (state.courseEvidence.completedExercises === 0 && state.attemptEvents.length === 0)) return true;
+  const approved = window.confirm(
+    `Прервать зачёт урока ${state.activeLessonId}? Завершённые упражнения (${state.courseEvidence.completedExercises}) сохранены, а текущий незаконченный номер не засчитается. ОК — выйти, Отмена — остаться.`
+  );
+  if (!approved && state.isContinuousFlow && state.trainerPhase === 'playing') {
+    // Native dialogs suspend JS while the audio clock continues. On cancel,
+    // restart the current score with a fresh count-in, not unseen deadlines.
+    get().retryExercise();
+  }
+  return approved;
+}
+
 function finishExercise(
   get: () => AppState,
   set: (patch: Partial<AppState>) => void
@@ -454,6 +470,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchWorkspace: (tab) => {
+    if (tab !== 'trainer' && get().currentWorkspace === 'trainer' &&
+        !confirmAssessmentExit(get)) return;
     // Navigation is not a silent pause/resume: cancel any running graded
     // clock when leaving Studio; existing per-attempt results remain intact.
     if (tab !== 'trainer') {
@@ -473,6 +491,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   switchStudioSection: (studioSection) => {
+    if (studioSection !== 'practice' && get().currentWorkspace === 'trainer' &&
+        !confirmAssessmentExit(get)) return;
     // The five-step theory and the Hanon/Rhythm catalogs are *inside* Studio,
     // but must never allow a hidden course flow to grade missed notes.
     if (studioSection !== 'practice') {
@@ -506,6 +526,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleSettingsDrawer: () => {
     const opening = !get().isSettingsOpen;
+    if (opening && !confirmAssessmentExit(get)) return;
     // Opening a modal must not silently grade missed notes while the player
     // is checking their MIDI hardware or audio settings.
     if (opening) {
@@ -514,7 +535,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     }
     // Opening Settings disables flow even during preparation, so the course
     // may not remain certified against an untimed altered preset.
-    const interruptedFlow = opening && get().isContinuousFlow && get().activeLessonId !== null;
+    const interruptedFlow = opening && get().activeLessonId !== null;
     set({
       isSettingsOpen: opening,
       settingsPanel: 'general',
@@ -606,13 +627,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   openTrainerPrecheck: () => {
+    const state = get();
+    const interruptingCourse = state.activeLessonId !== null &&
+      (state.activeNoteIndex > 0 || state.attemptEvents.length > 0);
+    if (interruptingCourse && !confirmAssessmentExit(get)) return;
     stopFlowClock();
     stopCountIn();
     if (photoTimerId !== null) window.clearTimeout(photoTimerId);
     photoTimerId = null;
-    const state = get();
-    const interruptingCourse = state.activeLessonId !== null &&
-      (state.activeNoteIndex > 0 || state.attemptEvents.length > 0);
     set({
       trainerPhase: 'precheck',
       countInBeat: 0,
@@ -719,6 +741,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   toggleContinuousFlow: () => {
+    if (!confirmAssessmentExit(get)) return;
     if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     const enabled = !get().isContinuousFlow;
     set({
@@ -794,6 +817,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   toggleTwoHandPractice: () => {
     const opening = !get().isTwoHandPracticeOpen;
+    if (opening && !confirmAssessmentExit(get)) return;
     if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     // Never continue a timed course or credit an imagined MIDI trial.
     stopFlowClock();
@@ -825,6 +849,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   setKeyboardLabelMode: (keyboardLabelMode) => set({ keyboardLabelMode }),
 
   stopTrainerExercise: () => {
+    if (!confirmAssessmentExit(get)) return;
     const current = get();
     if (current.trainerPhase === 'countIn') current.cancelTrainerCountIn();
     stopFlowClock();

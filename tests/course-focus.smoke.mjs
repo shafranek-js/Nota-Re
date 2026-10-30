@@ -9,6 +9,7 @@ const errors = [];
 try {
   for (const width of [375, 1440]) {
     const page = await browser.newPage({ viewport: { width, height: width === 375 ? 800 : 950 } });
+    page.on('dialog', dialog => { void dialog.accept(); });
     page.on('pageerror', error => errors.push(width + ': ' + error.message));
     try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
