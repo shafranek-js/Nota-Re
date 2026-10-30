@@ -32,7 +32,9 @@ try {
       assert.match(await resume.innerText(), /Урок 3/,
         'opening lesson 8 should not change the certified progression');
       await resume.click();
-
+      await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
+      // The lesson continues graded after the view-only dismissal.
       const sections = page.getByRole('navigation', { name: 'Разделы Студии' });
       assert.deepEqual(await sections.getByRole('button').allTextContents(),
         ['Практика', 'Подготовка', 'Лаборатория']);
@@ -68,8 +70,7 @@ try {
       // Hanon preset entered ungraded setup when returning from the Lab.
       // Explicit start is required before Zen becomes eligible.
       await page.getByTestId('trainer-start-stop').click();
-      // Opt-in focus must never hide global navigation in embedded sections.
-      await page.getByTestId('toolbar-zen-toggle').click();
+      // Starting the exercise focuses notation automatically.
       await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
       await page.getByTestId('zen-exit').click();
       await sections.getByRole('button', { name: 'Подготовка' }).click();
