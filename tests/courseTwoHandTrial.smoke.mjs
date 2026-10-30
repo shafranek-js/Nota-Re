@@ -111,10 +111,17 @@ try {
 
   // New run is independent; explicit Stop is an aborted attempt, never a
   // successful repetition. Reset affects this session only.
+  const metronome = page.getByTestId('metronome-toggle');
+  assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
+  await metronome.click();
+  assert.equal(await metronome.getAttribute('aria-pressed'), 'true');
   await page.getByTestId('two-hand-start-tempo').click();
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="two-hand-mode"]')?.textContent?.trim() === 'Ритм · метроном'
   );
+  await metronome.click();
+  assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
+  assert.match(await page.getByTestId('two-hand-mode').innerText(), /Ритм/);
   await page.getByRole('button', { name: 'Заново / Стоп' }).click();
   await page.waitForFunction(() =>
     document.querySelector('[data-testid="two-hand-shadow-series"]')?.textContent?.includes('прервано: 1')

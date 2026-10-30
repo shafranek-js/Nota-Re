@@ -48,6 +48,13 @@ try {
         true, 'Zen focus starts at an obvious exit action');
       assert.match(await strip.getByTestId('zen-progress').innerText(), /1 \/ 16/);
       assert.match(await strip.getByTestId('zen-tempo').innerText(), /60 BPM/);
+      const metronome = strip.getByTestId('metronome-toggle');
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'true');
+      assert.ok(await strip.isVisible());
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
       assert.ok(await build.isVisible(), 'build identity is still visible while focused');
       assert.ok((await build.innerText()).includes('v3.0.0'));
       const dims = await page.evaluate(() => ({
