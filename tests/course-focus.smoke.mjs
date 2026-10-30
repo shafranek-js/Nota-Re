@@ -119,6 +119,24 @@ try {
     await savedPage.getByTestId('course-lesson-2').click();
     await savedPage.getByTestId('course-launch-selected').click();
     assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /0 \/ 15 ном/);
+    // A restored seventh Lookahead score must choose actual Photo-memory mode.
+    await savedPage.evaluate(() => {
+      const key = 'notare_course_series_v1';
+      const series = JSON.parse(localStorage.getItem(key));
+      series.lessons[10] = {
+        completedExercises: 7, judgedNotes: 112, correctNotes: 108,
+        reactionSamples: 108, reactionTotalMs: 108 * 400
+      };
+      localStorage.setItem(key, JSON.stringify(series));
+    });
+    await savedPage.reload({ waitUntil: 'domcontentloaded' });
+    await savedPage.getByTestId('course-lesson-10').click();
+    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 7 \/ 15/);
+    await savedPage.getByTestId('course-launch-selected').click();
+    const stage = savedPage.getByTestId('lesson-ten-stage');
+    await stage.waitFor({ state: 'visible' });
+    assert.match(await stage.innerText(), /Этап 2: Фото-память \(8\)/);
+    assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /7 \/ 15 ном/);
   } finally {
     await savedPage.close();
   }
