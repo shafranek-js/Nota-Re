@@ -1,4 +1,4 @@
-import React, { Suspense, useRef, useState } from 'react';
+import React, { Suspense, useEffect, useRef, useState } from 'react';
 import { Upload } from 'lucide-react';
 import { inspectRepertoireFile, type RepertoireFileInfo } from '../../core/notation/repertoireImport';
 import type { ScoreRenderer } from '../../core/notation/scoreRendererPreference';
@@ -33,14 +33,20 @@ const sections: readonly { id: StudioSection; title: string; detail: string }[] 
 export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   renderer, onSelectRenderer, zenActive, theme
 }) => {
-  const { studioSection, switchStudioSection, trainerPhase, isTwoHandPracticeOpen } = useAppStore();
+  const { studioSection, switchStudioSection, trainerPhase, activeLessonId, isContinuousFlow,
+    isTwoHandPracticeOpen, setRepertoirePreviewOpen } = useAppStore();
   const pickerRef = useRef<HTMLInputElement>(null);
   const importSequence = useRef(0);
   const [repertoire, setRepertoire] = useState<RepertoireFileInfo | null>(null);
   const [importBusy, setImportBusy] = useState(false);
   const [importError, setImportError] = useState('');
-  // View-only browsing is available only before a graded attempt begins.
-  const canImport = studioSection === 'practice' && trainerPhase === 'setup' && !isTwoHandPracticeOpen;
+  // Initial free practice is `playing` in this app, even before graded lessons.
+  // Never interrupt a scored lesson, count-in or scheduled rhythm flow.
+  const canImport = studioSection === 'practice' && activeLessonId === null &&
+    !isContinuousFlow && !isTwoHandPracticeOpen &&
+    (trainerPhase === 'setup' || trainerPhase === 'playing');
+
+  useEffect(() => () => setRepertoirePreviewOpen(false), [setRepertoirePreviewOpen]);
 
   const openPicker = () => pickerRef.current?.click();
 
@@ -52,6 +58,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     try {
       const info = await inspectRepertoireFile(file);
       if (sequence !== importSequence.current) return;
+      setRepertoirePreviewOpen(true);
       setRepertoire(info);
     } catch (error) {
       if (sequence !== importSequence.current) return;
@@ -64,6 +71,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
   const closeRepertoire = () => {
     importSequence.current += 1;
     setRepertoire(null);
+    setRepertoirePreviewOpen(false);
     setImportError('');
     setImportBusy(false);
   };
@@ -91,7 +99,7 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
                 data-testid={`studio-section-${section.id}`}
                 aria-current={selected ? 'page' : undefined}
                 title={section.detail}
-                onClick={() => switchStudioSection(section.id)}
+                onClick={() => { closeRepertoire(); switchStudioSection(section.id); }}
                 className={`shrink-0 rounded-lg border px-3 py-1.5 text-xs font-semibold transition focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400 ${
                   selected ? 'bg-sky-500/15 border-sky-500/50 text-sky-200'
                     : 'bg-slate-900 border-slate-800 text-slate-400 hover:text-white hover:border-slate-600'
