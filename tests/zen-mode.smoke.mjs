@@ -57,6 +57,13 @@ try {
       assert.equal(await page.getByTestId('studio-workspace').getAttribute('data-zen-active'), 'true');
       assert.equal(await strip.getByTestId('zen-exit').evaluate(node => node === document.activeElement), true);
       assert.match(await strip.getByTestId('zen-tempo').innerText(), /60 BPM/);
+      const metronome = strip.getByTestId('metronome-toggle');
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'true');
+      assert.ok(await strip.isVisible());
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
       assert.ok(await build.isVisible());
       const dimensions = await page.evaluate(() => ({
         client: document.documentElement.clientWidth,

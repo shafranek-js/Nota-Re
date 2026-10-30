@@ -29,6 +29,13 @@ try {
       assert.match(await course.innerText(), /60 BPM/);
       assert.equal((await course.getByTestId('course-credit-mode').innerText()).trim(), 'Зачётная попытка');
       assert.equal(await page.getByRole('button', { name: 'Поток: ИДЁТ' }).count(), 1);
+      const metronome = course.getByTestId('metronome-toggle');
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'true');
+      assert.equal(await course.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+      await metronome.click();
+      assert.equal(await metronome.getAttribute('aria-pressed'), 'false');
       assert.equal(await course.getByRole('slider').count(), 0);
 
       // Export keeps the exact notated course exercise, without touching its

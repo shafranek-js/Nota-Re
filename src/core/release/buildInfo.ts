@@ -9,5 +9,5 @@ export const BUILD_INFO = {
   environment: import.meta.env.DEV ? 'dev' : 'production'
 } as const;
 
-export const BUILD_LABEL = `v${BUILD_INFO.version} · ${BUILD_INFO.revision}`;
+export const BUILD_LABEL = `v${BUILD_INFO.version} · сборка ${BUILD_INFO.revision}`;
 export const BUILD_DETAILS = `${BUILD_LABEL} · ${BUILD_INFO.environment}`;

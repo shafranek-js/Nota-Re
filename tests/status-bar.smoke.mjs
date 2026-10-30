@@ -23,7 +23,7 @@ try {
       const status = page.getByTestId('status-bar');
       const build = status.getByTestId('build-version');
       await status.waitFor({ state: 'visible' });
-      assert.ok((await build.innerText()).includes(`v${version}`));
+      assert.match(await build.innerText(), new RegExp(`^v${version.replaceAll('.', '\\.')} · сборка (?:[a-f0-9]{7}|unknown)$`));
       assert.match(await status.getByTestId('status-midi').innerText(), /MIDI:/);
       assert.match(await status.getByTestId('status-audio').innerText(), /Аудио:/);
       assert.match(await status.getByTestId('status-renderer').innerText(), /OSMD/);

@@ -9,11 +9,12 @@ import { readFileSync } from 'node:fs';
 import { chromium } from 'playwright';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
-const envSha = process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
+const envSha = process.env.NOTARE_BUILD_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
 const revision = (envSha && /^[a-f0-9]{7,40}$/i.test(envSha)
   ? envSha : execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim()
 ).slice(0, 7);
-const expected = `v${version} · ${revision} · production`;
+const expected = `v${version} · сборка ${revision}`;
+const expectedSettings = `Версия релиза: v${version} · Сборка: ${revision} · production`;
 const browser = await chromium.launch({
   headless: true, executablePath: process.env.CHROME_PATH, args: ['--no-sandbox']
 });
@@ -34,8 +35,9 @@ try {
 
       await page.getByRole('button', { name: 'Открыть настройки' }).click();
       const inSettings = page.getByTestId('settings-build-version');
-      assert.match(await inSettings.innerText(), /Версия приложения:/);
-      assert.equal((await inSettings.innerText()).trim(), `Версия приложения: ${expected}`);
+      assert.match(await inSettings.innerText(), /Версия релиза:/);
+      assert.equal((await inSettings.innerText()).trim(), expectedSettings);
+      assert.match(await page.getByTestId('settings-build-explanation').innerText(), /Git-коммиту/);
       await page.keyboard.press('Escape');
 
       await page.reload({ waitUntil: 'domcontentloaded' });

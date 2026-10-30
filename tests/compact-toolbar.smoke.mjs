@@ -66,13 +66,16 @@ try {
       const viewRow = page.getByTestId('view-controls-row');
       assert.ok(await viewRow.isVisible(), 'View controls must occupy a single row');
       const iconLabels = [
-        'Скрыть клавиатуру', 'Звукоряд тональности',
+        'Скрыть клавиатуру', 'Подсветка гаммы',
         'Тактильная ширма (18:20)', 'Режим «Стол» (22:05)', 'Маяки баса'
       ];
       for (const label of iconLabels) {
         const button = view.getByRole('button', { name: label, exact: true });
         assert.equal(await button.count(), 1, `unique accessible View icon: ${label}`);
-        assert.equal(await button.getAttribute('title'), label);
+        assert.equal(await button.getAttribute('title'),
+          label === 'Подсветка гаммы'
+            ? 'Подсветить на клавиатуре ноты выбранной тональности.'
+            : label);
         assert.ok(await button.getAttribute('aria-pressed') !== null, 'toggle must expose pressed state');
         assert.equal(await button.locator('svg[aria-hidden="true"]').count(), 1,
           'icon button must contain a decorative SVG');
@@ -92,7 +95,7 @@ try {
         assert.ok(rowMetrics.scrollWidth > rowMetrics.clientWidth + 10,
           'small screens must scroll View controls horizontally instead of wrapping');
       }
-      const scaleToggle = view.getByRole('button', { name: 'Звукоряд тональности' });
+      const scaleToggle = view.getByRole('button', { name: 'Подсветка гаммы' });
       const scaleBefore = await scaleToggle.getAttribute('aria-pressed');
       await scaleToggle.click();
       assert.notEqual(await scaleToggle.getAttribute('aria-pressed'), scaleBefore,

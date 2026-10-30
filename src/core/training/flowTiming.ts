@@ -29,6 +29,27 @@ export function remainingAudioMs(nowAudioTime: number, deadlineAudioTime: number
   return Math.max(0, Math.round((deadlineAudioTime - nowAudioTime) * 1000));
 }
 
+/**
+ * Integer quarter-beat boundaries within a note. Short eighth/sixteenth
+ * notes do not generate extra ticks; half notes include intermediate beats.
+ * Offsets are relative to this note's onset; scores currently use 4/4.
+ */
+export function metronomeBeatsInNote(
+  notes: readonly FlowNote[], index: number
+): ReadonlyArray<{ offsetQuarters: number; strong: boolean }> {
+  if (index < 0 || index >= notes.length) return [];
+  const start = notes.slice(0, index).reduce((sum, n) => sum + n.durMultiplier, 0);
+  const duration = notes[index].durMultiplier;
+  if (!Number.isFinite(duration) || duration <= 0) return [];
+  const end = start + duration;
+  const result: Array<{ offsetQuarters: number; strong: boolean }> = [];
+  for (let beat = Math.ceil(start - 1e-8); beat < end - 1e-8; beat++) {
+    if (beat < 0) continue;
+    result.push({ offsetQuarters: Math.max(0, beat - start), strong: beat % 4 === 0 });
+  }
+  return result;
+}
+
 /** True when this note starts on a measure boundary of 4 quarter beats. */
 export function startsMeasure(notes: readonly FlowNote[], index: number): boolean {
   if (index < 0 || index >= notes.length) return false;

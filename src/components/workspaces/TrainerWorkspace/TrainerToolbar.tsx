@@ -4,6 +4,7 @@ import type { AppMode, FilterType, HanonType, SpeechType, TonalityKey } from '..
 import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences';
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
+import { MetronomeToggle } from './MetronomeToggle';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
 import { ChevronDown, ClipboardCheck, FileDown, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
 
@@ -107,8 +108,8 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
     </button>
   );
 
-  const iconOption = (label: string, selected: boolean, onClick: () => void, Icon: typeof Keyboard) => (
-    <button type="button" title={label} aria-label={label} aria-pressed={selected}
+  const iconOption = (label: string, selected: boolean, onClick: () => void, Icon: typeof Keyboard, tooltip = label) => (
+    <button type="button" title={tooltip} aria-label={label} aria-pressed={selected}
       onClick={onClick} className={`${selected ? activeClass : inactiveClass} inline-flex h-9 w-9 shrink-0 items-center justify-center !p-0`}>
       <Icon aria-hidden="true" className="h-4 w-4" />
     </button>
@@ -136,6 +137,7 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
           <input aria-label="Темп BPM" type="range" min={40} max={130} value={bpm}
             onChange={event => setBpm(Number(event.target.value))} className="w-14 accent-emerald-500"/>
         </label>
+        <MetronomeToggle />
         <button type="button" onClick={toggleContinuousFlow} className={controlClass}
           title="Включить или приостановить ритмический автоход">
           <span className="inline-flex items-center gap-1">
@@ -278,7 +280,8 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
               <span className="mx-1 h-5 shrink-0 border-l border-slate-700" aria-hidden="true" />
               {iconOption(showVirtualKeyboard ? 'Скрыть клавиатуру' : 'Показать клавиатуру',
                 showVirtualKeyboard, toggleVirtualKeyboard, Keyboard)}
-              {iconOption('Звукоряд тональности', showScaleHighlight, toggleScaleHighlight, Music2)}
+              {iconOption('Подсветка гаммы', showScaleHighlight, toggleScaleHighlight, Music2,
+                'Подсветить на клавиатуре ноты выбранной тональности.')}
               {iconOption('Тактильная ширма (18:20)', isBlindfolded, toggleBlindfoldKeys, EyeOff)}
               {iconOption('Режим «Стол» (22:05)', isTabletopMode, toggleTabletopMode, Monitor)}
               {iconOption('Маяки баса', showBassLandmarks, toggleBassLandmarks, MapPin)}

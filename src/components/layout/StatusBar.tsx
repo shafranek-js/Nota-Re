@@ -1,7 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { audioEngine } from '../../core/audio/AudioEngine';
-import { BUILD_DETAILS } from '../../core/release/buildInfo';
+import { BUILD_INFO, BUILD_LABEL } from '../../core/release/buildInfo';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
 import type { ScoreRenderer } from '../../core/notation/scoreRendererPreference';
 
@@ -98,10 +98,10 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
       </div>
       <span
         data-testid="build-version"
-        title="Версия, ревизия Git и тип сборки"
+        title={`Версия релиза: v${BUILD_INFO.version}; Git-коммит: ${BUILD_INFO.revision}; среда: ${BUILD_INFO.environment}`}
         className="ml-2 shrink-0 whitespace-nowrap border-l border-slate-800 pl-2 font-mono tabular-nums text-sky-300"
       >
-        {BUILD_DETAILS}
+        {BUILD_LABEL}
       </span>
     </footer>
   );
