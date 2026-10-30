@@ -132,11 +132,12 @@ export function sanitizedRepertoireXml(text: string): string {
   const dtds = text.match(/<!DOCTYPE[\s\S]*?>/gi) ?? [];
   if (dtds.length > 1) return invalid('Повторяющееся объявление DOCTYPE.');
   if (dtds.length) {
+    const declaration = dtds[0]!;
     const canonical = /^<!DOCTYPE\s+score-(?:partwise|timewise)\s+PUBLIC\s+["']-\/\/Recordare\/\/DTD MusicXML(?: [0-9.]+)? (?:Partwise|Timewise)\/\/EN["']\s+["']https?:\/\/(?:www\.)?musicxml\.org\/dtds\/(?:partwise|timewise)\.dtd["']\s*>$/i;
-    if (!canonical.test(dtds[0])) {
+    if (!canonical.test(declaration)) {
       return invalid('Разрешён только стандартный MusicXML DOCTYPE без внутренних сущностей.');
     }
-    text = text.replace(dtds[0], '');
+    text = text.replace(declaration, '');
   }
   if (/<!DOCTYPE/i.test(text)) return invalid('Неподдерживаемое объявление DOCTYPE.');
   return text;
