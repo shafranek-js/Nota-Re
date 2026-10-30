@@ -35,6 +35,40 @@ export const DEMO_MULTI_XML = DEMO_XML.replace(
   </measure></part></score-partwise>`
 );
 
+export const DEMO_TIMELINE_XML = `<?xml version="1.0" encoding="utf-8"?>
+<score-partwise version="4.0">
+  <movement-title>Mixed-meter voices and ties</movement-title>
+  <part-list><score-part id="P1"><part-name>Piano</part-name></score-part></part-list>
+  <part id="P1">
+    <measure number="1">
+      <attributes>
+        <divisions>12</divisions><key><fifths>-1</fifths></key>
+        <time><beats>3</beats><beat-type>4</beat-type></time>
+        <staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef>
+        <clef number="2"><sign>F</sign><line>4</line></clef>
+      </attributes>
+      <direction><sound tempo="72"/></direction>
+      <note><pitch><step>C</step><octave>4</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <note><chord/><pitch><step>E</step><octave>4</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <note><chord/><pitch><step>G</step><octave>4</octave></pitch><duration>12</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>24</duration><tie type="start"/><voice>1</voice><type>half</type><staff>1</staff></note>
+      <backup><duration>36</duration></backup>
+      <note><pitch><step>C</step><octave>3</octave></pitch><duration>36</duration><voice>2</voice><type>half</type><dot/><staff>2</staff></note>
+    </measure>
+    <measure number="2">
+      <attributes><time><beats>6</beats><beat-type>8</beat-type></time></attributes>
+      <direction><sound tempo="96"/></direction>
+      <note><pitch><step>D</step><octave>4</octave></pitch><duration>12</duration><tie type="stop"/><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <note><pitch><step>E</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><staff>1</staff></note>
+      <note><pitch><step>F</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><staff>1</staff></note>
+      <note><pitch><step>G</step><octave>4</octave></pitch><duration>4</duration><voice>1</voice><type>eighth</type><time-modification><actual-notes>3</actual-notes><normal-notes>2</normal-notes></time-modification><staff>1</staff></note>
+      <note><rest/><duration>12</duration><voice>1</voice><type>quarter</type><staff>1</staff></note>
+      <backup><duration>36</duration></backup>
+      <note><pitch><step>G</step><octave>2</octave></pitch><duration>36</duration><voice>2</voice><type>half</type><dot/><staff>2</staff></note>
+    </measure>
+  </part>
+</score-partwise>`;
+
 export const CONTAINER_XML = `<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles><rootfile full-path="scores/demo.musicxml"

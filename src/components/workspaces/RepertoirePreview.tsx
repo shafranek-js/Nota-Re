@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import type { AppTheme } from '../../core/ui/themePreference';
+import { mapMusicXmlToScoreDocument, type MusicXmlTimelineResult } from '../../core/notation/musicXmlTimelineAdapter';
 import { inspectMusicXmlText, sanitizedRepertoireXml, MAX_EXPANDED_BYTES,
   type RepertoireFileInfo } from '../../core/notation/repertoireImport';
 
@@ -19,6 +20,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const mountRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('');
+  const [timeline, setTimeline] = useState<MusicXmlTimelineResult | null>(null);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -30,6 +32,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     mount.replaceChildren();
     setState('loading');
     setMessage('');
+    setTimeline(null);
+    let parsedTimeline: MusicXmlTimelineResult | null = null;
 
     (async () => {
       try {
@@ -48,6 +52,9 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
             }
             const safe = sanitizedRepertoireXml(xml);
             inspectMusicXmlText(safe);
+            // Map the same sanitized XML passed to OSMD. Unsupported notation
+            // remains renderable and is never silently made assessable.
+            parsedTimeline = mapMusicXmlToScoreDocument(safe, info.title);
             return safe;
           }
         });
@@ -70,6 +77,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         osmd.render();
         if (cancelled) return;
         if (!mount.querySelector('svg')) throw new Error('Нотный движок не вернул SVG партитуры.');
+        setTimeline(parsedTimeline ?? { score: null, reason: 'Нотный движок не предоставил XML для структурного анализа.' });
         let lastWidth = mount.clientWidth;
         resizeObserver = new ResizeObserver(() => {
           const width = mount.clientWidth;
@@ -131,7 +139,21 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         </div>
       </div>
       <p className="shrink-0 text-xs text-slate-400">
-        Файл обрабатывается локально. Тренировочные режимы, MIDI-оценка и зачёт для импортированной партитуры отключены.
+        Файл обрабатывается локально. MIDI-оценка и зачёт отключены.
+        {state === 'ready' && timeline && (
+          <span data-testid="repertoire-timeline" role="status"
+            data-meters={timeline.score?.measures.map(m => m.meter.beats + '/' + m.meter.beatType).join(' ') ?? ''}
+            data-ties={timeline.score?.events.filter(event => event.tieToId).length ?? 0}
+            data-voices={timeline.score
+              ? new Set(timeline.score.events.map(event => event.partId + ':' + event.staff + ':' + event.voice)).size
+              : 0}
+            className={`ml-1 ${timeline.score ? 'text-sky-300' : 'text-amber-300'}`}
+            title={timeline.reason ?? 'Музыкальная структура распознана, но оценка исполнения отключена'}>
+            {timeline.score
+              ? `Структура распознана: ${timeline.score.measures.length} такт. · ${timeline.score.events.filter(event => event.kind === 'note').length} нот · ${timeline.score.parts.length} парт. · без зачёта`
+              : `Структурный разбор недоступен: ${timeline.reason}. Просмотр нот доступен.`}
+          </span>
+        )}
       </p>
       {info.warnings.length > 0 && (
         <div role="note" className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
