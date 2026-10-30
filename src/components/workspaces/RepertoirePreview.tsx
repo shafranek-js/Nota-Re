@@ -1,0 +1,108 @@
+import React, { useEffect, useRef, useState } from 'react';
+import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import type { AppTheme } from '../../core/ui/themePreference';
+import type { RepertoireFileInfo } from '../../core/notation/repertoireImport';
+
+interface Props {
+  info: RepertoireFileInfo;
+  theme: AppTheme;
+  onClose: () => void;
+  onReplace: () => void;
+}
+
+/**
+ * Read-only OSMD instance, isolated from exercise generation, training modes,
+ * MIDI grading and the course completion state.
+ */
+export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onReplace }) => {
+  const mountRef = useRef<HTMLDivElement>(null);
+  const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
+  const [message, setMessage] = useState('');
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    let cancelled = false;
+    mount.replaceChildren();
+    setState('loading');
+    setMessage('');
+
+    (async () => {
+      try {
+        const osmd = new OpenSheetMusicDisplay(mount, {
+          autoResize: true,
+          backend: 'svg',
+          drawTitle: true,
+          darkMode: theme === 'dark'
+        });
+        const rules = osmd.EngravingRules;
+        const dark = theme === 'dark';
+        const ink = dark ? '#f8fafc' : '#0f172a';
+        rules.PageBackgroundColor = dark ? '#0b1120' : '#ffffff';
+        rules.DefaultColorMusic = ink;
+        rules.DefaultColorNotehead = ink;
+        rules.DefaultColorStem = ink;
+        rules.DefaultColorRest = dark ? '#94a3b8' : '#475569';
+        rules.DefaultColorLabel = dark ? '#94a3b8' : '#475569';
+        rules.StaffLineColor = dark ? '#334155' : '#64748b';
+
+        // File (not a blob URL, UTF-8-decoded ZIP or transformed score) enables
+        // OSMD's built-in MXL rootfile resolution, without JSZip duplication.
+        await osmd.load(info.file, info.title);
+        if (cancelled) return;
+        osmd.render();
+        if (cancelled) return;
+        if (!mount.querySelector('svg')) throw new Error('Нотный движок не вернул SVG партитуры.');
+        setState('ready');
+      } catch (err) {
+        if (cancelled) return;
+        console.error('Repertoire preview failed', err);
+        setState('error');
+        setMessage('Не удалось открыть партитуру. Проверьте MusicXML/MXL, голоса и структуру файла.');
+      }
+    })();
+
+    return () => { cancelled = true; mount.replaceChildren(); };
+  }, [info, theme]);
+
+  return (
+    <section data-testid="repertoire-preview" aria-label="Просмотр загруженной партитуры"
+      className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden p-2">
+      <div className="shrink-0 rounded-xl border border-slate-700 bg-slate-900 px-3 py-2 flex flex-wrap items-center justify-between gap-2">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <strong className="text-sm text-slate-100 break-words">{info.title}</strong>
+            <span className="rounded border border-amber-600/50 bg-amber-950/30 px-2 py-0.5 text-xs text-amber-300">Только просмотр · без зачёта</span>
+          </div>
+          <p className="text-xs text-slate-400 break-all">{info.file.name}
+            {info.parts !== null ? ` · ${info.parts} партий` : ''}
+            {info.measures !== null ? ` · ${info.measures} тактов (всего по партиям)` : ''}
+          </p>
+        </div>
+        <div className="flex shrink-0 flex-wrap gap-2">
+          <button type="button" onClick={onReplace}
+            className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 hover:border-sky-400">
+            Другой файл
+          </button>
+          <button type="button" onClick={onClose}
+            className="rounded-lg border border-slate-600 bg-slate-800 px-3 py-1.5 text-xs text-slate-100 hover:border-sky-400">
+            Вернуться к упражнению
+          </button>
+        </div>
+      </div>
+      <p className="shrink-0 text-xs text-slate-400">
+        Файл обрабатывается локально. Тренировочные режимы, MIDI-оценка и зачёт для импортированной партитуры отключены.
+      </p>
+      {info.warnings.length > 0 && (
+        <div role="note" className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
+          {info.warnings.join(' ')}
+        </div>
+      )}
+      {state === 'loading' && <p role="status" className="shrink-0 text-sm text-sky-300">Загрузка и гравировка партитуры…</p>}
+      {state === 'error' && <p role="alert" className="shrink-0 rounded-lg border border-rose-500/50 bg-rose-950/20 p-3 text-sm text-rose-300">{message}</p>}
+      <div data-testid="repertoire-score-scroll" className={`${theme === 'light' ? 'osmd-light-theme' : 'osmd-dark-theme'} flex-1 min-h-0 overflow-auto rounded-xl border border-slate-700 bg-slate-950 text-slate-100`}>
+        <div data-testid="repertoire-score" ref={mountRef} className="w-full min-w-[280px] p-2" />
+      </div>
+    </section>
+  );
+};
