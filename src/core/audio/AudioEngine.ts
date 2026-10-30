@@ -8,7 +8,10 @@ import {
 } from './audioTimeline';
 
 interface LiveMidiVoice {
-  kind: 'soundfont' | 'oscillator';
+  kind: 'soundfont' | 'oscillator' | 'pending';
+  velocity?: number;
+  receivedAtMs?: number;
+  systemReceivedAtMs?: number;
   oscillator?: OscillatorNode;
   gain?: GainNode;
   released: boolean;
@@ -24,6 +27,37 @@ class AudioEngine {
   private liveVoices = new Map<string, LiveMidiVoice>();
   private sustainChannels = new Set<number>();
   private readonly diagnostics = new MidiAudioDiagnosticsTracker();
+
+  constructor() {
+    // Only still-held MIDI keys may start late when the piano bank becomes
+    // available. Keys already released or disconnected must stay silent.
+    this.piano.subscribe(status => {
+      if (status.output === 'soundfont' && status.phase === 'ready') {
+        this.flushPendingMidi();
+      } else if (status.output === 'oscillator' || status.phase === 'error') {
+        for (const [key, voice] of this.liveVoices) {
+          if (voice.kind === 'pending') this.liveVoices.delete(key);
+        }
+        this.updateDiagnosticVoices();
+      }
+    });
+  }
+
+  private flushPendingMidi(): void {
+    const context = this.ctx;
+    if (!context) return;
+    for (const [key, voice] of this.liveVoices) {
+      if (voice.kind !== 'pending') continue;
+      if (voice.released) { this.liveVoices.delete(key); continue; }
+      const [channel, note] = key.split(':').map(Number);
+      if (this.sustainChannels.has(channel)) this.piano.sustain(channel, 127);
+      if (this.piano.noteOn(context, channel, note, voice.velocity ?? 100)) {
+        this.liveVoices.set(key, { kind: 'soundfont', released: false });
+        this.recordMidiDispatch(voice.receivedAtMs, 'soundfont', voice.systemReceivedAtMs);
+      }
+    }
+    this.updateDiagnosticVoices();
+  }
 
   /**
    * The two browser latencies are API estimates, not an acoustic loopback
@@ -82,6 +116,8 @@ class AudioEngine {
     this.piano.setOutput(output);
   }
   public async prepareSoundFont(retry = false): Promise<void> {
+    // Respect an explicit oscillator preference and avoid a 40 MB download.
+    if (this.piano.getStatus().output !== 'soundfont') return;
     const context = this.ensureAudioContext();
     if (context) await this.piano.prepare(context, retry);
   }
@@ -110,7 +146,7 @@ class AudioEngine {
       }
     }
     if (this.ctx && this.ctx.state === 'suspended') {
-      this.ctx.resume();
+      void this.ctx.resume().catch(() => { /* browser requires activation */ });
     }
     return this.ctx;
   }
@@ -161,6 +197,17 @@ class AudioEngine {
       return;
     }
 
+    const soundfont = this.piano.getStatus();
+    if (!previewCollision && soundfont.output === 'soundfont' &&
+        soundfont.phase !== 'error') {
+      // A loading SoundFont must not silently switch the selected instrument.
+      // Released MIDI notes are discarded, not replayed out of time.
+      this.liveVoices.set(key, { kind: 'pending', released: false,
+        velocity, receivedAtMs, systemReceivedAtMs });
+      this.updateDiagnosticVoices();
+      return;
+    }
+
     try {
       const now = context.currentTime;
       const oscillator = context.createOscillator();
@@ -187,7 +234,7 @@ class AudioEngine {
       this.piano.noteOff(channel, note);
       return;
     }
-    if (!voice.oscillator || !voice.gain) return;
+    if (voice.kind === 'pending' || !voice.oscillator || !voice.gain) return;
     const now = this.ctx?.currentTime ?? 0;
     try {
       voice.gain.gain.cancelScheduledValues(now);
@@ -203,7 +250,7 @@ class AudioEngine {
     if (!voice || voice.released) return;
     voice.released = true;
     // SoundFont manages sustain natively; always send the physical key release.
-    if (voice.kind === 'soundfont') {
+    if (voice.kind === 'soundfont' || voice.kind === 'pending') {
       this.releaseLiveVoice(channel, note, voice);
       this.liveVoices.delete(key);
     } else if (!this.sustainChannels.has(channel)) {
@@ -366,9 +413,12 @@ class AudioEngine {
     if (!this.isAudioEnabled) return;
     const ctx = this.ensureAudioContext();
     if (!ctx) return;
-    // A missing/loading/failed SoundFont never silences training: fall back
-    // to the original oscillator without blocking a single note.
     if (this.piano.play(ctx, freq, duration, isStaccato)) return;
+    const soundfont = this.piano.getStatus();
+    // Do not change piano timbre during startup. A short note played before
+    // bank readiness is not replayed late, after the learner has moved on.
+    // Only explicit oscillator selection or an actual bank error uses fallback.
+    if (soundfont.output === 'soundfont' && soundfont.phase !== 'error') return;
 
     try {
       const now = ctx.currentTime;
