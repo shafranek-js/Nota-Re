@@ -21,6 +21,11 @@ try {
   const countIn = page.getByTestId('trainer-count-in');
   await countIn.waitFor({ state: 'visible' });
   await page.getByTestId('osmd-score').locator('svg').first().waitFor({ state: 'visible' });
+  // On a cold OSMD load the HUD correctly says "Готовим нотный стан"
+  // until a real painted score starts beat one. Do not assert the subsequent
+  // downbeat cue prematurely (or mistake loading for an active count-in).
+  await page.getByText(/После «4» играйте первую ноту на следующую сильную долю/)
+    .waitFor({ state: 'visible', timeout: 15000 });
   assert.match(await countIn.innerText(), /После «4» играйте первую ноту на следующую сильную долю/);
   await countIn.waitFor({ state: 'hidden', timeout: 20000 });
 
