@@ -11,6 +11,7 @@ const browser = await chromium.launch({
 const page = await browser.newPage({ viewport: { width: 1440, height: 900 } });
 const errors = [];
 page.on('pageerror', e => errors.push(e.message));
+page.on('dialog', dialog => { void dialog.accept(); });
 try {
   await page.addInitScript(() => localStorage.setItem('notare-trainer-preferences-v1',
     JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })));
@@ -52,12 +53,14 @@ try {
   assert.ok(await page.getByTestId('osmd-score').locator('svg').first().isVisible(),
     'wrong/late strikes must not replace the notation');
 
+  // Stopping graded flow asks for consent and switches to UNGRADED practice.
+  // It must never leave a deadline running or keep adding missing-note hits.
+  const beforeStop = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
   await page.getByRole('button', { name: 'Поток: ИДЁТ' }).click();
-  await page.getByRole('button', { name: 'Поток: Пауза' }).waitFor();
-  const paused = await feedback.innerText();
+  await feedback.waitFor({ state: 'hidden' });
   await page.waitForTimeout(1300);
-  assert.equal(await feedback.innerText(), paused,
-    'pause cannot create new missed notes or silently affect graded results');
+  assert.equal(await page.getByTitle('Точность попаданий в текущей сессии').innerText(),
+    beforeStop, 'exiting graded rhythm flow must cancel all missed-note deadlines');
 
   assert.deepEqual(errors, []);
   console.log('Lesson 3 rhythm: visible downbeat, misses, late correct pitch and frozen pause passed');
