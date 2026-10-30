@@ -69,29 +69,33 @@ export const PreplayChecklist: React.FC = () => {
   );
 };
 
-/** Actual count-in phase: score, piano and grading controls are not mounted. */
+/**
+ * Minimal count-in HUD. The actual score and piano remain mounted beneath
+ * it so students can examine the first notes before the downbeat.
+ * No answer input is scored until the store switches to 'playing'.
+ */
 export const CountInScreen: React.FC = () => {
   const { countInBeat, bpm, cancelTrainerCountIn } = useAppStore();
-  const heading = useRef<HTMLHeadingElement>(null);
-  useEffect(() => { heading.current?.focus(); }, []);
-
   return (
-    <section data-testid="trainer-count-in" aria-labelledby="count-in-heading"
-      className="flex-1 min-h-0 flex items-center justify-center p-5">
-      <div className="w-full max-w-md bg-slate-900 border border-slate-700 rounded-2xl p-6 sm:p-8 text-center space-y-4">
-        <h2 id="count-in-heading" ref={heading} tabIndex={-1}
-          className="text-xl font-bold text-white outline-none">Приготовьтесь к игре</h2>
-        <p className="text-sm text-slate-300">Четыре доли подготовки · {bpm} BPM</p>
-        <div role="status" aria-live="off" data-testid="count-in-beat"
-          className="text-6xl font-mono font-bold tabular-nums text-emerald-300">
-          {countInBeat || '—'}
+    <aside data-testid="trainer-count-in" aria-label="Подготовка к игре"
+      className="absolute right-2 top-2 z-30 max-w-[calc(100%-1rem)] rounded-xl border border-sky-500/50 bg-slate-950/95 px-3 py-2 shadow-lg">
+      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs">
+        <div className="min-w-0">
+          <strong className="text-slate-100">Приготовьтесь · {bpm} BPM</strong>
+          <p className="text-slate-400">
+            {countInBeat === 0 ? 'Сначала загрузим и покажем ноты' :
+              'Ноты уже видны · игра начнётся после 4-й доли'}
+          </p>
         </div>
-        <p className="text-sm text-slate-400">После отсчёта начнётся ритмическая практика</p>
+        <span data-testid="count-in-beat" role="status" aria-live="off"
+          className="min-w-8 text-center text-2xl font-bold font-mono tabular-nums text-emerald-300">
+          {countInBeat || '…'}
+        </span>
         <button type="button" onClick={cancelTrainerCountIn}
-          className="px-4 py-2 border border-slate-600 hover:bg-slate-800 rounded-lg text-sm text-slate-200">
+          className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-800">
           Отменить отсчёт
         </button>
       </div>
-    </section>
+    </aside>
   );
 };
