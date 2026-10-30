@@ -119,16 +119,36 @@ export function validateMxlArchive(bytes: Uint8Array): { readonly entries: numbe
   return { entries, expandedBytes: expanded };
 }
 
+/**
+ * Many third-party scores use the public Recordare DTD. Allow only its
+ * canonical declaration, but strip it before OSMD or DOMParser sees it,
+ * preventing external DTD/entity retrieval. Reject any internal subset.
+ */
+export function sanitizedRepertoireXml(text: string): string {
+  if (!text.trim()) return invalid('Файл MusicXML пуст.');
+  if (/<!ENTITY\b|<\?xml-stylesheet\b|<script\b/i.test(text)) {
+    return invalid('Небезопасные инструкции XML (ENTITY, stylesheet или script).');
+  }
+  const dtds = text.match(/<!DOCTYPE[\s\S]*?>/gi) ?? [];
+  if (dtds.length > 1) return invalid('Повторяющееся объявление DOCTYPE.');
+  if (dtds.length) {
+    const canonical = /^<!DOCTYPE\s+score-(?:partwise|timewise)\s+PUBLIC\s+["']-\/\/Recordare\/\/DTD MusicXML(?: [0-9.]+)? (?:Partwise|Timewise)\/\/EN["']\s+["']https?:\/\/(?:www\.)?musicxml\.org\/dtds\/(?:partwise|timewise)\.dtd["']\s*>$/i;
+    if (!canonical.test(dtds[0])) {
+      return invalid('Разрешён только стандартный MusicXML DOCTYPE без внутренних сущностей.');
+    }
+    text = text.replace(dtds[0], '');
+  }
+  if (/<!DOCTYPE/i.test(text)) return invalid('Неподдерживаемое объявление DOCTYPE.');
+  return text;
+}
+
 export function inspectMusicXmlText(text: string): {
   readonly title: string; readonly warnings: readonly string[];
   readonly parts: number; readonly measures: number;
 } {
-  if (!text.trim()) return invalid('Файл MusicXML пуст.');
-  if (/<!(?:DOCTYPE|ENTITY)\b|<\?xml-stylesheet\b|<script\b/i.test(text)) {
-    return invalid('Небезопасные инструкции XML (DTD, ENTITY или script) не разрешены.');
-  }
+  const safeText = sanitizedRepertoireXml(text);
   if (typeof DOMParser === 'undefined') return invalid('Этот браузер не поддерживает проверку XML.');
-  const doc = new DOMParser().parseFromString(text, 'application/xml');
+  const doc = new DOMParser().parseFromString(safeText, 'application/xml');
   if (doc.querySelector('parsererror')) return invalid('Некорректный синтаксис MusicXML.');
   const root = doc.documentElement;
   if (!root || !['score-partwise', 'score-timewise'].includes(root.localName)) {
