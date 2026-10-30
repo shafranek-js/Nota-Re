@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
-import { isTwoHandCourseLesson } from '../../core/training/courseAssessmentPolicy';
+import { isTwoHandCourseLesson, lessonAssessmentCaveat } from '../../core/training/courseAssessmentPolicy';
 import { evaluateCourseWindow } from '../../core/training/recentCourseWindow';
 import { loadTwoHandShadowSeries } from '../../core/storage/twoHandShadowStorage';
 import { CheckCircle2, Circle, ArrowLeft, ArrowRight, BookOpen, Info, Play, RotateCcw } from 'lucide-react';
@@ -290,6 +290,12 @@ export const CourseWorkspace: React.FC = () => {
                   <p className="text-[10px] text-slate-400">Не влияет на зачёт</p>
                 </div>
               </div>
+              <p data-testid="course-assessment-limits" className="text-xs text-slate-400 mt-2">
+                {lessonAssessmentCaveat(lesson.id)}
+              </p>
+              {!isTwoHand && lesson.id === 10 && (
+                <p className="text-xs text-sky-300 mt-1">Два обязательных этапа: 7 упражнений «Бегунок», затем 8 «Фото-память».</p>
+              )}
 
               {/* Сводка пресета */}
               <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono text-slate-400">
