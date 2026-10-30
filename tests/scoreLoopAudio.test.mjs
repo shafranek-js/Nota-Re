@@ -107,9 +107,11 @@ test('audio loop skips stale cycles after background suspension; rejects out-of-
   queue.start([tone], 0.5);
   now = 30;
   queue.pump();
-  assert.equal(attacks.length, 1, 'never burst old attacks into a resumed browser');
+  assert.deepEqual(attacks, [0.08, 30.08],
+    'resume schedules only the current cycle, never the 59 missed cycles');
   now = 30.57;
   queue.pump();
-  assert.equal(attacks.length, 2);
+  assert.equal(attacks.length, 3);
+  assert.ok(Math.abs(attacks[2] - 30.58) < 1e-8);
   queue.stop();
 });
