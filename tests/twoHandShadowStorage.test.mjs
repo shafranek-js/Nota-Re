@@ -53,6 +53,15 @@ test('persist independent lesson 11 and 12 studies, never a timer or course cred
     assert.equal('officialCourseCredit' in restored, false);
     assert.equal(appendShadowAttempt(restored, 11, 2, verdict(2)), restored);
     assert.equal(appendShadowAttempt(restored, 11, 3, verdict(2)).successfulStudies.length, 3);
+    // Consecutive means a single failed study invalidates the current streak
+    // even if its previous successes were restored from local storage.
+    const bad = { ...verdict(2), accepted: false, reasons: ['onset-or-pitch'] };
+    const broken = appendShadowAttempt(restored, 11, 3, bad);
+    assert.equal(broken.cleanStreak, 0);
+    assert.deepEqual(broken.successfulStudies, []);
+    saveTwoHandShadowSeries(broken);
+    assert.deepEqual(loadTwoHandShadowSeries(11).successfulStudies, []);
+    assert.equal(loadTwoHandShadowSeries(11).attempts, 3);
     assert.deepEqual(loadTwoHandShadowSeries(12).successfulStudies, [0]);
     clearTwoHandShadowSeries(11);
     assert.deepEqual(loadTwoHandShadowSeries(11).successfulStudies, []);
