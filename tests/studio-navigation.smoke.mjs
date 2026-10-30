@@ -32,6 +32,8 @@ try {
       assert.match(await resume.innerText(), /Урок 3/,
         'opening lesson 8 should not change the certified progression');
       await resume.click();
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
       await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
       await page.keyboard.press('Escape');
       // The lesson continues graded after the view-only dismissal.
