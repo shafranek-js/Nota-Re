@@ -99,14 +99,15 @@ try {
         'icon toggle must restore state');
       assert.ok(await view.getByRole('combobox', { name: 'Экспозиция фото-памяти' }).isVisible());
       await view.getByRole('combobox', { name: 'Экспозиция фото-памяти' }).selectOption('1100');
-      await view.getByRole('combobox', { name: 'Подписи виртуальных клавиш' }).selectOption('auto');
-
-      // Auto labels: actual note names with MIDI, PC legends otherwise.
+      const labelMode = view.getByRole('combobox', { name: 'Подписи виртуальных клавиш' });
+      // Default to actual note names regardless of whether MIDI is connected.
+      assert.equal(await labelMode.inputValue(), 'notes');
       const firstKey = page.getByRole('button', { name: 'Клавиша C3' });
-      const expected = midiConnected ? 'C3' : 'z';
-      assert.equal((await firstKey.locator('span[aria-hidden="true"]').first().innerText()).trim().toLowerCase(),
-        expected.toLowerCase());
-      await view.getByRole('combobox', { name: 'Подписи виртуальных клавиш' }).selectOption('off');
+      assert.equal((await firstKey.locator('span[aria-hidden="true"]').first().innerText()).trim(), 'C3');
+      // PC key legends are still available explicitly, without changing keyboard shortcuts.
+      await labelMode.selectOption('pc');
+      assert.equal((await firstKey.locator('span[aria-hidden="true"]').first().innerText()).trim().toLowerCase(), 'z');
+      await labelMode.selectOption('off');
       assert.equal(await firstKey.locator('span[aria-hidden="true"]').count(), 0);
       await view.getByRole('combobox', { name: 'Подписи виртуальных клавиш' }).selectOption('notes');
       assert.equal((await firstKey.locator('span[aria-hidden="true"]').first().innerText()).trim(), 'C3');

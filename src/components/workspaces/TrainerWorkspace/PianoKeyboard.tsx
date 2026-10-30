@@ -19,7 +19,7 @@ export const PianoKeyboard: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   } = useAppStore();
 
   const tonalityCfg = TONALITY_CONFIG[currentTonality] || TONALITY_CONFIG['C'];
-  const visibleLabels = resolveKeyboardLabels(keyboardLabelMode, midiInputsCount);
+  const visibleLabels = resolveKeyboardLabels(keyboardLabelMode);
   const totalWhite = WHITE_KEYS_ORDER.length;
   const blackWidthPct = (0.62 / totalWhite) * 100;
 

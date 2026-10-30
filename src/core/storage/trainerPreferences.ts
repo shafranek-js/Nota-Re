@@ -2,7 +2,7 @@ import type {
   AppMode, FilterType, HanonType, SpeechType, TonalityKey
 } from '../../types/music';
 
-export type KeyboardLabelMode = 'auto' | 'off' | 'notes' | 'pc';
+export type KeyboardLabelMode = 'off' | 'notes' | 'pc';
 
 export const TRAINER_PREFERENCES_KEY = 'notare-trainer-preferences-v1';
 const SCHEMA_VERSION = 1;
@@ -42,7 +42,7 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   showScaleHighlight: false,
   showVirtualKeyboard: true,
   zenModeEnabled: false,
-  keyboardLabelMode: 'auto',
+  keyboardLabelMode: 'notes',
   photoExposureMs: 1800,
   audioEnabled: true
 };
@@ -54,7 +54,7 @@ const FILTERS: readonly FilterType[] = ['treble', 'treble_oct2', 'bass', 'both']
 const TONALITIES: readonly TonalityKey[] = ['C', 'G', 'F', 'D'];
 const HANON: readonly HanonType[] = ['hanon1', 'hanon2', 'groups4', 'coord'];
 const SPEECH: readonly SpeechType[] = ['count', 'tata', 'syllables', 'solfege'];
-const KEYBOARD_LABELS: readonly KeyboardLabelMode[] = ['auto', 'off', 'notes', 'pc'];
+const KEYBOARD_LABELS: readonly KeyboardLabelMode[] = ['notes', 'off', 'pc'];
 
 function oneOf<T extends string>(value: unknown, choices: readonly T[], fallback: T): T {
   return typeof value === 'string' && choices.includes(value as T) ? value as T : fallback;
@@ -92,7 +92,10 @@ export function validateTrainerPreferences(input: unknown): TrainerPreferences {
     showScaleHighlight: booleanOr(data.showScaleHighlight, defaults.showScaleHighlight),
     showVirtualKeyboard: booleanOr(data.showVirtualKeyboard, defaults.showVirtualKeyboard),
     zenModeEnabled: booleanOr(data.zenModeEnabled, defaults.zenModeEnabled),
-    keyboardLabelMode: oneOf(data.keyboardLabelMode, KEYBOARD_LABELS, defaults.keyboardLabelMode),
+    // Migrate the old automatic preference. It previously exposed PC shortcuts
+    // when MIDI was absent, distracting from learning actual note names.
+    keyboardLabelMode: data.keyboardLabelMode === 'auto' ? 'notes'
+      : oneOf(data.keyboardLabelMode, KEYBOARD_LABELS, defaults.keyboardLabelMode),
     photoExposureMs: data.photoExposureMs === 1100 ||
       data.photoExposureMs === 1800 || data.photoExposureMs === 2400
       ? data.photoExposureMs : defaults.photoExposureMs,

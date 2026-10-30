@@ -32,9 +32,8 @@ const HANON_PRESETS: readonly { id: HanonType; name: string }[] = [
   { id: 'coord', name: 'Стаккато + легато · координация' }
 ];
 const KEY_LABELS: readonly { id: KeyboardLabelMode; name: string }[] = [
-  { id: 'auto', name: 'Авто: MIDI → ноты, ПК → клавиши' },
+  { id: 'notes', name: 'Названия нот (C, D, E…)' },
   { id: 'off', name: 'Без подписей' },
-  { id: 'notes', name: 'Названия нот' },
   { id: 'pc', name: 'Клавиши ПК' }
 ];
 const controlClass = 'rounded-lg border border-slate-700 bg-slate-950 px-2.5 py-1.5 text-xs text-slate-200 hover:border-sky-600 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400';
