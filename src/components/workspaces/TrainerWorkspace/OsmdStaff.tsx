@@ -460,6 +460,28 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
     return clear;
   }, [activeExerciseNotes, activeNoteIndex, currentAppMode, isPhotoMasked, loadState, noteOnsets, renderEpoch]);
 
+  // The narrow-screen score scrolls locally to preserve readable OSMD glyphs.
+  // Keep the CURRENT note in view as the learner advances; never move the page,
+  // synthesize note coordinates, alter timing, or override desktop engraving.
+  // The active ring is built by the previous effect from real VexFlow geometry.
+  useEffect(() => {
+    const mount = mountRef.current;
+    const viewport = mount?.closest<HTMLElement>('[data-testid="osmd-scroll-region"]');
+    if (!mount || !viewport || loadState !== 'ready' ||
+        viewport.scrollWidth <= viewport.clientWidth + 2) return;
+    const ring = mount.querySelector<SVGCircleElement>('[data-notare-active-ring="true"]');
+    if (!ring) return; // Photo-masked notes must stay hidden.
+    const rect = viewport.getBoundingClientRect();
+    const bounds = ring.getBoundingClientRect();
+    const noteX = (bounds.left + bounds.right) / 2;
+    if (!Number.isFinite(noteX)) return;
+    const margin = Math.min(52, viewport.clientWidth * 0.18);
+    const minX = rect.left + margin;
+    const maxX = rect.right - margin;
+    if (noteX < minX) viewport.scrollLeft -= minX - noteX;
+    else if (noteX > maxX) viewport.scrollLeft += noteX - maxX;
+  }, [activeNoteIndex, renderEpoch, loadState, currentAppMode, isPhotoMasked]);
+
   // Decorative staff bands belong behind the VexFlow strokes, not in a
   // separate opaque HTML layer (OSMD itself supplies an SVG background).
   useEffect(() => {
