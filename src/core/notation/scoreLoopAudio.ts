@@ -15,7 +15,6 @@ export interface ScoreLoopAudio {
 }
 
 const asNumber = (q: QuarterTime): number => q.numerator / q.denominator;
-const zero = (q: QuarterTime): boolean => q.numerator === 0;
 
 function bpmAt(score: ScoreDocument, at: QuarterTime, defaultBpm: number): number {
   let bpm = defaultBpm;
