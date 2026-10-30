@@ -780,8 +780,9 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTabletopMode: false
     });
 
-    // regenerateExercise arms one deadline when the preset requests flow;
-    // never flip an already explicitly assigned boolean.
+    // Regeneration now enters score-first count-in for graded FLOW lessons.
+    // No missed note or grading clock may start before the pupil has seen
+    // the rendered notation and heard all four preparatory beats.
     get().regenerateExercise();
   },
 
@@ -1218,20 +1219,30 @@ export const useAppStore = create<AppState>((set, get) => ({
       hanonType: currentHanonType
     });
 
+    // The course Start path used to jump directly to 'playing', unlike
+    // Retry, silently skipping the score-first count-in for flow lessons.
+    // Preserve untimed lessons and the existing free-practice setup path.
+    const phase = get().trainerPhase;
+    const gradedFlowCountIn = activeLessonId !== null &&
+      get().isContinuousFlow && get().currentWorkspace === 'trainer' &&
+      phase !== 'setup' && phase !== 'precheck';
     set({
       currentAppMode: exerciseMode,
       activeExerciseNotes: notes,
       activeNoteIndex: 0,
       noteShownTimestamp: performance.now(),
-      isPhotoMasked: false,
+      isPhotoMasked: gradedFlowCountIn && exerciseMode === 'photo',
       isExerciseAssisted: false,
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
-      trainerPhase: get().trainerPhase === 'setup' || get().trainerPhase === 'precheck' ? get().trainerPhase : 'playing',
+      trainerPhase: phase === 'setup' || phase === 'precheck' ? phase :
+        gradedFlowCountIn ? 'countIn' : 'playing',
       countInBeat: 0
     });
-    armFlowClock(get);
+    // armFlowClock already refuses non-playing states. It is intentionally
+    // not called until beginVisibleCountIn finishes the four quarter-beats.
+    if (!gradedFlowCountIn) armFlowClock(get);
 
     if (exerciseMode === 'photo' && get().trainerPhase === 'playing') {
       get().triggerPhotoFlash();

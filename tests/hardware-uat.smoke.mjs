@@ -48,6 +48,11 @@ try {
   // Launch course preset with running flow. Settings must stop it.
   await page.getByText(/Урок 3:/).first().click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+  // This regression checks interruption of a *running* rhythmic lesson.
+  // Opening Settings during its new count-in would instead cancel setup,
+  // leaving no playing phase in which the final MIDI check can be scored.
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
   await page.getByRole('button', { name: 'Поток: ИДЁТ' }).waitFor();
   await page.getByTitle('Открыть настройки').click();
   await page.getByRole('button', { name: 'Синтезатор', exact: true }).click();

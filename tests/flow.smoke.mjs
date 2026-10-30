@@ -28,6 +28,8 @@ try {
   // Lesson 3 explicitly enables continuous flow in its course preset.
   await page.getByText(/Урок 3:/).first().click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
   const running = page.getByRole('button', { name: 'Поток: ИДЁТ' });
   await running.waitFor({ state: 'visible', timeout: 30000 });
   const score = page.getByTestId('osmd-score');
@@ -98,6 +100,8 @@ try {
   // attempt to verify clock and grading protections independently of lesson 12.
   await page.getByTestId('course-lesson-3').click();
   await page.getByTestId('course-launch-selected').click();
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
   await running.waitFor({ state: 'visible', timeout: 30000 });
   assert.equal(await attempts(), 0, 'a new lesson-3 run must reset attempts');
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
@@ -126,6 +130,8 @@ try {
   // it for user-configurable practice explicitly cancels graded deadlines.
   await page.getByRole('button', { name: /^Курс$/ }).click();
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+  await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
   await running.waitFor();
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
   assert.equal(await page.getByTestId('trainer-toolbar').count(), 0);

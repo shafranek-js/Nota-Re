@@ -134,10 +134,13 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, onScoreRe
   // Wait until the browser can paint the complete notation before starting
   // an audio-clock count-in. A cold OSMD import must not consume preparation.
   useEffect(() => {
-    if (loadState !== 'ready' || renderEpoch === 0 || !onScoreReady) return;
+    if (trainerPhase !== 'countIn' || loadState !== 'ready' ||
+        renderEpoch === 0 || !onScoreReady) return;
+    // Also listen for phase changes: the graded Start button can reuse an
+    // already engraved score, without changing its XML/render epoch.
     const frame = window.requestAnimationFrame(() => onScoreReady());
     return () => window.cancelAnimationFrame(frame);
-  }, [loadState, renderEpoch, onScoreReady]);
+  }, [trainerPhase, loadState, renderEpoch, onScoreReady]);
 
   const hiddenNotesRef = useRef<Set<SVGElement>>(new Set());
   const coloredPathsRef = useRef<Map<SVGElement, { fill: string; stroke: string }>>(new Map());

@@ -60,6 +60,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/preplay-countin.smoke.mjs
+      - name: Verify score-first count-in when starting certified lesson 3 from Course or Studio
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/graded-flow-countin.smoke.mjs
       - name: Verify compact Studio preplay and score-renderer controls
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
