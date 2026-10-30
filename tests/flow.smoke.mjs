@@ -17,6 +17,12 @@ async function attempts() {
 }
 
 try {
+  // This existing flow regression exercises the manually visible tempo and
+  // pause controls; default automatic focus is tested separately.
+  await page.addInitScript(() => localStorage.setItem(
+    'notare-trainer-preferences-v1',
+    JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })
+  ));
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
 
   // Lesson 3 explicitly enables continuous flow in its course preset.
