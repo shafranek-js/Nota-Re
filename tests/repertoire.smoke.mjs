@@ -96,8 +96,10 @@ try {
 
       // Light-theme switch must repaint the isolated preview.
       await page.getByTestId('theme-toggle').click();
-      assert.match(await page.getByTestId('repertoire-loop-status').innerText(),
-        /без оценки/, 'theme re-engraving must stop ongoing audio loop');
+      await page.getByTestId('repertoire-loop-status')
+        .getByText(/Воспроизведение без оценки/).waitFor({ state: 'visible', timeout: 15000 });
+      assert.equal(await page.getByTestId('repertoire-loop-toggle').innerText(),
+        '▶ Повтор A–B', 'theme re-engraving must stop ongoing audio loop');
       const lightScore = page.locator('.osmd-light-theme svg').first();
       await lightScore.waitFor({ state: 'visible', timeout: 45000 });
       assert.equal(await lightScore.evaluate(el => getComputedStyle(el).backgroundColor),
