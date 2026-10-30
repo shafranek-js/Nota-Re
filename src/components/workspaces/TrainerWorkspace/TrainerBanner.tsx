@@ -17,7 +17,8 @@ export const TrainerBanner: React.FC = () => {
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
-  const isAssessmentActive = activeLessonId === lesson.id && trainerPhase === 'playing';
+  const isAssessmentActive = activeLessonId === lesson.id &&
+    (trainerPhase === 'playing' || trainerPhase === 'countIn');
 
   return (
     <div data-testid="trainer-banner" className="shrink-0 w-full min-w-0 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-1.5">
