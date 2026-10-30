@@ -16,14 +16,13 @@ try {
       localStorage.setItem('notare-trainer-preferences-v1', JSON.stringify({
         version: 1, preferences: { metronomeEnabled: true }
       }));
-      // Record acoustic scheduling calls, not JavaScript setTimeout timings.
+      // Record the WebAudio scheduled strong-beat frequency. Reading
+      // AudioParam.value at oscillator.start is not reliable for future events.
       window.__strongClicks = [];
-      const nativeStart = OscillatorNode.prototype.start;
-      OscillatorNode.prototype.start = function(when = 0) {
-        if (this.type === 'sine' && Math.abs(this.frequency.value - 1046.5) < 0.2) {
-          window.__strongClicks.push(when);
-        }
-        return nativeStart.call(this, when);
+      const nativeSetValueAtTime = AudioParam.prototype.setValueAtTime;
+      AudioParam.prototype.setValueAtTime = function(value, when) {
+        if (Math.abs(value - 1046.5) < 0.2) window.__strongClicks.push(when);
+        return nativeSetValueAtTime.call(this, value, when);
       };
       const input = { id: 'preplay-test-midi', state: 'connected', onmidimessage: null };
       const access = { inputs: new Map([[input.id, input]]), onstatechange: null };
