@@ -174,13 +174,19 @@ let photoTimerId: number | null = null;
 let countInTimeoutId: number | null = null;
 let countInEpoch = 0;
 let countInClickCancels: Array<() => void> = [];
+// The first playing downbeat must be scheduled before count-in JS wakes up.
+let countInDownbeatCancel: (() => void) | null = null;
 
-function stopCountIn(): void {
+function stopCountIn(transferDownbeat = false): (() => void) | null {
   ++countInEpoch;
   if (countInTimeoutId !== null) window.clearTimeout(countInTimeoutId);
   countInTimeoutId = null;
   countInClickCancels.forEach(cancel => cancel());
   countInClickCancels = [];
+  const downbeat = countInDownbeatCancel;
+  countInDownbeatCancel = null;
+  if (!transferDownbeat) downbeat?.();
+  return transferDownbeat ? downbeat : null;
 }
 
 let flowTimeoutId: number | null = null;
@@ -240,12 +246,13 @@ function syncPracticePulse(state: AppState): void {
   practicePulseTimer = window.setInterval(schedule, 45);
 }
 
-function syncFlowMetronome(state: AppState): void {
+function syncFlowMetronome(state: AppState, skipQueuedDownbeat = false): void {
   flowClickCancels.forEach(cancel => cancel());
   flowClickCancels = [];
   if (!state.metronomeEnabled || !state.audioEnabled || flowOnsetAudioTime === null) return;
   const now = audioEngine.currentAudioTime();
   for (const beat of metronomeBeatsInNote(state.activeExerciseNotes, state.activeNoteIndex)) {
+    if (skipQueuedDownbeat && beat.strong && beat.offsetQuarters === 0) continue;
     const at = flowOnsetAudioTime + beat.offsetQuarters * 60 / state.bpm;
     if (now !== null && at < now + 0.008) continue;
     flowClickCancels.push(audioEngine.scheduleMetronomeClick(beat.strong, at));
@@ -262,12 +269,18 @@ function stopFlowClock(): void {
   flowDeadlineAudioTime = null;
 }
 
-function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): void {
+function armFlowClock(
+  get: () => AppState, nextOnsetAudioTime?: number | null,
+  queuedDownbeat?: (() => void) | null
+): void {
   stopFlowClock();
   const state = get();
-  if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer' || state.trainerPhase !== 'playing') return;
+  if (!state.isContinuousFlow || state.currentWorkspace !== 'trainer' || state.trainerPhase !== 'playing') {
+    queuedDownbeat?.();
+    return;
+  }
   const note = state.activeExerciseNotes[state.activeNoteIndex];
-  if (!note) return;
+  if (!note) { queuedDownbeat?.(); return; }
   const epoch = flowEpoch;
   const audioTime = audioEngine.ensureAudioContext()?.currentTime ?? null;
   // The new slot begins at the preceding *planned* boundary, never at
@@ -276,7 +289,10 @@ function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): 
     (nextOnsetAudioTime ?? (audioTime + 0.04));
   flowOnsetAudioTime = onset;
   flowDeadlineAudioTime = onset === null ? null : nextAudioDeadline(onset, note, state.bpm);
-  syncFlowMetronome(state);
+  // Keep the beat already queued during count-in. Scheduling it only after
+  // the count-in timeout would miss the downbeat when JS wakes up late.
+  syncFlowMetronome(state, !!queuedDownbeat);
+  if (queuedDownbeat) flowClickCancels.push(queuedDownbeat);
   const fallbackEnd = performance.now() + noteDurationMs(note, state.bpm);
 
   const wake = () => {
@@ -323,11 +339,15 @@ function beginTrainerCountIn(get: () => AppState, set: (patch: Partial<AppState>
   const firstClickAudio = audioStart === null ? null : audioStart + 0.07;
   const fallbackStartMs = performance.now() + 70;
   const epoch = countInEpoch;
-  for (let i = 0; i < COUNT_IN_BEATS; i += 1) {
-    if (state.metronomeEnabled && state.audioEnabled) {
+  if (state.metronomeEnabled && state.audioEnabled && firstClickAudio !== null) {
+    for (let i = 0; i < COUNT_IN_BEATS; i += 1) {
       countInClickCancels.push(audioEngine.scheduleMetronomeClick(i === 0,
-        firstClickAudio === null ? undefined : firstClickAudio + i * beatSeconds));
+        firstClickAudio + i * beatSeconds));
     }
+    // Queue the very first exercise beat while the audio clock is still ahead.
+    // On cancel this is silenced; on success ownership moves to the flow clock.
+    countInDownbeatCancel = audioEngine.scheduleMetronomeClick(true,
+      firstClickAudio + COUNT_IN_BEATS * beatSeconds);
   }
   set({ trainerPhase: 'countIn', countInBeat: 1 });
   const wake = () => {
@@ -343,9 +363,11 @@ function beginTrainerCountIn(get: () => AppState, set: (patch: Partial<AppState>
       return;
     }
     if (countInFinished(elapsed, state.bpm)) {
-      stopCountIn();
+      const queuedDownbeat = stopCountIn(true);
       set({ trainerPhase: 'playing', countInBeat: 0, noteShownTimestamp: performance.now() });
-      armFlowClock(get, firstClickAudio === null ? undefined : firstClickAudio + COUNT_IN_BEATS * beatSeconds);
+      armFlowClock(get,
+        firstClickAudio === null ? undefined : firstClickAudio + COUNT_IN_BEATS * beatSeconds,
+        queuedDownbeat);
       if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
       return;
     }
