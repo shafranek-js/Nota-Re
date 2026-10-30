@@ -1,5 +1,10 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import {
+  clearRepertoireMeasureOverlay, drawRepertoireMeasureOverlay,
+  locateEngravedMeasures, selectMeasureIndices,
+  type EngravedRepertoireMeasure
+} from '../../core/notation/repertoireMeasureGeometry';
 import type { AppTheme } from '../../core/ui/themePreference';
 import { mapMusicXmlToScoreDocument, type MusicXmlTimelineResult } from '../../core/notation/musicXmlTimelineAdapter';
 import { inspectMusicXmlText, sanitizedRepertoireXml, MAX_EXPANDED_BYTES,
@@ -21,6 +26,12 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [message, setMessage] = useState('');
   const [timeline, setTimeline] = useState<MusicXmlTimelineResult | null>(null);
+  const [firstBar, setFirstBar] = useState(1);
+  const [lastBar, setLastBar] = useState(1);
+  const [selectionActive, setSelectionActive] = useState(false);
+  const [geometryMessage, setGeometryMessage] = useState<string | null>(null);
+  const [renderEpoch, setRenderEpoch] = useState(0);
+  const mappedMeasures = useRef<readonly EngravedRepertoireMeasure[]>([]);
 
   useEffect(() => {
     const mount = mountRef.current;
@@ -33,6 +44,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     setState('loading');
     setMessage('');
     setTimeline(null);
+    setGeometryMessage(null);
+    mappedMeasures.current = [];
     let parsedTimeline: MusicXmlTimelineResult | null = null;
 
     (async () => {
@@ -78,6 +91,12 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         if (cancelled) return;
         if (!mount.querySelector('svg')) throw new Error('Нотный движок не вернул SVG партитуры.');
         setTimeline(parsedTimeline ?? { score: null, reason: 'Нотный движок не предоставил XML для структурного анализа.' });
+        if (parsedTimeline?.score) {
+          const result = locateEngravedMeasures(osmd, mount, parsedTimeline.score);
+          mappedMeasures.current = result.measures;
+          setGeometryMessage(result.reason);
+        }
+        setRenderEpoch(value => value + 1);
         let lastWidth = mount.clientWidth;
         resizeObserver = new ResizeObserver(() => {
           const width = mount.clientWidth;
@@ -86,8 +105,19 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           window.cancelAnimationFrame(resizeFrame);
           resizeFrame = window.requestAnimationFrame(() => {
             if (!cancelled) {
-              try { osmd.render(); }
-              catch (error) { console.warn('Repertoire resize failed', error); }
+              try {
+                osmd.render();
+                if (parsedTimeline?.score) {
+                  const result = locateEngravedMeasures(osmd, mount, parsedTimeline.score);
+                  mappedMeasures.current = result.measures;
+                  setGeometryMessage(result.reason);
+                }
+                setRenderEpoch(value => value + 1);
+              } catch (error) {
+                mappedMeasures.current = [];
+                setGeometryMessage('Ошибка измерения геометрии OSMD после изменения размера.');
+                console.warn('Repertoire resize failed', error);
+              }
             }
           });
         });
@@ -103,6 +133,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
 
     return () => {
       cancelled = true;
+      mappedMeasures.current = [];
       resizeObserver?.disconnect();
       window.cancelAnimationFrame(resizeFrame);
       // No public OSMD dispose; avoid autoResize global listeners and release
@@ -112,6 +143,18 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
       mount.replaceChildren();
     };
   }, [info, theme]);
+
+  // Renderer and ScoreDocument are both checked before a single highlight is
+  // drawn. A missing mapping never guesses at SVG order or evaluates notes.
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    clearRepertoireMeasureOverlay(mount);
+    if (!selectionActive || !timeline?.score || geometryMessage || !mappedMeasures.current.length) return;
+    const selected = selectMeasureIndices(timeline.score, firstBar - 1, lastBar - 1);
+    if (!selected) return;
+    drawRepertoireMeasureOverlay(mount, mappedMeasures.current, selected, theme === 'light');
+  }, [selectionActive, timeline, firstBar, lastBar, geometryMessage, renderEpoch, theme]);
 
   return (
     <section data-testid="repertoire-preview" aria-label="Просмотр загруженной партитуры"
@@ -155,6 +198,42 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           </span>
         )}
       </p>
+      {state === 'ready' && timeline?.score && (
+        <div data-testid="repertoire-ab-controls"
+          className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/30 bg-slate-900 px-3 py-1.5 text-xs text-slate-200">
+          <strong className="text-sky-300">Такты A–B</strong>
+          <label className="inline-flex items-center gap-1">
+            A
+            <input aria-label="Начальный такт A" type="number" min={1} max={timeline.score.measures.length}
+              value={firstBar} onChange={event => {
+                const next = Number(event.target.value);
+                if (!Number.isSafeInteger(next) || next < 1 || next > timeline.score!.measures.length) return;
+                setFirstBar(next);
+                setLastBar(old => Math.max(old, next));
+              }}
+              className="w-14 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-slate-100" />
+          </label>
+          <label className="inline-flex items-center gap-1">
+            B
+            <input aria-label="Конечный такт B" type="number" min={firstBar} max={timeline.score.measures.length}
+              value={lastBar} onChange={event => {
+                const next = Number(event.target.value);
+                if (!Number.isSafeInteger(next) || next < firstBar || next > timeline.score!.measures.length) return;
+                setLastBar(next);
+              }}
+              className="w-14 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-slate-100" />
+          </label>
+          <button type="button" disabled={!!geometryMessage} onClick={() => setSelectionActive(true)}
+            data-testid="repertoire-ab-show" className="rounded border border-sky-600 bg-sky-950/40 px-2 py-1 text-sky-200 disabled:opacity-50">
+            Выделить
+          </button>
+          {selectionActive && <button type="button" onClick={() => setSelectionActive(false)}
+            data-testid="repertoire-ab-clear" className="rounded border border-slate-600 px-2 py-1 text-slate-300">Снять</button>}
+          <span className="text-slate-400">Только выделение · без воспроизведения</span>
+          {geometryMessage && <span role="status" data-testid="repertoire-ab-unavailable"
+            className="text-amber-300">Подсветка недоступна: {geometryMessage}</span>}
+        </div>
+      )}
       {info.warnings.length > 0 && (
         <div role="note" className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
           {info.warnings.join(' ')}
