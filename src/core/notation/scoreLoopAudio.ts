@@ -1,7 +1,7 @@
-import type { TimedTone } from '../audio/audioTimeline';
+import type { TimedTone } from '../audio/audioTimeline.ts';
 import { addQuarter, compareQuarter,
   type QuarterTime, type ScoreDocument, type ScoreEvent, type ScoreMeasureRange
-} from './scoreDocument';
+} from './scoreDocument.ts';
 
 /**
  * A–B transport is local playback, never MIDI performance evidence.
