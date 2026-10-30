@@ -24,7 +24,7 @@ interface TrainerWorkspaceProps {
 }
 
 export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, onSelectRenderer, theme }) => {
-  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, openTrainerPrecheck, showVirtualKeyboard, zenModeEnabled, zenSessionStarted, zenDismissedForSession, currentWorkspace, studioSection, activeLessonId, selectedLessonId } = useAppStore();
+  const { isTwoHandPracticeOpen, toggleTwoHandPractice, trainerPhase, showVirtualKeyboard, zenModeEnabled, zenSessionStarted, zenDismissedForSession, currentWorkspace, studioSection, activeLessonId, selectedLessonId } = useAppStore();
   const zenActive = isZenActive({ currentWorkspace, studioSection, trainerPhase, isTwoHandPracticeOpen, zenModeEnabled, zenSessionStarted, zenDismissedForSession });
 
   // All eight training modes (including bass landmarks) now use OSMD.
@@ -47,15 +47,6 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
       {!zenActive && !isTwoHandPracticeOpen && (courseLessonActive
         ? <CourseLessonControls />
         : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>)}
-      {!isTwoHandPracticeOpen && trainerPhase === 'setup' && (
-        <div className="shrink-0 flex flex-wrap items-center justify-between gap-2 rounded-xl border border-sky-500/40 bg-sky-950/30 px-3 py-1.5" data-testid="trainer-setup">
-          <p className="text-xs text-sky-100">Упражнение готово · Ноты пока не оцениваются</p>
-          <button type="button" onClick={openTrainerPrecheck}
-            className="shrink-0 rounded-lg border border-sky-700/50 bg-slate-900 px-3 py-1.5 text-xs font-medium text-sky-300 hover:bg-sky-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
-            Анализ перед игрой
-          </button>
-        </div>
-      )}
       {isTwoHandPracticeOpen && (
         <div className="shrink-0 flex items-center gap-2 px-1">
           <button type="button" onClick={toggleTwoHandPractice}
