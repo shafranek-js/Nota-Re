@@ -1156,11 +1156,13 @@ export const useAppStore = create<AppState>((set, get) => ({
       noteShownTimestamp: performance.now(),
       lastTriggeredNote: null,
       lastKeyResult: null,
-      isPhotoMasked: false,
+      isPhotoMasked: get().isContinuousFlow && get().currentAppMode === 'photo',
       isExerciseAssisted: false,
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
+      // Photo-memory must not gain four extra seconds of visual exposure:
+      // the current bar stays masked until the normal flash at the downbeat.
       trainerPhase: get().isContinuousFlow ? 'countIn' : 'playing',
       zenSessionStarted: true,
       zenDismissedForSession: false,
