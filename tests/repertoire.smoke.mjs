@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { DEMO_XML, DEMO_MULTI_XML, makeMxl } from './repertoireFixtures.mjs';
+import { DEMO_XML, DEMO_MULTI_XML, DEMO_TIMELINE_XML, makeMxl } from './repertoireFixtures.mjs';
 
 const browser = await chromium.launch({
   headless: true, executablePath: process.env.CHROME_PATH, args: ['--no-sandbox']
@@ -27,6 +27,8 @@ try {
       const preview = page.getByTestId('repertoire-preview');
       await preview.waitFor({ state: 'visible', timeout: 35000 });
       assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
+      await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
+      assert.match(await page.getByTestId('repertoire-timeline').innerText(), /Структура распознана: 2 такт/);
       assert.ok(await page.getByTestId('repertoire-status').isVisible());
       assert.equal(await page.getByTestId('status-bar').getByText('Точность:', { exact: false }).count(), 0);
       await page.getByTestId('repertoire-score').locator('svg').first()
@@ -73,6 +75,34 @@ try {
           .waitFor({ state: 'visible', timeout: 45000 });
         await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
 
+        // Musical identity is mapped without changing the OSMD view: exact
+        // mixed meter, triplets, chord, two independent voices and a tie.
+        await filePicker.setInputFiles({ name: 'timed-voices.musicxml',
+          mimeType: 'application/vnd.recordare.musicxml+xml',
+          buffer: Buffer.from(DEMO_TIMELINE_XML) });
+        await preview.waitFor({ state: 'visible', timeout: 35000 });
+        const timeline = page.getByTestId('repertoire-timeline');
+        await timeline.waitFor({ state: 'visible', timeout: 30000 });
+        assert.match(await timeline.innerText(), /Структура распознана: 2 такт/);
+        assert.match(await timeline.innerText(), /10 нот/);
+        assert.match(await timeline.innerText(), /без зачёта/);
+        await page.getByTestId('repertoire-score').locator('svg').first()
+          .waitFor({ state: 'visible', timeout: 45000 });
+        await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
+
+        // Repeats alter playback order: never flatten their XML into
+        // a false linear timeline; preview must still remain available.
+        const withRepeat = DEMO_XML.replace('</measure>',
+          '<barline location="right"><repeat direction="backward"/></barline></measure>');
+        await filePicker.setInputFiles({ name: 'repeated.musicxml',
+          mimeType: 'application/vnd.recordare.musicxml+xml',
+          buffer: Buffer.from(withRepeat) });
+        await preview.waitFor({ state: 'visible', timeout: 35000 });
+        await timeline.waitFor({ state: 'visible', timeout: 30000 });
+        assert.match(await timeline.innerText(), /Структурный разбор недоступен/);
+        assert.match(await timeline.innerText(), /Просмотр нот доступен/);
+        await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
+
         // A multi-part score is rendered without inventing an ExerciseNote
         // sequence, deleting a voice, or claiming it can be graded.
         await filePicker.setInputFiles({ name: 'two-parts.musicxml',
@@ -80,6 +110,8 @@ try {
           buffer: Buffer.from(DEMO_MULTI_XML) });
         await preview.waitFor({ state: 'visible', timeout: 35000 });
         assert.match(await preview.innerText(), /2 партий/);
+        await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
+        assert.match(await page.getByTestId('repertoire-timeline').innerText(), /разбор недоступен/);
         await page.getByTestId('repertoire-score').locator('svg').first()
           .waitFor({ state: 'visible', timeout: 45000 });
         await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
