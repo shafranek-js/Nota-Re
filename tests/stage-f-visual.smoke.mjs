@@ -89,11 +89,19 @@ try {
     await page.setViewportSize({ width, height: width <= 375 ? 720 : 900 });
     await ready();
     // A previous SVG can remain visible while ResizeObserver queues a fresh
-    // engraving. Measure only the actual engraving at the requested width.
-    await page.waitForFunction(previous => {
-      const score = document.querySelector('[data-testid="osmd-score"]');
-      return Number(score?.getAttribute('data-osmd-render-epoch')) > previous;
-    }, previousWidthEpoch, { timeout: 35000 });
+    // engraving. On 320px -> 375px phones the engraving remains 680px wide
+    // (local score scrolling); ResizeObserver correctly does NOT rerender it.
+    // The existing SVG remains valid because its actual engraving width is unchanged.
+    if (width === 375) {
+      const innerWidth = await page.locator('[data-testid="osmd-vertical-center"]')
+        .evaluate(el => el.getBoundingClientRect().width);
+      assert.ok(innerWidth >= 679, '375px: retain a readable fixed-width engraving');
+    } else {
+      await page.waitForFunction(previous => {
+        const score = document.querySelector('[data-testid="osmd-score"]');
+        return Number(score?.getAttribute('data-osmd-render-epoch')) > previous;
+      }, previousWidthEpoch, { timeout: 35000 });
+    }
     await checkWidth(`OSMD ${width}`);
     const normal = await osmdGeometry();
     assert.ok(normal.noteheadCount > 0, `OSMD ${width}: actual rendered noteheads required`);

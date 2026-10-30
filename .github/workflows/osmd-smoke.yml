@@ -57,6 +57,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/studio-compact-layout.smoke.mjs
+      - name: Verify 320/375/768px lesson title and readable OSMD overlays
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/mobile-score-readability.smoke.mjs
       - name: Verify four-group Studio toolbar and MIDI-aware keyboard
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
