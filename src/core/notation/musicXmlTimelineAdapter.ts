@@ -186,7 +186,7 @@ function parseScore(xml: string, titleFallback: string): ScoreDocument {
             if (chord && (rest || lastNoteOnset === null)) {
               return unsupported('Аккорд не связан с предыдущей нотой.');
             }
-            const onset = chord ? lastNoteOnset! : cursor;
+            const onset: QuarterTime = chord ? lastNoteOnset! : cursor;
             const end = addQuarter(onset, duration);
             if (!chord) {
               cursor = end;
