@@ -1,5 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
+import { audioEngine } from '../../core/audio/AudioEngine';
+import { buildScoreLoopAudio } from '../../core/notation/scoreLoopAudio';
 import {
   clearRepertoireMeasureOverlay, drawRepertoireMeasureOverlay,
   locateEngravedMeasures, selectMeasureIndices,
@@ -32,6 +34,47 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const [firstBar, setFirstBar] = useState(1);
   const [lastBar, setLastBar] = useState(1);
   const [selectionActive, setSelectionActive] = useState(false);
+  const [loopPlaying, setLoopPlaying] = useState(false);
+  const [loopError, setLoopError] = useState('');
+  const loopOwned = useRef(false);
+  const stopLoop = () => {
+    if (loopOwned.current) audioEngine.clearPreviewTimeouts();
+    loopOwned.current = false;
+    setLoopPlaying(false);
+  };
+  useEffect(() => () => {
+    if (loopOwned.current) audioEngine.clearPreviewTimeouts();
+    loopOwned.current = false;
+  }, []);
+  useEffect(() => {
+    const stopOnHidden = () => { if (document.hidden && loopOwned.current) stopLoop(); };
+    document.addEventListener('visibilitychange', stopOnHidden);
+    return () => document.removeEventListener('visibilitychange', stopOnHidden);
+  }, []);
+  const playLoop = async () => {
+    if (!timeline?.score || !selectionActive || geometryMessage) return;
+    stopLoop();
+    setLoopError('');
+    try {
+      const range = selectMeasureIndices(timeline.score, firstBar - 1, lastBar - 1);
+      if (!range) throw new Error('Выберите корректный диапазон тактов A–B.');
+      const { tones, periodSeconds } = buildScoreLoopAudio(timeline.score, range);
+      if (!tones.length) throw new Error('В этом диапазоне нет звучащих нот.');
+      if (!audioEngine.getAudioEnabled()) throw new Error('Включите звук в верхней панели.');
+      const context = audioEngine.ensureAudioContext();
+      if (!context) throw new Error('Браузер не поддерживает Web Audio.');
+      await context.resume();
+      if (context.state !== 'running') throw new Error('Не удалось запустить AudioContext.');
+      if (!audioEngine.playLoopedPreview(tones, periodSeconds)) {
+        throw new Error('Не удалось запустить воспроизведение.');
+      }
+      loopOwned.current = true;
+      setLoopPlaying(true);
+    } catch (error) {
+      stopLoop();
+      setLoopError(error instanceof Error ? error.message : 'Ошибка воспроизведения.');
+    }
+  };
   const [noteAnchorsVisible, setNoteAnchorsVisible] = useState(false);
   const [noteMapping, setNoteMapping] = useState<RepertoireNoteMapping | null>(null);
   const [geometryMessage, setGeometryMessage] = useState<string | null>(null);
@@ -52,6 +95,11 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     setGeometryMessage(null);
     setNoteMapping(null);
     mappedMeasures.current = [];
+    if (loopOwned.current) {
+      audioEngine.clearPreviewTimeouts();
+      loopOwned.current = false;
+      setLoopPlaying(false);
+    }
     const parsed = { timeline: null as MusicXmlTimelineResult | null };
 
     (async () => {
@@ -228,6 +276,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               value={firstBar} onChange={event => {
                 const next = Number(event.target.value);
                 if (!Number.isSafeInteger(next) || next < 1 || next > timeline.score!.measures.length) return;
+                stopLoop();
+                setLoopError('');
                 setFirstBar(next);
                 setLastBar(old => Math.max(old, next));
               }}
@@ -239,15 +289,17 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               value={lastBar} onChange={event => {
                 const next = Number(event.target.value);
                 if (!Number.isSafeInteger(next) || next < firstBar || next > timeline.score!.measures.length) return;
+                stopLoop();
+                setLoopError('');
                 setLastBar(next);
               }}
               className="w-14 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-slate-100" />
           </label>
-          <button type="button" disabled={!!geometryMessage} onClick={() => setSelectionActive(true)}
+          <button type="button" disabled={!!geometryMessage} onClick={() => { stopLoop(); setSelectionActive(true); }}
             data-testid="repertoire-ab-show" className="rounded border border-sky-600 bg-sky-950/40 px-2 py-1 text-sky-200 disabled:opacity-50">
             Выделить
           </button>
-          {selectionActive && <button type="button" onClick={() => setSelectionActive(false)}
+          {selectionActive && <button type="button" onClick={() => { stopLoop(); setSelectionActive(false); }}
             data-testid="repertoire-ab-clear" className="rounded border border-slate-600 px-2 py-1 text-slate-300">Снять</button>}
           <button type="button" data-testid="repertoire-note-anchors"
             disabled={!!noteMapping?.reason || !noteMapping || !selectionActive}
@@ -264,7 +316,18 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
                 : 'Ноты: ' + noteMapping.anchors.length + '/' + noteMapping.total
               : 'Проверка нот…'}
           </span>
-          <span className="text-slate-400">Только выделение · без воспроизведения</span>
+          <button type="button" data-testid="repertoire-loop-toggle"
+            disabled={!selectionActive || !!geometryMessage}
+            onClick={() => { if (loopPlaying) stopLoop(); else void playLoop(); }}
+            className="rounded border border-emerald-600/60 bg-emerald-950/30 px-2 py-1 font-medium text-emerald-200 disabled:opacity-50">
+            {loopPlaying ? '■ Стоп A–B' : '▶ Повтор A–B'}
+          </button>
+          <span role="status" data-testid="repertoire-loop-status"
+            className={loopPlaying ? 'text-emerald-300' : 'text-slate-400'}>
+            {loopPlaying ? 'Повторяется · без зачёта' : 'Воспроизведение без оценки · темп по партитуре (иначе 80 BPM)'}
+          </span>
+          {loopError && <span role="alert" data-testid="repertoire-loop-error"
+            className="text-rose-300">{loopError}</span>}
           {geometryMessage && <span role="status" data-testid="repertoire-ab-unavailable"
             className="text-amber-300">Подсветка недоступна: {geometryMessage}</span>}
         </div>
