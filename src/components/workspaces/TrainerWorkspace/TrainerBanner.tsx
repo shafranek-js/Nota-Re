@@ -10,11 +10,14 @@ export const TrainerBanner: React.FC = () => {
     completedLessons,
     completedExercisesCount,
     switchWorkspace,
-    goToNextLessonAndStart
+    goToNextLessonAndStart,
+    startActiveLessonInTrainer,
+    trainerPhase
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
+  const isAssessmentActive = activeLessonId === lesson.id && trainerPhase === 'playing';
 
   return (
     <div data-testid="trainer-banner" className="shrink-0 w-full bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2">
@@ -25,26 +28,32 @@ export const TrainerBanner: React.FC = () => {
         <strong className="text-white truncate max-w-md">
           {lesson.title}
         </strong>
-        <span data-testid="course-credit-mode" className={activeLessonId === lesson.id
+        <span data-testid="course-credit-mode" className={isAssessmentActive
           ? 'text-emerald-300 font-semibold' : 'text-amber-300 font-semibold'}>
-          {activeLessonId === lesson.id ? 'Зачётная попытка' : 'Практика без зачёта'}
+          {isAssessmentActive ? 'Зачётная попытка' : 'Практика без зачёта'}
         </span>
         <span className="hidden lg:inline text-slate-400">
           • Норматив: {lesson.normReps} ном. (точность ≥{lesson.normAcc}%, отклик &lt;{lesson.normSpeed} мс)
         </span>
       </div>
 
-      <div className="flex items-center gap-3 text-xs">
+      <div className="flex flex-wrap items-center gap-2 text-xs">
+        {!isAssessmentActive && (
+          <button type="button" data-testid="studio-start-course" onClick={startActiveLessonInTrainer}
+            className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
+            Начать зачёт урока {lesson.id}
+          </button>
+        )}
         <div className="flex items-center gap-2 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
           <span className="text-slate-400">Зачёт серии:</span>
-          <strong className="text-purple-400">{completedExercisesCount} / {lesson.normReps} ном.</strong>
+          <strong className="text-purple-400">{isAssessmentActive ? completedExercisesCount : 0} / {lesson.normReps} ном.</strong>
           <span className="text-slate-700">|</span>
           {isDone ? (
             <span className="flex items-center gap-1 text-emerald-400 font-bold">
               <CheckCircle2 className="w-3 h-3" /> ЗАЧЁТ СДАН!
             </span>
           ) : (
-            <span className="text-amber-400">В процессе...</span>
+            <span className="text-amber-400">{isAssessmentActive ? 'В процессе...' : 'Не начат'}</span>
           )}
         </div>
 

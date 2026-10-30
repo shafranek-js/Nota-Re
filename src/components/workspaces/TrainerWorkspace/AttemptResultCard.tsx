@@ -44,7 +44,7 @@ function describeError(event: AttemptEvent): string {
 export const AttemptResultCard: React.FC = () => {
   const {
     lastAttemptResult, retryExercise, regenerateExercise,
-    returnToTrainerSetup, goToNextLessonAndStart, switchWorkspace
+    returnToTrainerSetup, goToNextLessonAndStart, switchWorkspace, courseEvidence
   } = useAppStore();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -57,6 +57,10 @@ export const AttemptResultCard: React.FC = () => {
   const result = lastAttemptResult;
   const lesson = COURSE_CURRICULUM.find(item => item.id === result.lessonId);
   const hasCertification = result.lessonPassed && !!lesson;
+  const seriesAccuracy = courseEvidence.judgedNotes > 0
+    ? 100 * courseEvidence.correctNotes / courseEvidence.judgedNotes : null;
+  const seriesReaction = courseEvidence.reactionSamples > 0
+    ? courseEvidence.reactionTotalMs / courseEvidence.reactionSamples : null;
   const errors = result.events.filter(event =>
     event.outcome === 'wrong-pitch' || event.outcome === 'late' || event.outcome === 'missed'
   );
@@ -119,6 +123,20 @@ export const AttemptResultCard: React.FC = () => {
           {description}
         </p>
 
+        {lesson && (
+          <section data-testid="course-series-summary" className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200 space-y-1">
+            <strong className="block text-emerald-300">Зачётная серия: {courseEvidence.completedExercises} / {lesson.normReps} упражнений</strong>
+            <p>Точность серии: {seriesAccuracy === null ? '—' : `${seriesAccuracy.toFixed(1)}%`} (нужно ≥{lesson.normAcc}%).</p>
+            <p>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`} (нужно ≤{lesson.normSpeed} мс).</p>
+            {!hasCertification && <p className="text-amber-200">
+              {courseEvidence.completedExercises < lesson.normReps
+                ? `Осталось завершить минимум ${lesson.normReps - courseEvidence.completedExercises} упражнений.`
+                : seriesAccuracy === null || seriesAccuracy < lesson.normAcc
+                  ? 'Точность ниже норматива. Продолжайте самостоятельную практику в зачётном режиме.'
+                  : 'Проверьте скорость реакции: нужны измеренные своевременные ответы.'}
+            </p>}
+          </section>
+        )}
         {result.assistedSteps > 0 && (
           <p data-testid="attempt-assisted-count" className="text-xs text-amber-300">
             Шагов с подсказками: {result.assistedSteps}. Они не учитываются в точности.

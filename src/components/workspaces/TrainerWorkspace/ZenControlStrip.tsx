@@ -10,7 +10,7 @@ import { useAppStore } from '../../../store/useAppStore';
  */
 export const ZenControlStrip: React.FC = () => {
   const {
-    activeLessonId, activeExerciseNotes, activeNoteIndex, bpm,
+    activeLessonId, activeExerciseNotes, activeNoteIndex, completedExercisesCount, bpm,
     isContinuousFlow, audioEnabled, toggleAudioMaster, toggleSettingsDrawer,
     switchWorkspace, stopTrainerExercise, toggleZenMode
   } = useAppStore();
@@ -53,6 +53,11 @@ export const ZenControlStrip: React.FC = () => {
       <span className="truncate min-w-0 max-w-40 sm:max-w-sm text-slate-300" title={lesson?.title ?? 'Свободная практика'}>
         {lesson ? `Урок ${lesson.id}` : 'Студия'} <span className="hidden sm:inline text-slate-500">· {lesson?.title ?? 'Свободная практика'}</span>
       </span>
+      {lesson && (
+        <span className="shrink-0 text-emerald-300 font-medium" data-testid="zen-course-credit">
+          Зачёт {completedExercisesCount}/{lesson.normReps}
+        </span>
+      )}
       <span data-testid="zen-progress" className="shrink-0 font-mono tabular-nums text-slate-200"
         aria-label={`Нота ${played} из ${activeExerciseNotes.length}`}>
         {played} / {activeExerciseNotes.length}

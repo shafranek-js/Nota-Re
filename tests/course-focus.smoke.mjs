@@ -49,6 +49,13 @@ try {
       assert.equal(await course.count(), 0);
       assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Практика без зачёта');
       assert.ok(await page.getByTestId('trainer-toolbar').isVisible());
+      const studioLaunch = page.getByTestId('studio-start-course');
+      assert.match(await studioLaunch.innerText(), /Начать зачёт урока 3/);
+      await studioLaunch.click();
+      await course.waitFor({ state: 'visible' });
+      assert.equal(await page.getByTestId('studio-start-course').count(), 0);
+      await course.getByTestId('course-to-free-setup').click();
+      await page.getByTestId('trainer-setup').waitFor({ state: 'visible' });
       const metrics = page.getByTitle('Точность попаданий в текущей сессии');
       const before = await metrics.innerText();
       await page.waitForTimeout(1400);
