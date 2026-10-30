@@ -85,6 +85,12 @@ try {
         await timeline.waitFor({ state: 'visible', timeout: 30000 });
         assert.match(await timeline.innerText(), /Структура распознана: 2 такт/);
         assert.match(await timeline.innerText(), /10 нот/);
+        assert.equal(await timeline.getAttribute('data-meters'), '3/4 6/8',
+          'source meter changes must survive MusicXML adaptation');
+        assert.equal(await timeline.getAttribute('data-ties'), '1',
+          'bar-crossing tie must link the source segments');
+        assert.equal(await timeline.getAttribute('data-voices'), '2',
+          'left and right voices must remain independent');
         assert.match(await timeline.innerText(), /без зачёта/);
         await page.getByTestId('repertoire-score').locator('svg').first()
           .waitFor({ state: 'visible', timeout: 45000 });
