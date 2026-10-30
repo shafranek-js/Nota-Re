@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { validateMxlArchive, MAX_EXPANDED_BYTES, MAX_MXL_BYTES,
-  RepertoireImportError } from '../src/core/notation/repertoireImport.ts';
+  RepertoireImportError, sanitizedRepertoireXml } from '../src/core/notation/repertoireImport.ts';
 import { makeMxl, makeZip, DEMO_XML, CONTAINER_XML } from './repertoireFixtures.mjs';
 
 test('accept a proper compressed MXL containing a nested rootfile', () => {
@@ -41,4 +41,18 @@ test('reject encrypted entries, oversized inflated contents and tampered directo
   assert.throws(() => validateMxlArchive(damaged), /ZIP64/);
 
   assert.throws(() => validateMxlArchive(Buffer.alloc(MAX_MXL_BYTES + 1)), /20 МБ/);
+});
+
+test('canonical MusicXML public DTD is removed; hostile XML declarations are rejected', () => {
+  const publicDtd = '<!DOCTYPE score-partwise PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">';
+  const original = DEMO_XML.replace('<score-partwise', publicDtd + '\n<score-partwise');
+  const safe = sanitizedRepertoireXml(original);
+  assert.ok(!safe.includes('<!DOCTYPE'));
+  assert.ok(safe.includes('Local repertoire sample'));
+  assert.throws(() => sanitizedRepertoireXml(
+    '<!DOCTYPE score-partwise SYSTEM "https://attacker.invalid/evil"><score-partwise/>'
+  ), RepertoireImportError);
+  assert.throws(() => sanitizedRepertoireXml(
+    '<!DOCTYPE score-partwise [<!ENTITY attack SYSTEM "https://attacker.invalid/x">]><score-partwise>&attack;</score-partwise>'
+  ), RepertoireImportError);
 });
