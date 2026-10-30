@@ -61,6 +61,8 @@ export interface AppState {
   isTabletopMode: boolean;
   /** Dedicated, ungraded physical-MIDI polyphonic practice. */
   isTwoHandPracticeOpen: boolean;
+  /** Session-only: imported score is visible; never grade it as generated exercise. */
+  isRepertoirePreviewOpen: boolean;
   /** Session-only course trial; never accepted as formal lesson completion. */
   twoHandTrialLessonId: number | null;
   showBassLandmarks: boolean;
@@ -131,6 +133,7 @@ export interface AppState {
   toggleBlindfoldKeys: () => void;
   toggleTabletopMode: () => void;
   toggleTwoHandPractice: () => void;
+  setRepertoirePreviewOpen: (open: boolean) => void;
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
   toggleVirtualKeyboard: () => void;
@@ -333,6 +336,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   activeLessonId: null,
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
+  isRepertoirePreviewOpen: false,
   twoHandTrialLessonId: null,
   isPhotoMasked: false,
   midiInputsCount: 0,
@@ -423,6 +427,14 @@ export const useAppStore = create<AppState>((set, get) => ({
       midiManager.dispose();
       audioEngine.stopMidiVoices();
     };
+  },
+
+  setRepertoirePreviewOpen: (open) => {
+    if (open) stopFlowClock();
+    // Recalibrate latency on return; browsing time must not be recorded as
+    // a slow performance response.
+    set({ isRepertoirePreviewOpen: open, noteShownTimestamp: performance.now() });
+    if (!open) armFlowClock(get);
   },
 
   switchWorkspace: (tab) => {
@@ -1001,7 +1013,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   handleUserTriggerNote: (noteName, fromMidi = false) => {
     // The hardware must remain audible during diagnostics, but neither
     // background MIDI nor keyboard shortcuts may inflate a course result.
-    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen) return;
+    if (get().currentWorkspace !== 'trainer' || get().isSettingsOpen || get().isTwoHandPracticeOpen || get().isRepertoirePreviewOpen) return;
     if (get().trainerPhase === 'setup') {
       // Setup may preview virtual notes, but no practice attempts are judged.
       const preview = MIDI_NOTE_MAP[noteName];
