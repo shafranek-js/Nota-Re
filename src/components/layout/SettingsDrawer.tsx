@@ -4,7 +4,7 @@ import { FilterType, HanonType, SpeechType } from '../../types/music';
 import { X } from 'lucide-react';
 import { audioEngine } from '../../core/audio/AudioEngine';
 import { HardwareMidiCheck } from './HardwareMidiCheck';
-import { BUILD_DETAILS } from '../../core/release/buildInfo';
+import { BUILD_INFO } from '../../core/release/buildInfo';
 
 export const SettingsDrawer: React.FC = () => {
   const dialogRef = useRef<HTMLElement>(null);
@@ -416,7 +416,10 @@ export const SettingsDrawer: React.FC = () => {
 
         <div className="pt-3 border-t border-slate-800 flex flex-wrap items-center justify-between gap-2">
           <p className="w-full text-[11px] text-slate-400 font-mono" data-testid="settings-build-version">
-            Версия приложения: {BUILD_DETAILS}
+            Версия релиза: v{BUILD_INFO.version} · Сборка: {BUILD_INFO.revision} · {BUILD_INFO.environment}
+          </p>
+          <p className="w-full text-[11px] text-slate-500" data-testid="settings-build-explanation">
+            Версия релиза меняется при выпуске новой версии. Код сборки соответствует Git-коммиту и обновляется при новой публикации.
           </p>
           <button
             type="button"
