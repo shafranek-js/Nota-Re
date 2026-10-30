@@ -112,7 +112,7 @@ try {
     approveExit = true;
     await focused.getByRole('button', { name: 'Остановить' }).click();
     await savedPage.getByTestId('trainer-setup').waitFor({ state: 'visible' });
-    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:[\\s\\S]*3 \/ 10/);
+    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:[\s\S]*3 \/ 10/);
     assert.equal(dialogs.length, 2);
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
