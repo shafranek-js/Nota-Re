@@ -98,13 +98,14 @@ interface OsmdStaffProps {
   onRequestLegacy: () => void;
   zen?: boolean;
   theme: AppTheme;
+  onScoreReady?: () => void;
 }
 
 /**
  * MusicXML-based notation with optional pedagogical note hiding. Notehead/stem
  * visibility is applied to OSMD's own graphical notes; no custom staff layout.
  */
-export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = false, theme }) => {
+export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, onScoreReady, zen = false, theme }) => {
   const {
     activeExerciseNotes,
     activeNoteIndex,
@@ -129,6 +130,14 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
   const [loadState, setLoadState] = useState<'loading' | 'ready' | 'error'>('loading');
   const [errorMessage, setErrorMessage] = useState('');
   const [renderEpoch, setRenderEpoch] = useState(0);
+  // Wait until the browser can paint the complete notation before starting
+  // an audio-clock count-in. A cold OSMD import must not consume preparation.
+  useEffect(() => {
+    if (loadState !== 'ready' || renderEpoch === 0 || !onScoreReady) return;
+    const frame = window.requestAnimationFrame(() => onScoreReady());
+    return () => window.cancelAnimationFrame(frame);
+  }, [loadState, renderEpoch, onScoreReady]);
+
   const hiddenNotesRef = useRef<Set<SVGElement>>(new Set());
   const coloredPathsRef = useRef<Map<SVGElement, { fill: string; stroke: string }>>(new Map());
 
