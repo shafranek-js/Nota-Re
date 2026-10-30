@@ -24,6 +24,10 @@ const initialWindows = { 2: Array.from({ length: 14 }, () => score),
   10: Array.from({ length: 7 }, () => stage) };
 try {
   await page.addInitScript(({ lifetime, windows }) => {
+    // Init scripts also run on reload. Seed exactly once per tab so reload can
+    // actually verify the state written by the restart action.
+    if (sessionStorage.getItem('__course_window_qa_seeded') === '1') return;
+    sessionStorage.setItem('__course_window_qa_seeded', '1');
     localStorage.setItem('notare_course_series_v1',
       JSON.stringify({ version: 1, lessons: { 2: lifetime } }));
     localStorage.setItem('notare_course_recent_v2',
