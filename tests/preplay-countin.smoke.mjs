@@ -54,12 +54,24 @@ try {
       await preplay.getByTestId('precheck-continue').click();
       const countIn = page.getByTestId('trainer-count-in');
       await countIn.waitFor({ state: 'visible', timeout: 2500 });
+      // The notes must appear BEFORE beat 1. OSMD readiness, not a stale
+      // click timestamp, starts the four-beat audible countdown.
+      const osmd = page.getByTestId('osmd-score');
+      await osmd.waitFor({ state: 'visible', timeout: 30000 });
+      await osmd.locator('svg').first().waitFor({ state: 'visible', timeout: 30000 });
+      await page.waitForFunction(() => Number(document.querySelector(
+        '[data-testid="osmd-score"]')?.dataset.osmdRenderEpoch) > 0);
+      await page.waitForFunction(() =>
+        document.querySelector('[data-testid="count-in-beat"]')?.textContent?.trim() === '1',
+        null, { timeout: 10000 });
+      assert.ok(await osmd.locator('svg').first().isVisible(),
+        'the notated first note must remain readable throughout preparation');
       const downbeats = await page.evaluate(() => window.__strongClicks);
       assert.ok(downbeats.some(start => downbeats.some(end =>
         Math.abs(end - start - 4) < 0.001)),
-        '60 BPM: a first playing downbeat must be prequeued exactly four quarter-beats after count-in starts');
-      assert.equal(await page.getByTestId('osmd-score').count(), 0,
-        'no score nor piano shortcut controls while preparing four beats');
+        '60 BPM: the first playing downbeat must be prequeued four quarter-beats after the VISIBLE score');
+      assert.equal(await osmd.getAttribute('data-active-note-index'), '0',
+        'preparation cannot advance the first note');
       await page.evaluate(() => window.__preplayMidi.send([0x90, 60, 99]));
       await page.keyboard.press('Space');
       assert.equal(await sessionAccuracy.innerText(), before,
@@ -77,10 +89,15 @@ try {
       // Explicit restart performs a new audible four-beat preparation.
       await page.getByRole('button', { name: 'Начать упражнение' }).click();
       await countIn.waitFor({ state: 'visible', timeout: 2500 });
-      await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 9500 });
+      await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 15000 });
+      await page.getByTestId('osmd-score').locator('svg').first()
+        .waitFor({ state: 'visible', timeout: 30000 });
+      // No giant replacement screen: the notation exists while the HUD is up.
+      assert.ok(await countIn.isVisible());
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 13000 });
       await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
       assert.equal(await page.getByTestId('trainer-count-in').count(), 0,
-        'Zen is entered only after the four-beat count-in has finished');
+        'Zen starts without unloading/reloading the score after beat four');
       assert.equal(await countIn.count(), 0);
       assert.ok(await page.getByTestId('status-bar').isVisible());
       const sizes = await page.evaluate(() => ({
