@@ -99,7 +99,7 @@ export function evaluateLessonCredit(input: LessonCredit): {
     ? 100 * evidence.correctNotes / evidence.judgedNotes : null;
   const averageReactionMs = evidence.reactionSamples > 0
     ? evidence.reactionTotalMs / evidence.reactionSamples : null;
-  const passed = input.lessonActive &&
+  const passed = credited &&
     evidence.completedExercises >= input.targetRepetitions &&
     accuracy !== null && accuracy >= input.requiredAccuracy &&
     averageReactionMs !== null && averageReactionMs <= input.maximumReactionMs &&
