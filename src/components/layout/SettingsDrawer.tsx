@@ -213,7 +213,7 @@ export const SettingsDrawer: React.FC = () => {
               {soundStatus.phase === 'ready' ? 'Звуковой банк готов к воспроизведению.' :
                 soundStatus.phase === 'loading' ? 'Загрузка и подготовка звукового банка…' :
                 soundStatus.phase === 'error' ? 'Не удалось загрузить SoundFont — доступен синтезатор.' :
-                'Банк загрузится при первом воспроизведении или по нажатию SoundFont.'}
+                'SoundFont подготавливается при открытии приложения. При ограничениях браузера активация звука требует нажатия.'}
             </div>
             <div className="flex flex-wrap items-center gap-2">
               <button
