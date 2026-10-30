@@ -20,8 +20,11 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install test-only Playwright client
-        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+      - name: Install isolated test-only Playwright client
+        run: |
+          npm install --prefix "$RUNNER_TEMP/notare-playwright" --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+          ln -s "$RUNNER_TEMP/notare-playwright/node_modules/playwright" node_modules/playwright
+          node --input-type=module -e "import('playwright').then(({ chromium }) => { if (!chromium) process.exit(1) })"
       - uses: browser-actions/setup-chrome@v2
         id: chrome
       - name: Start production preview server
