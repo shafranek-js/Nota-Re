@@ -1,7 +1,8 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import type { AppTheme } from '../../core/ui/themePreference';
-import type { RepertoireFileInfo } from '../../core/notation/repertoireImport';
+import { inspectMusicXmlText, sanitizedRepertoireXml, MAX_EXPANDED_BYTES,
+  type RepertoireFileInfo } from '../../core/notation/repertoireImport';
 
 interface Props {
   info: RepertoireFileInfo;
@@ -33,7 +34,16 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           autoResize: true,
           backend: 'svg',
           drawTitle: true,
-          darkMode: theme === 'dark'
+          darkMode: theme === 'dark',
+          // This also validates decompressed XML from MXL, not just plain files.
+          onXMLRead: xml => {
+            if (xml.length > MAX_EXPANDED_BYTES) {
+              throw new Error('Распакованная партитура слишком велика.');
+            }
+            const safe = sanitizedRepertoireXml(xml);
+            inspectMusicXmlText(safe);
+            return safe;
+          }
         });
         const rules = osmd.EngravingRules;
         const dark = theme === 'dark';
