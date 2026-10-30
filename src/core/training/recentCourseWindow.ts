@@ -82,8 +82,10 @@ export function evaluateCourseWindow(
  * This is NOT proof of the last N attempts and is never applied to lesson 2+.
  */
 export function qualifiesLegacyLessonOne(
-  priorWindow: readonly GradedScore[], lifetime: LessonEvidence, target: number, accuracy: number
+  priorWindow: readonly GradedScore[], lifetime: LessonEvidence, target: number, accuracy: number,
+  newScore: GradedScore
 ): boolean {
   return priorWindow.length === 0 && lifetime.completedExercises >= target &&
-    lifetime.judgedNotes > 0 && 100 * lifetime.correctNotes / lifetime.judgedNotes >= accuracy;
+    lifetime.judgedNotes > 0 && 100 * lifetime.correctNotes / lifetime.judgedNotes >= accuracy &&
+    newScore.judgedNotes > 0 && 100 * newScore.correctNotes / newScore.judgedNotes >= accuracy;
 }

@@ -432,14 +432,14 @@ function finishExercise(
       canCreditLessonMode(lesson.id, stageCount, state.currentAppMode))
   });
 
+  const currentScore = gradedScoreFromEvents(state.currentAppMode, state.attemptEvents);
   const updatedWindow = lesson && result.credited
-    ? appendCourseWindow(existingWindow, gradedScoreFromEvents(state.currentAppMode, state.attemptEvents),
-        lesson.id, lesson.normReps)
+    ? appendCourseWindow(existingWindow, currentScore, lesson.id, lesson.normReps)
     : existingWindow;
   const windowResult = lesson ? evaluateCourseWindow(updatedWindow, lesson.id,
     lesson.normReps, lesson.normAcc) : null;
   const legacyOne = lesson?.id === 1 && result.credited &&
-    qualifiesLegacyLessonOne(existingWindow, state.courseEvidence, lesson.normReps, lesson.normAcc);
+    qualifiesLegacyLessonOne(existingWindow, state.courseEvidence, lesson.normReps, lesson.normAcc, currentScore);
   const certified = result.credited && Boolean(windowResult?.passed || legacyOne);
 
   // Snapshot the completed score before regenerating its notes.

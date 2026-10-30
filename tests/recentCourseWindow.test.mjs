@@ -67,8 +67,9 @@ test('record only actual graded errors; invalid attempts and legacy totals never
     reactionSamples: 1, reactionTotalMs: 1400 });
   const lifetime = { completedExercises: 30, judgedNotes: 480, correctNotes: 433,
     reactionSamples: 433, reactionTotalMs: 433 * 1259 };
-  assert.equal(qualifiesLegacyLessonOne([], lifetime, 10, 90), true);
-  assert.equal(qualifiesLegacyLessonOne([score()], lifetime, 10, 90), false);
+  assert.equal(qualifiesLegacyLessonOne([], lifetime, 10, 90, score()), true);
+  assert.equal(qualifiesLegacyLessonOne([], lifetime, 10, 90, score('reflex', 0)), false);
+  assert.equal(qualifiesLegacyLessonOne([score()], lifetime, 10, 90, score()), false);
   assert.deepEqual(validateRecentCourseStorage({ version: 1, lessons: { 2: [score()] } }), {});
   assert.deepEqual(validateRecentCourseStorage({ version: 2, lessons: { 2: [
     { ...score(), reactionTotalMs: NaN }
