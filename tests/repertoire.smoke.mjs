@@ -29,6 +29,16 @@ try {
       assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
       await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
       assert.match(await page.getByTestId('repertoire-timeline').innerText(), /Структура распознана: 2 такт/);
+      const featureDetails = page.getByTestId('repertoire-capabilities');
+      await featureDetails.waitFor({ state: 'visible' });
+      await featureDetails.locator('summary').click();
+      for (const feature of ['view', 'timeline', 'measure-selection', 'notehead-overlay', 'audio-loop']) {
+        assert.equal(await featureDetails.locator(`[data-repertoire-capability="${feature}"]`)
+          .getAttribute('data-available'), 'true', feature + ': verified source capability');
+      }
+      assert.equal(await featureDetails.locator('[data-repertoire-capability="assessment"]')
+        .getAttribute('data-available'), 'false', 'imported score must never certify course');
+      await featureDetails.locator('summary').click();
       const coverage = page.getByTestId('repertoire-anchor-coverage');
       await coverage.waitFor({ state: 'visible' });
       assert.match(await coverage.innerText(), /Ноты: 2\/2/,
@@ -182,6 +192,15 @@ try {
         await timeline.waitFor({ state: 'visible', timeout: 30000 });
         assert.match(await timeline.innerText(), /Структурный разбор недоступен/);
         assert.match(await timeline.innerText(), /Просмотр нот доступен/);
+        const unsupported = page.getByTestId('repertoire-capabilities');
+        await unsupported.locator('summary').click();
+        assert.equal(await unsupported.locator('[data-repertoire-capability="view"]')
+          .getAttribute('data-available'), 'true');
+        for (const feature of ['timeline', 'measure-selection', 'notehead-overlay', 'audio-loop', 'assessment']) {
+          assert.equal(await unsupported.locator(`[data-repertoire-capability="${feature}"]`)
+            .getAttribute('data-available'), 'false', 'unsupported repeat must remain view-only');
+        }
+        await unsupported.locator('summary').click();
         await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
 
         // A multi-part score is rendered without inventing an ExerciseNote
