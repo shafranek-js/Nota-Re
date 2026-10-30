@@ -148,3 +148,90 @@ export class AudioClockQueue {
     this.tickTimer = null;
   }
 }
+
+
+/**
+ * Infinite, phase-locked A–B preview for user repertoire. Each iteration
+ * uses one absolute WebAudio clock origin; setInterval only fills lookahead,
+ * it never shifts beat times. Stop cancels every scheduled sounding voice.
+ */
+export class LoopAudioClockQueue {
+  private timer: ReturnType<typeof setInterval> | null = null;
+  private events: readonly TimedTone[] = [];
+  private period = 0;
+  private origin = 0;
+  private cycle = 0;
+  private position = 0;
+  private active: { end: number; cancel: CancelScheduled }[] = [];
+
+  constructor(
+    private readonly now: () => number,
+    private readonly emit: (tone: TimedTone, at: number) => CancelScheduled,
+    private readonly lookaheadSeconds = 0.12
+  ) {}
+
+  get isPlaying(): boolean { return this.timer !== null; }
+
+  start(events: readonly TimedTone[], periodSeconds: number, leadInSeconds = 0.08): void {
+    this.stop();
+    if (!Number.isFinite(periodSeconds) || periodSeconds <= 0.05 ||
+        !Number.isFinite(leadInSeconds) || leadInSeconds < 0 ||
+        !Number.isFinite(this.lookaheadSeconds) || this.lookaheadSeconds < 0) {
+      throw new Error('Invalid repeat period or audio lead-in.');
+    }
+    for (const tone of events) {
+      if (![tone.offsetSeconds, tone.durationSeconds, tone.frequencyHz].every(Number.isFinite) ||
+          tone.offsetSeconds < 0 || tone.durationSeconds <= 0 || tone.frequencyHz <= 0 ||
+          tone.offsetSeconds + tone.durationSeconds > periodSeconds + 1e-5) {
+        throw new Error('Repeat event lies outside A–B interval.');
+      }
+    }
+    if (!events.length) return;
+    this.events = [...events].sort((a, b) => a.offsetSeconds - b.offsetSeconds);
+    this.period = periodSeconds;
+    this.origin = this.now() + leadInSeconds;
+    this.cycle = 0;
+    this.position = 0;
+    this.pump();
+    this.timer = setInterval(() => this.pump(), 25);
+  }
+
+  pump(): void {
+    if (!this.events.length) return;
+    const now = this.now();
+    // Release references to completed voices; avoid unbounded growth in a
+    // long practice session. Completed nodes release themselves naturally.
+    this.active = this.active.filter(voice => voice.end + 0.15 >= now);
+    if (now - (this.origin + this.cycle * this.period) > 2 * this.period) {
+      // The tab was suspended for whole cycles: skip old notes rather than
+      // playing a burst of late attacks.
+      this.cycle = Math.max(0, Math.floor((now - this.origin) / this.period));
+      this.position = 0;
+    }
+    let emitted = 0;
+    while (emitted++ < 1000) {
+      const tone = this.events[this.position]!;
+      const at = this.origin + this.cycle * this.period + tone.offsetSeconds;
+      if (at > now + this.lookaheadSeconds) break;
+      if (at + tone.durationSeconds > now) {
+        this.active.push({ end: at + tone.durationSeconds,
+          cancel: this.emit(tone, Math.max(at, now)) });
+      }
+      this.position++;
+      if (this.position >= this.events.length) {
+        this.position = 0;
+        this.cycle++;
+      }
+    }
+  }
+
+  stop(): void {
+    if (this.timer !== null) clearInterval(this.timer);
+    this.timer = null;
+    for (const voice of this.active) voice.cancel();
+    this.active = [];
+    this.events = [];
+    this.position = 0;
+    this.cycle = 0;
+  }
+}
