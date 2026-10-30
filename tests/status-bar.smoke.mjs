@@ -4,8 +4,16 @@
  */
 import assert from 'node:assert/strict';
 import { readFileSync } from 'node:fs';
+import { execFileSync } from 'node:child_process';
+import { resolveReleaseVersion } from '../scripts/release-version.mjs';
 
 const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
+const shaEnv = process.env.NOTARE_BUILD_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
+const revision = (shaEnv && /^[0-9a-f]{7,40}$/i.test(shaEnv)
+  ? shaEnv : execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], { encoding: 'utf8' }).trim()
+).slice(0, 7);
+const release = resolveReleaseVersion({ baseVersion: version, revision });
+const expectedBuild = `v${release.version} · сборка ${revision}`;
 import { chromium } from 'playwright';
 
 const browser = await chromium.launch({
@@ -23,7 +31,8 @@ try {
       const status = page.getByTestId('status-bar');
       const build = status.getByTestId('build-version');
       await status.waitFor({ state: 'visible' });
-      assert.match(await build.innerText(), new RegExp(`^v${version.replaceAll('.', '\\.')} · сборка (?:[a-f0-9]{7}|unknown)$`));
+      assert.equal((await build.innerText()).trim(), expectedBuild,
+        'status bar must show the computed release version and exact source SHA');
       assert.match(await status.getByTestId('status-midi').innerText(), /MIDI:/);
       assert.match(await status.getByTestId('status-audio').innerText(), /Аудио:/);
       assert.match(await status.getByTestId('status-renderer').innerText(), /OSMD/);
