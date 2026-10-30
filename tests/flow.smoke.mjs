@@ -41,7 +41,7 @@ try {
   assert.ok(await attempts() >= 1, 'missed note must add an attempt');
   const accuracy = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
   assert.match(accuracy, /0%/, 'timeout is a wrong answer, not 100%');
-  const repetitions = await page.getByTitle('Сыграно однотипных номеров в серии').innerText();
+  const repetitions = await page.getByTestId('status-course-window').innerText();
   assert.match(repetitions, /0\s*\//, 'silence cannot earn a clean repetition');
 
   // Pause must cancel the current deadline; not just change the label.

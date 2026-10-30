@@ -13,7 +13,7 @@ import { MetronomeToggle } from './MetronomeToggle';
 export const CourseLessonControls: React.FC = () => {
   const {
     activeLessonId, selectedLessonId, activeExerciseNotes, currentTonality,
-    currentAppMode, bpm, isContinuousFlow, completedExercisesCount,
+    currentAppMode, bpm, isContinuousFlow, courseWindows,
     zenSessionStarted, zenDismissedForSession, openTrainerPrecheck, stopTrainerExercise,
     toggleContinuousFlow, switchWorkspace
   } = useAppStore();
@@ -54,7 +54,7 @@ export const CourseLessonControls: React.FC = () => {
           <span data-testid="course-credit-mode" className="font-semibold text-emerald-300">
             Зачётная попытка
           </span>
-          <span className="text-slate-400">{completedExercisesCount} / {lesson.normReps} ном.</span>
+          <span className="text-slate-400">{courseWindows[lesson.id]?.length ?? 0} / {lesson.normReps} ном.</span>
         </div>
         <p className="truncate text-slate-200" title={lesson.title}>{lesson.title} · {bpm} BPM
           {lesson.id === 10 && (

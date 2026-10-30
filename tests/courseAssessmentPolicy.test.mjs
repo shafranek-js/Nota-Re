@@ -17,9 +17,7 @@ test('automatic single-note certification excludes two-hand lessons', () => {
   }
 });
 
-test('only first lesson treats speed as optional diagnostic', () => {
-  assert.equal(requiresSpeedForLessonCredit(1), false);
-  for (const id of [2, 3, 10, 11, 12, null]) {
-    assert.equal(requiresSpeedForLessonCredit(id), true);
-  }
+test('none of the 12 lessons use raw reaction delay as an automatic credit gate', () => {
+  for (let id = 1; id <= 12; id++) assert.equal(requiresSpeedForLessonCredit(id), false);
+  assert.equal(requiresSpeedForLessonCredit(null), false);
 });

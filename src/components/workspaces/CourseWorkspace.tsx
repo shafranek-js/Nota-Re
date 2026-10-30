@@ -1,7 +1,8 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
-import { isTwoHandCourseLesson } from '../../core/training/courseAssessmentPolicy';
+import { isTwoHandCourseLesson, lessonAssessmentCaveat } from '../../core/training/courseAssessmentPolicy';
+import { evaluateCourseWindow } from '../../core/training/recentCourseWindow';
 import { loadTwoHandShadowSeries } from '../../core/storage/twoHandShadowStorage';
 import { CheckCircle2, Circle, ArrowLeft, ArrowRight, BookOpen, Info, Play, RotateCcw } from 'lucide-react';
 
@@ -18,8 +19,10 @@ export const CourseWorkspace: React.FC = () => {
     selectCourseLesson,
     completedLessons,
     courseSeries,
+    courseWindows,
     toggleLessonCompleted,
     resetCourseProgress,
+    restartSelectedLessonWindow,
     startActiveLessonInTrainer,
     prepareSelectedLessonInTrainer
   } = useAppStore();
@@ -29,6 +32,8 @@ export const CourseWorkspace: React.FC = () => {
   const isTwoHand = isTwoHandCourseLesson(lesson.id);
   const twoHandProgress = isTwoHand ? loadTwoHandShadowSeries(lesson.id as 11 | 12) : null;
   const savedRepetitions = courseSeries[lesson.id]?.completedExercises ?? 0;
+  const recentResult = evaluateCourseWindow(courseWindows[lesson.id] ?? [], lesson.id, lesson.normReps, lesson.normAcc);
+  const recentCount = recentResult.count;
   const doneCount = completedLessons.length;
   const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM
     : COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${moduleFilter} •`));
@@ -263,15 +268,16 @@ export const CourseWorkspace: React.FC = () => {
             {/* Нормативы сдачи */}
             <div>
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1.5">
-                📊 Норматив зачёта (автоматическая фиксация в студии):
+                📊 {isTwoHand ? 'Практические ориентиры (ручное подтверждение):' : 'Автоматический зачёт по последним упражнениям:'}
               </h4>
               <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 text-center">
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-mono">Серия номеров</div>
-                  <div className="text-sm font-bold font-mono text-purple-400 mt-0.5">{lesson.normReps} упр.</div>
-              {savedRepetitions > 0 && !isDone && (
-                <p className="text-[11px] text-emerald-300 mt-1">Сохранено: {savedRepetitions} / {lesson.normReps}</p>
-              )}
+                  <div className="text-[10px] text-slate-400 uppercase font-mono">{isTwoHand ? 'План занятий' : 'Текущее окно зачёта'}</div>
+                  <div data-testid="course-recent-count" className="text-sm font-bold font-mono text-purple-400 mt-0.5">{isTwoHand ? lesson.normReps : recentCount} / {lesson.normReps} упр.</div>
+                  {savedRepetitions > 0 && <p data-testid="course-lifetime-count" className="text-[11px] text-emerald-300 mt-1">За всё время: {savedRepetitions}</p>}
+                  {!isTwoHand && !isDone && savedRepetitions > 0 && recentCount < lesson.normReps && (
+                    <p className="text-[10px] text-amber-300 mt-1">Старая история сохранена, но для нового окна нет отдельных результатов.</p>
+                  )}
                 </div>
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Точность попадания</div>
@@ -279,11 +285,26 @@ export const CourseWorkspace: React.FC = () => {
                 </div>
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">
-                    {lesson.id === 1 ? 'Скорость (необязательная тренировка)' : 'Скорость реакции'}
+                    Скорость (отдельная тренировка)
                   </div>
                   <div className="text-sm font-bold font-mono text-amber-400 mt-0.5">≤ {lesson.normSpeed} мс</div>
+                  <p className="text-[10px] text-slate-400">Не влияет на зачёт</p>
                 </div>
               </div>
+              <p data-testid="course-assessment-limits" className="text-xs text-slate-400 mt-2">
+                {lessonAssessmentCaveat(lesson.id)}
+              </p>
+              {!isTwoHand && lesson.id === 10 && (
+                <p className="text-xs text-sky-300 mt-1">Два обязательных этапа: 7 упражнений «Бегунок», затем 8 «Фото-память».</p>
+              )}
+
+              {!isTwoHand && recentCount > 0 && (
+                <button type="button" data-testid="restart-course-window"
+                  onClick={restartSelectedLessonWindow}
+                  className="mt-2 rounded-lg border border-slate-700 px-2.5 py-1.5 text-xs text-slate-300 hover:border-amber-500/50 hover:text-amber-200 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+                  Начать новую зачётную серию (история сохранится)
+                </button>
+              )}
 
               {/* Сводка пресета */}
               <div className="mt-2 pt-1.5 border-t border-slate-800 text-[11px] font-mono text-slate-400">

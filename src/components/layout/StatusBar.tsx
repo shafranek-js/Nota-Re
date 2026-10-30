@@ -19,8 +19,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
   const {
     midiInputsCount, audioEnabled, currentWorkspace, activeLessonId,
     currentAppMode, currentTonality, bpm, isTwoHandPracticeOpen,
-    selectedLessonId, totalAttempts, correctHits, currentStreak, bestStreak,
-    reactionTimes, completedExercisesCount, isRepertoirePreviewOpen
+    totalAttempts, correctHits, currentStreak, bestStreak,
+    reactionTimes, completedExercisesCount, courseWindows, isRepertoirePreviewOpen
   } = useAppStore();
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const accuracy = totalAttempts > 0 ? Math.round(100 * correctHits / totalAttempts) : null;
@@ -28,7 +28,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
   const avgReaction = recentReactions.length
     ? Math.round(recentReactions.reduce((sum, ms) => sum + ms, 0) / recentReactions.length)
     : null;
-  const lesson = COURSE_CURRICULUM.find(item => item.id === selectedLessonId);
+  const lesson = COURSE_CURRICULUM.find(item => item.id === activeLessonId);
 
   // SoundFont load/error/output updates can occur without any Zustand change.
   useEffect(() => audioEngine.subscribeSoundFont(setSoundStatus), []);
@@ -90,8 +90,12 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Средний отклик по последним 15 верным ответам">
               Отклик: <span className="text-slate-300">{avgReaction === null ? '—' : `${avgReaction} мс`}</span>
             </span>
-            <span title="Сыграно однотипных номеров в серии">
-              Номеров: <span className="text-slate-300">{completedExercisesCount} / {activeLessonId !== null && lesson ? lesson.normReps : '—'}</span>
+            <span data-testid="status-course-window"
+              title={activeLessonId !== null && lesson
+                ? `Текущее окно зачёта: последние ${lesson.normReps} самостоятельных упражнений. Всего завершено: ${completedExercisesCount}.`
+                : 'Зачётное окно доступно только при запущенном уроке'}>
+              Номеров (окно): <span className="text-slate-300">{activeLessonId !== null && lesson
+                ? courseWindows[activeLessonId]?.length ?? 0 : '—'} / {lesson?.normReps ?? '—'}</span>
             </span>
           </>
         )}

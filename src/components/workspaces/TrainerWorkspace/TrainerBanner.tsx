@@ -8,8 +8,7 @@ export const TrainerBanner: React.FC = () => {
     selectedLessonId,
     activeLessonId,
     completedLessons,
-    completedExercisesCount,
-    courseSeries,
+    courseWindows,
     switchWorkspace,
     goToNextLessonAndStart,
     startActiveLessonInTrainer,
@@ -36,7 +35,7 @@ export const TrainerBanner: React.FC = () => {
         </span>
         <span className="hidden lg:inline text-slate-400">
           • Норматив: {lesson.normReps} ном., точность ≥{lesson.normAcc}%
-          {lesson.id === 1 ? ' · скорость необязательна' : ` · отклик ≤${lesson.normSpeed} мс`}
+           · скорость отдельно
         </span>
         {speedChallengeTargetMs !== null && (
           <span data-testid="speed-check-active" className="text-sky-200 font-semibold">
@@ -54,7 +53,7 @@ export const TrainerBanner: React.FC = () => {
         )}
         <div className="flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
           <span className="text-slate-400">{isAssessmentActive ? 'Зачёт серии:' : 'Сохранено:'}</span>
-          <strong className="text-purple-400">{isAssessmentActive ? completedExercisesCount : (courseSeries[lesson.id]?.completedExercises ?? 0)} / {lesson.normReps} ном.</strong>
+          <strong className="text-purple-400">{courseWindows[lesson.id]?.length ?? 0} / {lesson.normReps} ном.</strong>
           <span className="text-slate-700">|</span>
           {isDone ? (
             <span className="flex items-center gap-1 text-emerald-400 font-bold">

@@ -4,7 +4,8 @@ import type { LucideIcon } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import type { AttemptEvent, AttemptOutcome } from '../../../core/training/exerciseAttempt';
 import { evaluateSpeedChallenge } from '../../../core/training/flowTiming';
-import { requiresSpeedForLessonCredit } from '../../../core/training/courseAssessmentPolicy';
+import { allowsAutomaticLessonCredit } from '../../../core/training/courseAssessmentPolicy';
+import { evaluateCourseWindow, lessonTenLookaheadCount } from '../../../core/training/recentCourseWindow';
 import { useAppStore } from '../../../store/useAppStore';
 
 const MODE_NAMES: Record<string, string> = {
@@ -47,7 +48,7 @@ export const AttemptResultCard: React.FC = () => {
   const {
     lastAttemptResult, retryExercise, regenerateExercise,
     returnToTrainerSetup, goToNextLessonAndStart, switchWorkspace, courseEvidence,
-    speedChallengeTargetMs, beginSpeedChallenge, exitSpeedChallenge
+    speedChallengeTargetMs, beginSpeedChallenge, exitSpeedChallenge, courseWindows
   } = useAppStore();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -60,14 +61,17 @@ export const AttemptResultCard: React.FC = () => {
   const result = lastAttemptResult;
   const lesson = COURSE_CURRICULUM.find(item => item.id === result.lessonId);
   const hasCertification = result.lessonPassed && !!lesson;
-  const speedRequired = requiresSpeedForLessonCredit(lesson?.id ?? null);
+  const recent = courseWindows[lesson?.id ?? 0] ?? [];
+  const recentResult = lesson ? evaluateCourseWindow(recent, lesson.id, lesson.normReps, lesson.normAcc) : null;
+  const legacyOne = !!lesson && lesson.id === 1 && hasCertification && recent.length < lesson.normReps;
+  const displayCount = legacyOne ? courseEvidence.completedExercises : recent.length;
   const isSpeedChallenge = speedChallengeTargetMs !== null;
   const speedCheck = isSpeedChallenge ? evaluateSpeedChallenge({
     noteCount: result.noteCount, events: result.events,
     maximumReactionMs: speedChallengeTargetMs
   }) : null;
   const nextPhotoStage = lesson?.id === 10 && result.mode === 'lookahead' &&
-    courseEvidence.completedExercises >= 7;
+    lessonTenLookaheadCount(recent) >= 7;
   const seriesAccuracy = courseEvidence.judgedNotes > 0
     ? 100 * courseEvidence.correctNotes / courseEvidence.judgedNotes : null;
   const seriesReaction = courseEvidence.reactionSamples > 0
@@ -75,12 +79,9 @@ export const AttemptResultCard: React.FC = () => {
   const errors = result.events.filter(event =>
     event.outcome === 'wrong-pitch' || event.outcome === 'late' || event.outcome === 'missed'
   );
-  const enoughScores = !!lesson && courseEvidence.completedExercises >= lesson.normReps;
-  const accuracyReady = !!lesson && seriesAccuracy !== null && seriesAccuracy >= lesson.normAcc;
-  const validSpeedEvidence = courseEvidence.correctNotes > 0 &&
-    courseEvidence.reactionSamples === courseEvidence.correctNotes;
-  const speedReady = !!lesson && validSpeedEvidence && seriesReaction !== null &&
-    seriesReaction <= lesson.normSpeed;
+  const enoughScores = !!lesson && (legacyOne || recent.length >= lesson.normReps);
+  const accuracyReady = !!lesson && (legacyOne || (recentResult?.accuracy !== null &&
+    (recentResult?.accuracy ?? -1) >= lesson.normAcc));
   const description = isSpeedChallenge
     ? speedCheck?.passed
       ? 'Скоростная проверка пройдена. Это отдельная тренировка, без зачёта урока.'
@@ -93,9 +94,9 @@ export const AttemptResultCard: React.FC = () => {
           ? !enoughScores
             ? 'Упражнение выполнено самостоятельно. Продолжайте зачётную серию.'
             : !accuracyReady
-              ? 'Все упражнения выполнены, но точность серии ниже норматива.'
-              : speedRequired && !speedReady
-                ? 'Количество упражнений и точность достаточны, но скорость ещё не соответствует нормативу.'
+              ? 'Новые упражнения выполнены, но точность текущего окна ниже норматива.'
+              : lesson.id === 10 && !recentResult?.stageValid
+                ? 'Урок 10 требует 7 упражнений «Бегунок» и 8 «Фото-память».'
                 : 'Продолжайте зачётную серию.'
           : lesson
             ? 'Норматив пока не выполнен. Ошибки и пропуски показаны ниже.'
@@ -166,22 +167,28 @@ export const AttemptResultCard: React.FC = () => {
         )}
         {lesson && (
           <section data-testid="course-series-summary" className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200 space-y-1">
-            <strong className="block text-emerald-300">Зачётная серия: {courseEvidence.completedExercises} / {lesson.normReps} упражнений</strong>
-            <p>Точность серии: {seriesAccuracy === null ? '—' : `${seriesAccuracy.toFixed(1)}%`} (нужно ≥{lesson.normAcc}%).</p>
-            <p data-testid="course-speed-status">
-              {speedRequired
-                ? <>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`} (нужно ≤{lesson.normSpeed} мс). {speedReady ? 'Условие выполнено.' : 'Условие не выполнено.'}</>
-                : <>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`}. Ориентир для дополнительной тренировки: ≤{lesson.normSpeed} мс. <strong>Скорость не блокирует зачёт первого урока.</strong></>}
+            <strong className="block text-emerald-300">Зачётная серия: {displayCount} / {lesson.normReps} упражнений</strong>
+            <p data-testid="course-window-accuracy">Точность текущей серии: {legacyOne
+              ? (seriesAccuracy === null ? '—' : `${seriesAccuracy.toFixed(1)}%`)
+              : (recentResult?.accuracy === null || !recentResult ? '—' : `${recentResult.accuracy.toFixed(1)}%`)} (нужно ≥{lesson.normAcc}%).</p>
+            <p data-testid="course-lifetime-total" className="text-slate-400">За всё время: {courseEvidence.completedExercises} упражнений; точность {seriesAccuracy === null ? '—' : `${seriesAccuracy.toFixed(1)}%`}.</p>
+            {lesson.id === 10 && <p data-testid="course-photo-stages">Этапы: «Бегунок» {lessonTenLookaheadCount(recent)}/7, «Фото-память» {recent.filter(e => e.mode === 'photo').length}/8.</p>}
+            {recent.length < lesson.normReps && courseEvidence.completedExercises > recent.length && !legacyOne && (
+              <p data-testid="course-legacy-explanation" className="text-amber-200">Старые результаты сохранены в общей истории, но без подробных записей отдельных упражнений. Новая зачётная серия формируется из реальных результатов после обновления.</p>
+            )}
+            {legacyOne && <p data-testid="course-legacy-credit" className="text-emerald-300">Ранее заработанный результат первого урока сохранён.</p>}
+            <p data-testid="course-speed-status">Средний отклик за всю историю: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`}.
+              Ориентир для отдельной тренировки: ≤{lesson.normSpeed} мс. <strong>{lesson.id === 1 ? 'Скорость не блокирует зачёт первого урока.' : 'Скорость не блокирует зачёт урока.'}</strong>
             </p>
             <p className="text-slate-400">Отклик — время от показа ноты до нажатия, а не оценка соблюдения ритма.</p>
             {!hasCertification && <p className="text-amber-200">
               {!enoughScores
-                ? `Осталось завершить минимум ${lesson.normReps - courseEvidence.completedExercises} упражнений.`
+                ? `Осталось завершить ${Math.max(0, lesson.normReps - recent.length)} упражнений в новом окне зачёта.`
                 : !accuracyReady
-                  ? 'Точность ниже норматива. Продолжайте самостоятельную практику в зачётном режиме.'
-                  : speedRequired && !speedReady
-                    ? 'Скорость реакции не соответствует нормативу; нужны полные и корректные измерения.'
-                    : 'Сохранённые результаты будут проверены после следующего самостоятельного упражнения.'}
+                  ? 'Точность последних упражнений ниже норматива; старые ошибки вытесняются новыми результатами.'
+                  : lesson.id === 10 && !recentResult?.stageValid
+                    ? 'Нужно завершить оба этапа: 7 «Бегунок» и 8 «Фото-память».'
+                    : 'Продолжайте самостоятельную серию.'}
             </p>}
           </section>
         )}
@@ -247,7 +254,7 @@ export const AttemptResultCard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-2 text-sm font-semibold">
             <Shuffle className="w-4 h-4" /> Новое упражнение
           </button>
-          {lesson?.id === 1 && result.creditEligible && !isSpeedChallenge && (
+          {allowsAutomaticLessonCredit(lesson?.id ?? null) && result.creditEligible && !isSpeedChallenge && (
             <button type="button" onClick={beginSpeedChallenge} data-testid="start-speed-check"
               className="inline-flex items-center gap-2 rounded-lg border border-sky-500/60 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 px-3 py-2 text-sm font-semibold">
               <Clock3 className="w-4 h-4" /> Отдельная проверка скорости (без зачёта)

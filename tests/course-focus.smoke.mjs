@@ -120,13 +120,13 @@ try {
       }}));
     });
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
-    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
+    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /За всё время: 3/);
     await savedPage.getByTestId('course-launch-selected').click();
     await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     await savedPage.keyboard.press('Escape');
     const focused = savedPage.getByTestId('course-focused-controls');
     await focused.waitFor({ state: 'visible' });
-    assert.match(await focused.innerText(), /3 \/ 10 ном/);
+    assert.match(await focused.innerText(), /0 \/ 10 ном/);
     await focused.getByRole('button', { name: 'Остановить' }).click();
     assert.equal(await focused.count(), 1, 'cancelled interruption must keep graded controls');
     assert.equal(dialogs.length, 1);
@@ -134,16 +134,16 @@ try {
     approveExit = true;
     await focused.getByRole('button', { name: 'Остановить' }).click();
     await savedPage.getByTestId('trainer-setup').waitFor({ state: 'visible' });
-    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:[\s\S]*3 \/ 10/);
+    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:[\s\S]*0 \/ 10/);
     assert.equal(dialogs.length, 2);
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
-    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
+    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /За всё время: 3/);
     await savedPage.getByTestId('course-lesson-2').click();
     await savedPage.getByTestId('course-launch-selected').click();
     await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     await savedPage.keyboard.press('Escape');
     assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /0 \/ 15 ном/);
-    // A restored seventh Lookahead score must choose actual Photo-memory mode.
+    // Seven verified v2 Lookahead scores, not old aggregate counts, must resume Photo.
     await savedPage.evaluate(() => {
       const key = 'notare_course_series_v1';
       const series = JSON.parse(localStorage.getItem(key));
@@ -152,10 +152,15 @@ try {
         reactionSamples: 108, reactionTotalMs: 108 * 400
       };
       localStorage.setItem(key, JSON.stringify(series));
+      const lookahead = { mode: 'lookahead', judgedNotes: 16, correctNotes: 16,
+        reactionSamples: 16, reactionTotalMs: 16 * 400 };
+      localStorage.setItem('notare_course_recent_v2', JSON.stringify({ version: 2, lessons: {
+        10: Array.from({ length: 7 }, () => lookahead)
+      } }));
     });
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     await savedPage.getByTestId('course-lesson-10').click();
-    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 7 \/ 15/);
+    assert.match(await savedPage.getByTestId('course-detail-panel').getByTestId('course-recent-count').innerText(), /7 \/ 15/);
     await savedPage.getByTestId('course-launch-selected').click();
     await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     await savedPage.keyboard.press('Escape');
