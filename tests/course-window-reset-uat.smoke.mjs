@@ -42,7 +42,7 @@ try {
   const detail = page.getByTestId('course-detail-panel');
   const count = detail.getByTestId('course-recent-count');
   const restart = detail.getByTestId('restart-course-window');
-  assert.match(await count.innerText(), /14 \\/ 15/);
+  assert.match(await count.innerText(), /14 \/ 15/);
   assert.match(await detail.getByTestId('course-lifetime-count').innerText(), /30/);
 
   const before = await page.evaluate(() => ({
@@ -53,7 +53,7 @@ try {
 
   page.once('dialog', dialog => dialog.dismiss());
   await restart.click();
-  assert.match(await count.innerText(), /14 \\/ 15/);
+  assert.match(await count.innerText(), /14 \/ 15/);
   assert.deepEqual(await page.evaluate(() => ({
     window: localStorage.getItem('notare_course_recent_v2'),
     history: localStorage.getItem('notare_course_series_v1'),
@@ -62,7 +62,7 @@ try {
 
   page.once('dialog', dialog => dialog.accept());
   await restart.click();
-  assert.match(await count.innerText(), /0 \\/ 15/);
+  assert.match(await count.innerText(), /0 \/ 15/);
   assert.equal(await restart.count(), 0, 'no reset button when window is empty');
   const after = await page.evaluate(() => ({
     windows: JSON.parse(localStorage.getItem('notare_course_recent_v2')).lessons,
@@ -76,7 +76,7 @@ try {
 
   await page.reload({ waitUntil: 'domcontentloaded' });
   await page.getByTestId('course-lesson-2').click();
-  assert.match(await detail.getByTestId('course-recent-count').innerText(), /0 \\/ 15/);
+  assert.match(await detail.getByTestId('course-recent-count').innerText(), /0 \/ 15/);
   assert.match(await detail.getByTestId('course-lifetime-count').innerText(), /30/);
   assert.equal(await detail.getByTestId('restart-course-window').count(), 0);
 
@@ -90,7 +90,7 @@ try {
   }
   const result = page.getByTestId('attempt-results');
   await result.waitFor({ state: 'visible', timeout: 15000 });
-  assert.match(await result.getByTestId('course-series-summary').innerText(), /1 \\/ 15 упражнений/);
+  assert.match(await result.getByTestId('course-series-summary').innerText(), /1 \/ 15 упражнений/);
   const final = await page.evaluate(() => ({
     windows: JSON.parse(localStorage.getItem('notare_course_recent_v2')).lessons,
     history: JSON.parse(localStorage.getItem('notare_course_series_v1')).lessons,
