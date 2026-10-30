@@ -50,7 +50,7 @@ export const CourseLessonControls: React.FC = () => {
         <p className="truncate text-slate-200" title={lesson.title}>{lesson.title} · {bpm} BPM
           {lesson.id === 10 && (
             <span data-testid="lesson-ten-stage" className="ml-2 text-sky-300">
-              · Этап {completedExercisesCount < 7 ? '1: Бегунок (7)' : '2: Фото-память (8)'}
+              · Этап {currentAppMode === 'photo' ? '2: Фото-память (8)' : '1: Бегунок (7)'}
             </span>
           )}
         </p>
