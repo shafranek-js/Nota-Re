@@ -72,6 +72,21 @@ try {
       await page.waitForFunction(() =>
         document.querySelectorAll('[data-repertoire-measure]').length === 2);
 
+      // Loop A–B is audible rehearsal, NOT a graded course attempt.
+      const loop = page.getByTestId('repertoire-loop-toggle');
+      assert.ok(await loop.isEnabled());
+      await loop.click();
+      await page.getByTestId('repertoire-loop-status')
+        .getByText('Повторяется · без зачёта').waitFor({ state: 'visible', timeout: 15000 });
+      assert.equal(await page.getByTestId('course-credit-mode').count(), 0);
+      assert.equal(await page.evaluate(() => localStorage.getItem('notare_course_completed_v3')),
+        progressBefore, 'audible A–B must not award certified course progress');
+      await loop.click();
+      assert.match(await page.getByTestId('repertoire-loop-status').innerText(), /без оценки/);
+      await loop.click();
+      await page.getByTestId('repertoire-loop-status')
+        .getByText('Повторяется · без зачёта').waitFor({ state: 'visible', timeout: 15000 });
+
       assert.ok(await page.getByTestId('repertoire-status').isVisible());
       assert.equal(await page.getByTestId('status-bar').getByText('Точность:', { exact: false }).count(), 0);
       await page.getByTestId('repertoire-score').locator('svg').first()
@@ -81,6 +96,8 @@ try {
 
       // Light-theme switch must repaint the isolated preview.
       await page.getByTestId('theme-toggle').click();
+      assert.match(await page.getByTestId('repertoire-loop-status').innerText(),
+        /без оценки/, 'theme re-engraving must stop ongoing audio loop');
       const lightScore = page.locator('.osmd-light-theme svg').first();
       await lightScore.waitFor({ state: 'visible', timeout: 45000 });
       assert.equal(await lightScore.evaluate(el => getComputedStyle(el).backgroundColor),
@@ -102,6 +119,7 @@ try {
       assert.equal(await page.evaluate(() => localStorage.getItem('notare_course_completed_v3')),
         progressBefore);
       assert.equal(await page.getByTestId('repertoire-preview').count(), 0);
+      assert.equal(await page.getByTestId('repertoire-loop-toggle').count(), 0);
       assert.equal(await page.locator('[data-repertoire-measure]').count(), 0,
         'A–B overlays must be removed when leaving repertoire preview');
       assert.equal(await page.locator('[data-repertoire-note]').count(), 0,
