@@ -40,7 +40,9 @@ try {
   const stats = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
   assert.match(stats, /\(0\)/, 'assisted actions must not create scoring attempts');
   const numbers = await page.getByTestId('status-course-window').innerText();
-  assert.match(numbers, /0\s*\//, 'assisted actions must not count completed repetitions');
+  assert.match(numbers, /—\s*\/\s*—/, 'free practice has no course certification window');
+  assert.equal(await page.getByTestId('course-focused-controls').count(), 0,
+    'assisted tabletop practice must never open graded course controls');
 
   assert.deepEqual(errors, [], 'no uncaught browser errors');
   console.log('Assisted practice smoke passed: Space restricted, ungraded step, no false course progress.');
