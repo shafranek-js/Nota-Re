@@ -29,6 +29,27 @@ try {
       assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
       await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
       assert.match(await page.getByTestId('repertoire-timeline').innerText(), /Структура распознана: 2 такт/);
+      const ab = page.getByTestId('repertoire-ab-controls');
+      await ab.waitFor({ state: 'visible' });
+      await ab.getByRole('button', { name: 'Выделить' }).click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-measure]').length === 1);
+      assert.equal(await page.locator('[data-repertoire-measure="measure-1"]').count(), 1);
+      assert.equal(await page.locator('[data-repertoire-boundary="A"]').count(), 1);
+      await ab.getByRole('spinbutton', { name: 'Конечный такт B' }).fill('2');
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-measure]').length === 2);
+      assert.equal(await page.locator('[data-repertoire-measure="measure-2"]').count(), 1);
+      assert.equal(await page.locator('[data-repertoire-boundary="B"]').count(), 1);
+      assert.equal(await page.getByTestId('repertoire-status').count(), 1,
+        'A–B highlighting is never a graded exercise');
+      await ab.getByRole('button', { name: 'Снять' }).click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-measure]').length === 0);
+      await ab.getByRole('button', { name: 'Выделить' }).click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-measure]').length === 2);
+
       assert.ok(await page.getByTestId('repertoire-status').isVisible());
       assert.equal(await page.getByTestId('status-bar').getByText('Точность:', { exact: false }).count(), 0);
       await page.getByTestId('repertoire-score').locator('svg').first()
@@ -42,6 +63,11 @@ try {
       await lightScore.waitFor({ state: 'visible', timeout: 45000 });
       assert.equal(await lightScore.evaluate(el => getComputedStyle(el).backgroundColor),
         'rgb(255, 255, 255)');
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-measure]').length === 2);
+      assert.equal(await page.locator('[data-repertoire-measure="measure-1"]').count(), 1,
+        'A–B must be recomputed on a fresh light-theme engraving');
+
       await mkdir('artifacts', { recursive: true });
       await page.screenshot({ path: `artifacts/repertoire-preview-${width}.png`, fullPage: true });
 
@@ -51,6 +77,8 @@ try {
       assert.equal(await page.evaluate(() => localStorage.getItem('notare_course_completed_v3')),
         progressBefore);
       assert.equal(await page.getByTestId('repertoire-preview').count(), 0);
+      assert.equal(await page.locator('[data-repertoire-measure]').count(), 0,
+        'A–B overlays must be removed when leaving repertoire preview');
       assert.equal(await page.getByTestId('repertoire-status').count(), 0);
 
       // Invalid / unsafe XML is rejected before it reaches OSMD.
