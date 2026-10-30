@@ -99,6 +99,20 @@ then again on the merged `main` commit. Chrome tests cover:
   show Zen, even when its preference is enabled. The technical footer
   remains present and the build ID is never clipped.
 
+## Compact Studio setup (Stage F follow-up)
+
+- In **Студия → Практика**, the optional **Анализ** action sits beside
+  **Начать упражнение**, not alone on a full-width row. The prior static
+  setup message is conveyed by the toolbar action group’s accessible
+  label instead of a permanent information band.
+- The OSMD / Classic notation-engine picker is available under **Вид**,
+  and the automatic Zen-at-start option is there as well. Normal playing
+  remains graded by the same note/timer engine and the standalone
+  preplay checklist still has five steps.
+- Verify 320/375/1024/1440px Chrome layout, the absence of an extra
+  toolbar row, Precheck → Setup → Start → Zen → Escape and notes/staff
+  switching without a full-page horizontal overflow.
+
 ## Stage F — inspectable notation and error-feedback evidence
 
 - `tests/stage-f-feedback.smoke.mjs` plays a wrong pitch in an actual

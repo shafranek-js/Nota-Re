@@ -5,7 +5,7 @@ import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
-import { ChevronDown, FileDown, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
+import { ChevronDown, ClipboardCheck, FileDown, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
 
 type Panel = 'mode' | 'material' | 'rhythm' | 'view' | 'actions';
 
@@ -145,7 +145,20 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
               isContinuousFlow ? 'Поток: готов' : 'Поток: Пауза'}
           </span>
         </button>
-        <div className="ml-auto shrink-0 flex gap-1.5">
+        <div data-testid={trainerPhase === 'setup' ? 'trainer-setup' : undefined}
+          role="group"
+          aria-label={trainerPhase === 'setup' ? 'Упражнение готово; ноты ещё не оцениваются' : 'Управление упражнением'}
+          className="ml-auto shrink-0 flex gap-1.5">
+          <button type="button" data-testid="toolbar-precheck" onClick={() => {
+            setPanel(null);
+            openTrainerPrecheck();
+          }} title="Необязательный анализ нот перед первым звуком"
+            className={controlClass}>
+            <span className="inline-flex items-center gap-1">
+              <ClipboardCheck aria-hidden="true" className="w-3.5 h-3.5"/>
+              Анализ
+            </span>
+          </button>
           <button type="button"
             onClick={trainerPhase === 'setup' ? startTrainerExercise : stopTrainerExercise}
             data-testid="trainer-start-stop"
@@ -292,12 +305,6 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
           )}
           {panel === 'actions' && (
             <div className="flex flex-wrap gap-2">
-              <button type="button" className={controlClass} onClick={() => {
-                setPanel(null);
-                openTrainerPrecheck();
-              }} title="Открыть методический анализ перед игрой">
-                Анализ перед игрой
-              </button>
               <button type="button" className={controlClass} onClick={previewNotes}
                 title="Слуховое предслышание: прослушать мелодию голосом">
                 <span className="inline-flex items-center gap-1"><Mic className="w-3 h-3"/> Петь / прослушать</span>
