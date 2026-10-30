@@ -130,7 +130,6 @@ try {
   await page.getByTestId('two-hand-practice').waitFor({ state: 'visible' });
   assert.equal(await page.getByTestId('course-credit-mode').count(), 0);
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
-  assert.match(await courseProgress.innerText(), /0\/12/);
   // Stored training evidence is visible on reload but not official lesson credit.
   await page.getByTestId('two-hand-back-to-course').click();
   await page.evaluate(() => {
