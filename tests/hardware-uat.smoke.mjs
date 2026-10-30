@@ -39,6 +39,9 @@ try {
     };
   });
 
+  // Keep diagnostics visible for synthetic hardware tests; auto Zen has its own UAT.
+  await page.addInitScript(() => localStorage.setItem('notare-trainer-preferences-v1',
+    JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })));
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
   await page.waitForFunction(() => typeof window.__uat.input.onmidimessage === 'function');
 
