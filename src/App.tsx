@@ -1,6 +1,7 @@
 import React, { useEffect, useLayoutEffect, useState } from 'react';
 import { useAppStore } from './store/useAppStore';
 import { Header } from './components/layout/Header';
+import { audioEngine } from './core/audio/AudioEngine';
 import { readAppTheme, saveAppTheme } from './core/ui/themePreference';
 import type { AppTheme } from './core/ui/themePreference';
 import { isZenActive } from './core/training/zenMode';
@@ -24,6 +25,10 @@ export const App: React.FC = () => {
   };
 
   useEffect(() => {
+    // Download the selected piano bank and prepare SpessaSynth at app startup,
+    // not in response to the first note. Browser autoplay may still require
+    // a user gesture to resume the AudioContext.
+    void audioEngine.prepareSoundFont();
     return initApp();
   }, [initApp]);
 

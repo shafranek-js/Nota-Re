@@ -8,9 +8,8 @@ The piano preset is GM program 0 (Acoustic Grand Piano).
 ## User experience
 
 Settings -> **Звук фортепиано** defaults to SoundFont with MuseScore General.
-The bank loads from the same app origin on the first note or explicit settings action.
-Until ready, the original lightweight oscillator can play notes, so training is never silent.
-The status in Settings shows loading, ready, or an actionable error.
+When SoundFont is selected, the app immediately downloads and prepares the bank from its own origin during startup. Browser autoplay policies can still require a user gesture to resume the AudioContext, but downloading does not wait for the first note.
+While the bank initializes, early notes **do not silently switch** to a Web Audio oscillator: a physically held MIDI key can sound through SoundFont once ready, while released MIDI notes are never replayed late. Short virtual keys are not replayed after the musical moment has passed. The status bar and Settings show loading/ready/error. Only explicit **Синтезатор** selection or an actual bank failure permits oscillator fallback. Choosing the synthesizer skips SoundFont initialization.
 
 Choose **Подключить свой SF2/SF3** to import a personal bank. The file is stored in IndexedDB
 on the current browser/device and the source preference is saved in localStorage.
