@@ -45,6 +45,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/lesson-one-credit.smoke.mjs
+      - name: Verify lesson-2 rolling accuracy and v1 historic migration
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/lesson-two-rolling.smoke.mjs
       - name: Verify result card, exact retry, assisted exclusion and lifecycle
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
