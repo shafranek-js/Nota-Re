@@ -20,8 +20,14 @@ jobs:
           cache: npm
       - run: npm ci
       - run: npm run build
-      - name: Install test-only Playwright client
-        run: npm install --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+      - name: Install test-only Playwright client without modifying app dependencies
+        run: |
+          # Installing with npm --no-save in the repository can prune Rollup's
+          # optional native binary, breaking vite preview after a successful build.
+          # Keep the browser test client in a separate dependency tree.
+          npm install --prefix "$RUNNER_TEMP/notare-playwright" --no-save --no-package-lock --ignore-scripts playwright@1.64.1
+          ln -s "$RUNNER_TEMP/notare-playwright/node_modules/playwright" node_modules/playwright
+          node -e "import('playwright').then(() => console.log('Playwright client resolved'))"
       - uses: browser-actions/setup-chrome@v2
         id: chrome
       - name: Start production preview server
