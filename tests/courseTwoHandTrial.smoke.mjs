@@ -131,6 +131,32 @@ try {
   assert.equal(await page.getByTestId('course-credit-mode').count(), 0);
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
   assert.match(await courseProgress.innerText(), /0\/12/);
+  // Stored training evidence is visible on reload but not official lesson credit.
+  await page.getByTestId('two-hand-back-to-course').click();
+  await page.evaluate(() => {
+    localStorage.setItem('notare_two_hand_shadow_v1', JSON.stringify({
+      version: 1, lessons: {
+        11: { attempts: 2, accepted: 2, rejected: 0, aborted: 0,
+          cleanStreak: 2, successfulStudies: [0, 1], lastAttemptId: 2 },
+        12: { attempts: 1, accepted: 1, rejected: 0, aborted: 0,
+          cleanStreak: 1, successfulStudies: [0], lastAttemptId: 1 }
+      }
+    }));
+  });
+  await page.reload({ waitUntil: 'domcontentloaded' });
+  await page.getByTestId('course-lesson-11').click();
+  assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /2\/15/);
+  await page.getByTestId('course-launch-selected').click();
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '2/15');
+  await page.getByTestId('two-hand-back-to-course').click();
+  await page.getByTestId('course-lesson-12').click();
+  assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /1\/20/);
+  await page.getByTestId('course-launch-selected').click();
+  assert.equal((await page.getByTestId('two-hand-shadow-progress').innerText()).trim(), '1/20');
+  await page.getByTestId('two-hand-shadow-reset').click();
+  await page.getByTestId('two-hand-back-to-course').click();
+  assert.match(await page.getByTestId('two-hand-saved-progress').innerText(), /0\/20/);
+  assert.match(await courseProgress.innerText(), /0\/12/);
   assert.deepEqual(errors, []);
   console.log('Course trial smoke passed: lesson-linked RH/LH presets, real MIDI, no credit, lesson launches polyphonic practice.');
 } finally {

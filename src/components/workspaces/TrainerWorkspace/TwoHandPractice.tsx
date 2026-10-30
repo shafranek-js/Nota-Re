@@ -19,6 +19,7 @@ import { assessPolyphonicPractice } from '../../../core/training/polyphonicAsses
 import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
+import { loadTwoHandShadowSeries, saveTwoHandShadowSeries, clearTwoHandShadowSeries } from '../../../core/storage/twoHandShadowStorage';
 import { appendShadowAttempt, evaluateTwoHandShadowAttempt, getTwoHandShadowPolicy,
   initialShadowSeries, nextTwoHandShadowStudy } from '../../../core/training/twoHandShadowSeries';
 
@@ -95,8 +96,14 @@ export const TwoHandPractice: React.FC = () => {
   // Session-local training evidence ONLY. The official Zustand course ledger
   // and completedLessons are not touched by any of these callbacks.
   const [shadowSeries, setShadowSeries] = useState(() =>
-    initialShadowSeries(courseTrial?.lessonId ?? null));
-  const attemptSerialRef = useRef(0);
+    loadTwoHandShadowSeries(courseTrial?.lessonId ?? null));
+  // Duplicate/stale callbacks cannot reuse an attempt ID after reload.
+  const attemptSerialRef = useRef(shadowSeries.lastAttemptId);
+  useEffect(() => {
+    if (courseTrial && shadowSeries.lessonId === courseTrial.lessonId) {
+      saveTwoHandShadowSeries(shadowSeries);
+    }
+  }, [shadowSeries, courseTrial?.lessonId]);
   const activeAttemptRef = useRef<number | null>(null);
   const shadowPolicy = getTwoHandShadowPolicy(courseTrial?.lessonId ?? null);
 
@@ -478,7 +485,7 @@ export const TwoHandPractice: React.FC = () => {
           </p>
           <p data-testid="two-hand-shadow-last-result">
             {shadowSeries.attempts === 0 ? 'Завершённых попыток пока нет.' :
-              shadowSeries.lastVerdict === null ? 'Предыдущая попытка остановлена или прервана.' :
+              shadowSeries.lastVerdict === null ? 'Серия восстановлена; подробности прошлой попытки не сохраняются.' :
               shadowSeries.lastVerdict.accepted
                 ? 'Предыдущий мини-этюд сыгран чисто (только тренировочная проверка).'
                 : shadowSeries.lastVerdict.reasons.includes('duplicate-study')
@@ -501,6 +508,7 @@ export const TwoHandPractice: React.FC = () => {
           <button type="button" data-testid="two-hand-shadow-reset"
             onClick={() => {
               resetTrial();
+              clearTwoHandShadowSeries(courseTrial.lessonId);
               setShadowSeries(initialShadowSeries(courseTrial.lessonId));
               setStudyIndex(0);
             }}

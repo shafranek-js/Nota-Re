@@ -31,6 +31,7 @@ import {
   loadCourseSeriesFromStorage, saveCourseSeriesToStorage, clearCourseSeriesFromStorage
 } from '../core/storage/courseSeriesStorage';
 import type { CourseSeries } from '../core/storage/courseSeriesStorage';
+import { clearAllTwoHandShadowSeries } from '../core/storage/twoHandShadowStorage';
 import {
   DEFAULT_TRAINER_PREFERENCES, loadTrainerPreferences,
   saveTrainerPreferences, selectTrainerPreferences
@@ -584,6 +585,7 @@ export const useAppStore = create<AppState>((set, get) => ({
   resetCourseProgress: () => {
     clearCourseProgressFromStorage();
     clearCourseSeriesFromStorage();
+    clearAllTwoHandShadowSeries();
     set({ completedLessons: [], courseSeries: {},
       courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
   },

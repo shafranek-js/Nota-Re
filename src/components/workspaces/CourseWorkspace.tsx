@@ -2,6 +2,7 @@ import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
 import { isTwoHandCourseLesson } from '../../core/training/courseAssessmentPolicy';
+import { loadTwoHandShadowSeries } from '../../core/storage/twoHandShadowStorage';
 import { CheckCircle2, Circle, ArrowLeft, ArrowRight, BookOpen, Info, Play, RotateCcw } from 'lucide-react';
 
 const COURSE_MODULES = [
@@ -26,6 +27,7 @@ export const CourseWorkspace: React.FC = () => {
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
   const isTwoHand = isTwoHandCourseLesson(lesson.id);
+  const twoHandProgress = isTwoHand ? loadTwoHandShadowSeries(lesson.id as 11 | 12) : null;
   const savedRepetitions = courseSeries[lesson.id]?.completedExercises ?? 0;
   const doneCount = completedLessons.length;
   const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM
@@ -214,6 +216,11 @@ export const CourseWorkspace: React.FC = () => {
                 MIDI-практика проверяет партии двух рук, синхронность и длительности.
                 Аппликатуру, движение взгляда и выразительность legato MIDI не подтверждает.
                 Автоматический зачёт отключён: после проверки остальных требований отметь урок сданным вручную.
+                {twoHandProgress && (
+                  <span data-testid="two-hand-saved-progress" className="block mt-1 font-semibold text-sky-200">
+                    Сохранено MIDI-подготовки: {twoHandProgress.successfulStudies.length}/{lesson.normReps} этюдов.
+                  </span>
+                )}
               </p>
             )}
             {/* Методическое обоснование */}
