@@ -46,7 +46,12 @@ export const StudioWorkspace: React.FC<StudioWorkspaceProps> = ({
     !isContinuousFlow && !isTwoHandPracticeOpen &&
     (trainerPhase === 'setup' || trainerPhase === 'playing');
 
-  useEffect(() => () => setRepertoirePreviewOpen(false), [setRepertoirePreviewOpen]);
+  useEffect(() => () => {
+    // Invalidate a pending File.text()/ArrayBuffer read if navigation unmounts
+    // Studio before validation completes; do not reopen an invisible preview.
+    importSequence.current += 1;
+    setRepertoirePreviewOpen(false);
+  }, [setRepertoirePreviewOpen]);
 
   const openPicker = () => pickerRef.current?.click();
 
