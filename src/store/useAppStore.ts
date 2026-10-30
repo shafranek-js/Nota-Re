@@ -4,7 +4,7 @@ import { COURSE_CURRICULUM } from '../data/curriculum';
 import { audioEngine } from '../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../data/notes';
 import {
-  noteDurationMs, startsMeasure, evaluateLessonCredit,
+  noteDurationMs, metronomeBeatsInNote, evaluateLessonCredit,
   nextAudioDeadline, remainingAudioMs, EMPTY_LESSON_EVIDENCE
 } from '../core/training/flowTiming';
 import type { LessonEvidence } from '../core/training/flowTiming';
@@ -155,6 +155,7 @@ export interface AppState {
   setPhotoExposure: (ms: number) => void;
   triggerPhotoFlash: () => void;
   toggleAudioMaster: () => void;
+  toggleMetronome: () => void;
   resetSessionStats: () => void;
   clearLastAttemptResult: () => void;
   retryExercise: () => void;
@@ -184,14 +185,77 @@ let flowTimeoutId: number | null = null;
 let flowEpoch = 0;
 let flowOnsetAudioTime: number | null = null;
 let flowDeadlineAudioTime: number | null = null;
-let flowClickCancel: (() => void) | null = null;
+let flowClickCancels: Array<() => void> = [];
+// Untimed optional sound-only pulse; it never advances a score or changes a grade.
+let practicePulseTimer: number | null = null;
+let practicePulseCancels: Array<{ at: number; cancel: () => void }> = [];
+let practicePulseNextTime = 0;
+let practicePulseNextBeat = 0;
+let practicePulseBpm = 0;
+
+function stopPracticePulse(): void {
+  if (practicePulseTimer !== null) window.clearInterval(practicePulseTimer);
+  practicePulseTimer = null;
+  practicePulseCancels.forEach(item => item.cancel());
+  practicePulseCancels = [];
+  practicePulseNextBeat = 0;
+  practicePulseBpm = 0;
+}
+
+function syncPracticePulse(state: AppState): void {
+  const active = state.metronomeEnabled && state.audioEnabled &&
+    state.currentWorkspace === 'trainer' && state.studioSection === 'practice' &&
+    state.trainerPhase === 'playing' && !state.isContinuousFlow &&
+    !state.isTwoHandPracticeOpen && !state.isSettingsOpen &&
+    !state.isRepertoirePreviewOpen && !document.hidden;
+  if (!active) { if (practicePulseTimer !== null) stopPracticePulse(); return; }
+  if (practicePulseTimer !== null && practicePulseBpm === state.bpm) return;
+  stopPracticePulse();
+  const context = audioEngine.ensureAudioContext();
+  if (!context) return;
+  practicePulseBpm = state.bpm;
+  practicePulseNextTime = context.currentTime + 0.06;
+  const schedule = () => {
+    if (context.state !== 'running' || document.hidden) return;
+    const now = context.currentTime;
+    const interval = 60 / practicePulseBpm;
+    practicePulseCancels = practicePulseCancels.filter(item => item.at > now - 0.1);
+    if (practicePulseNextTime < now - 0.1) {
+      const skipped = Math.ceil((now - practicePulseNextTime) / interval);
+      practicePulseNextTime += skipped * interval;
+      practicePulseNextBeat += skipped;
+    }
+    while (practicePulseNextTime < now + 0.16) {
+      practicePulseCancels.push({
+        at: practicePulseNextTime,
+        cancel: audioEngine.scheduleMetronomeClick(practicePulseNextBeat % 4 === 0, practicePulseNextTime)
+      });
+      practicePulseNextBeat++;
+      practicePulseNextTime += interval;
+    }
+  };
+  schedule();
+  practicePulseTimer = window.setInterval(schedule, 45);
+}
+
+function syncFlowMetronome(state: AppState): void {
+  flowClickCancels.forEach(cancel => cancel());
+  flowClickCancels = [];
+  if (!state.metronomeEnabled || !state.audioEnabled || flowOnsetAudioTime === null) return;
+  const now = audioEngine.currentAudioTime();
+  for (const beat of metronomeBeatsInNote(state.activeExerciseNotes, state.activeNoteIndex)) {
+    const at = flowOnsetAudioTime + beat.offsetQuarters * 60 / state.bpm;
+    if (now !== null && at < now + 0.008) continue;
+    flowClickCancels.push(audioEngine.scheduleMetronomeClick(beat.strong, at));
+  }
+}
 
 function stopFlowClock(): void {
   ++flowEpoch;
   if (flowTimeoutId !== null) window.clearTimeout(flowTimeoutId);
   flowTimeoutId = null;
-  flowClickCancel?.();
-  flowClickCancel = null;
+  flowClickCancels.forEach(cancel => cancel());
+  flowClickCancels = [];
   flowOnsetAudioTime = null;
   flowDeadlineAudioTime = null;
 }
@@ -210,10 +274,7 @@ function armFlowClock(get: () => AppState, nextOnsetAudioTime?: number | null): 
     (nextOnsetAudioTime ?? (audioTime + 0.04));
   flowOnsetAudioTime = onset;
   flowDeadlineAudioTime = onset === null ? null : nextAudioDeadline(onset, note, state.bpm);
-  flowClickCancel = audioEngine.scheduleMetronomeClick(
-    startsMeasure(state.activeExerciseNotes, state.activeNoteIndex),
-    onset ?? undefined
-  );
+  syncFlowMetronome(state);
   const fallbackEnd = performance.now() + noteDurationMs(note, state.bpm);
 
   const wake = () => {
@@ -261,8 +322,10 @@ function beginTrainerCountIn(get: () => AppState, set: (patch: Partial<AppState>
   const fallbackStartMs = performance.now() + 70;
   const epoch = countInEpoch;
   for (let i = 0; i < COUNT_IN_BEATS; i += 1) {
-    countInClickCancels.push(audioEngine.scheduleMetronomeClick(i === 0,
-      firstClickAudio === null ? undefined : firstClickAudio + i * beatSeconds));
+    if (state.metronomeEnabled && state.audioEnabled) {
+      countInClickCancels.push(audioEngine.scheduleMetronomeClick(i === 0,
+        firstClickAudio === null ? undefined : firstClickAudio + i * beatSeconds));
+    }
   }
   set({ trainerPhase: 'countIn', countInBeat: 1 });
   const wake = () => {
@@ -412,6 +475,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       saveTrainerPreferences(state);
     });
 
+    const unlistenMetronome = useAppStore.subscribe(state => syncPracticePulse(state));
+    syncPracticePulse(get());
     const unlistenPorts = midiManager.onPortsChange(count => set({ midiInputsCount: count }));
     const unlistenEvents = midiManager.onMidiEvent(event => {
       switch (event.type) {
@@ -440,6 +505,8 @@ export const useAppStore = create<AppState>((set, get) => ({
     void midiManager.init();
 
     const pauseWhenHidden = () => {
+      if (document.hidden) stopPracticePulse();
+      else syncPracticePulse(get());
       if (document.hidden && get().trainerPhase === 'countIn') {
         get().cancelTrainerCountIn();
         return;
@@ -456,6 +523,8 @@ export const useAppStore = create<AppState>((set, get) => ({
       document.removeEventListener('visibilitychange', pauseWhenHidden);
       stopCountIn();
       stopFlowClock();
+      stopPracticePulse();
+      unlistenMetronome();
       if (photoTimerId !== null) window.clearTimeout(photoTimerId);
       photoTimerId = null;
       unlistenPrefs();
@@ -899,6 +968,13 @@ export const useAppStore = create<AppState>((set, get) => ({
     const next = !get().audioEnabled;
     audioEngine.setAudioEnabled(next);
     set({ audioEnabled: next });
+    if (get().isContinuousFlow) syncFlowMetronome(get());
+  },
+
+  toggleMetronome: () => {
+    // A sound preference: preserve note index, MIDI events and grading deadline.
+    set({ metronomeEnabled: !get().metronomeEnabled });
+    if (get().isContinuousFlow) syncFlowMetronome(get());
   },
 
   resetTrainerPreferences: () => {
@@ -906,6 +982,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     stopFlowClock();
     audioEngine.clearPreviewTimeouts();
     audioEngine.setAudioEnabled(DEFAULT_TRAINER_PREFERENCES.audioEnabled);
+    stopPracticePulse();
     set({
       ...DEFAULT_TRAINER_PREFERENCES,
       isContinuousFlow: false,
@@ -922,6 +999,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       countInBeat: 0
     });
     get().regenerateExercise();
+    if (get().isContinuousFlow) syncFlowMetronome(get());
   },
 
   clearLastAttemptResult: () => set({ lastAttemptResult: null }),

@@ -25,6 +25,7 @@ export interface TrainerPreferences {
   keyboardLabelMode: KeyboardLabelMode;
   photoExposureMs: number;
   audioEnabled: boolean;
+  metronomeEnabled: boolean;
 }
 
 export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
@@ -44,7 +45,8 @@ export const DEFAULT_TRAINER_PREFERENCES: TrainerPreferences = {
   zenModeEnabled: false,
   keyboardLabelMode: 'notes',
   photoExposureMs: 1800,
-  audioEnabled: true
+  audioEnabled: true,
+  metronomeEnabled: false
 };
 
 const MODES: readonly AppMode[] = [
@@ -99,7 +101,8 @@ export function validateTrainerPreferences(input: unknown): TrainerPreferences {
     photoExposureMs: data.photoExposureMs === 1100 ||
       data.photoExposureMs === 1800 || data.photoExposureMs === 2400
       ? data.photoExposureMs : defaults.photoExposureMs,
-    audioEnabled: booleanOr(data.audioEnabled, defaults.audioEnabled)
+    audioEnabled: booleanOr(data.audioEnabled, defaults.audioEnabled),
+    metronomeEnabled: booleanOr(data.metronomeEnabled, defaults.metronomeEnabled)
   };
 }
 
@@ -121,7 +124,8 @@ export function selectTrainerPreferences(state: TrainerPreferences): TrainerPref
     zenModeEnabled: state.zenModeEnabled,
     keyboardLabelMode: state.keyboardLabelMode,
     photoExposureMs: state.photoExposureMs,
-    audioEnabled: state.audioEnabled
+    audioEnabled: state.audioEnabled,
+    metronomeEnabled: state.metronomeEnabled
   };
 }
 

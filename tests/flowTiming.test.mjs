@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { noteDurationMs, startsMeasure, evaluateLessonCredit } from '../src/core/training/flowTiming.ts';
+import { noteDurationMs, startsMeasure, evaluateLessonCredit, metronomeBeatsInNote } from '../src/core/training/flowTiming.ts';
 
 test('flow deadlines follow note lengths and BPM', () => {
   assert.equal(noteDurationMs({ durMultiplier: 1 }, 60), 1000);
@@ -115,4 +115,34 @@ test('assisted or invalid final exercises cannot certify from previously suffici
   assert.deepEqual(assisted.evidence, completed);
   const incomplete = evaluateLessonCredit({ ...normal, previous: completed, events: [] });
   assert.equal(incomplete.passed, false);
+});
+
+test('metrical clicks follow quarter beats, not each eighth or sixteenth note', () => {
+  const notes = [
+    { durMultiplier: 0.5 }, { durMultiplier: 0.5 },
+    { durMultiplier: 0.25 }, { durMultiplier: 0.25 },
+    { durMultiplier: 0.25 }, { durMultiplier: 0.25 },
+    { durMultiplier: 2 }, { durMultiplier: 1 }
+  ];
+  const clicks = notes.flatMap((_, index) => {
+    const start = notes.slice(0, index).reduce((sum, note) => sum + note.durMultiplier, 0);
+    return metronomeBeatsInNote(notes, index).map(beat => ({
+      at: start + beat.offsetQuarters, strong: beat.strong
+    }));
+  });
+  assert.deepEqual(clicks, [
+    { at: 0, strong: true }, { at: 1, strong: false },
+    { at: 2, strong: false }, { at: 3, strong: false },
+    { at: 4, strong: true }
+  ]);
+});
+
+test('long notes include internal beats while offbeats do not trigger extra ticks', () => {
+  assert.deepEqual(metronomeBeatsInNote([
+    { durMultiplier: 0.5 }, { durMultiplier: 2.5 }
+  ], 1), [
+    { offsetQuarters: 0.5, strong: false },
+    { offsetQuarters: 1.5, strong: false }
+  ]);
+  assert.deepEqual(metronomeBeatsInNote([], 0), []);
 });
