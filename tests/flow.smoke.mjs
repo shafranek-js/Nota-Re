@@ -75,11 +75,25 @@ try {
   await page.waitForTimeout(1800);
   assert.equal(await attempts(), stoppedAt, 'navigation away cancels background flow');
 
-  // The second course preset with flow must start in the running state too.
-  await page.getByText(/Урок 12:/).first().click();
-  await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+  // Lessons 11–12 are now deliberately non-certifying polyphonic MIDI
+  // practice. They must NOT expose the old single-note graded flow button.
+  await page.getByTestId('course-lesson-12').click();
+  const polyphonicLaunch = page.getByTestId('course-launch-selected');
+  assert.match(await polyphonicLaunch.getAttribute('aria-label') ?? '',
+    /Открыть двухручную MIDI-практику: Урок 12/);
+  await polyphonicLaunch.click();
+  await page.getByTestId('two-hand-practice').waitFor({ state: 'visible', timeout: 30000 });
+  assert.equal(await page.getByTestId('course-credit-mode').count(), 0,
+    'two-hand MIDI rehearsal must not claim certified course credit');
+  await page.getByTestId('two-hand-back-to-course').click();
+  await page.getByTestId('course-module-all').waitFor({ state: 'visible', timeout: 30000 });
+
+  // Lesson 3 is the supported continuous-flow course preset. Start a fresh
+  // attempt to verify clock and grading protections independently of lesson 12.
+  await page.getByTestId('course-lesson-3').click();
+  await page.getByTestId('course-launch-selected').click();
   await running.waitFor({ state: 'visible', timeout: 30000 });
-  assert.equal(await attempts(), 0, 'new lesson has fresh attempts');
+  assert.equal(await attempts(), 0, 'a new lesson-3 run must reset attempts');
   assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
 
   // A tab hidden during an active timed lesson must not resume as an
