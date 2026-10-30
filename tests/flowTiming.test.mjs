@@ -103,3 +103,16 @@ test('accuracy threshold is exact and includes wrong or missed slots', () => {
   assert.ok(result.accuracy < 90);
   assert.equal(result.passed, false);
 });
+
+
+test('assisted or invalid final exercises cannot certify from previously sufficient aggregates', () => {
+  const completed = {
+    ...previous, completedExercises: 10, judgedNotes: 160,
+    correctNotes: 150, reactionTotalMs: 150 * 400, reactionSamples: 150
+  };
+  const assisted = evaluateLessonCredit({ ...normal, previous: completed, assisted: true });
+  assert.equal(assisted.passed, false);
+  assert.deepEqual(assisted.evidence, completed);
+  const incomplete = evaluateLessonCredit({ ...normal, previous: completed, events: [] });
+  assert.equal(incomplete.passed, false);
+});
