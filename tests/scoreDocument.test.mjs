@@ -113,6 +113,7 @@ test('rejects broken tie links, wrong spelling, changed voice and noncontiguous 
 
   const gap = fixture();
   gap.events.find(n => n.id === 'tie-right').onset = q(7, 2);
+  gap.events.find(n => n.id === 'tie-right').duration = q(1, 2);
   assert.throws(() => normalizeScoreDocument(gap), /tied-note/);
 });
 
