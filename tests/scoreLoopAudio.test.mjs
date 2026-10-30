@@ -51,6 +51,10 @@ test('A–B integrates tempo changes, chords/independent hands, rests and ties',
   assert.ok(Math.abs(f.durationSeconds - 2.88) < 1e-8);
   assert.ok(Object.isFrozen(loop));
   assert.ok(Object.isFrozen(loop.tones));
+  assert.ok(loop.tones.every(tone =>
+    tone.offsetSeconds >= 0 &&
+    tone.offsetSeconds + tone.durationSeconds <= loop.periodSeconds),
+    'no SoundFont or oscillator voice is allowed to sustain past loop B');
 });
 
 test('A–B clips tied notes at selected end, never adds attack on continuation', () => {
