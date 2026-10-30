@@ -72,7 +72,9 @@ export const TwoHandPractice: React.FC = () => {
   const practiceTonality = courseTrial?.tonality ?? currentTonality;
   // Canonical index of the CURRENT score. Only explicitly selecting the
   // next study changes the score; failed runs can replay identical notes.
-  const [studyIndex, setStudyIndex] = useState(0);
+  const [studyIndex, setStudyIndex] = useState(() => courseTrial
+    ? nextTwoHandShadowStudy(loadTwoHandShadowSeries(courseTrial.lessonId)) ?? 0
+    : 0);
   const [pattern, setPattern] = useState<TwoHandPattern>(
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
