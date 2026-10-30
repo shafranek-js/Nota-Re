@@ -51,6 +51,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/theme.smoke.mjs
+      - name: Verify local MusicXML/MXL repertoire preview without graded input
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/repertoire.smoke.mjs
       - name: Verify Zen score space, audio, MIDI and photo safety in Chrome
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
