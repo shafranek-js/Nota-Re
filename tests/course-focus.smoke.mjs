@@ -62,6 +62,8 @@ try {
       const studioLaunch = page.getByTestId('studio-start-course');
       assert.match(await studioLaunch.innerText(), /Начать зачёт урока 3/);
       await studioLaunch.click();
+      await zen.waitFor({ state: 'visible' });
+      await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
       assert.equal(await page.getByTestId('studio-start-course').count(), 0);
       await course.getByTestId('course-to-free-setup').click();
@@ -113,6 +115,8 @@ try {
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     const focused = savedPage.getByTestId('course-focused-controls');
     await focused.waitFor({ state: 'visible' });
     assert.match(await focused.innerText(), /3 \/ 10 ном/);
@@ -129,6 +133,8 @@ try {
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
     await savedPage.getByTestId('course-lesson-2').click();
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /0 \/ 15 ном/);
     // A restored seventh Lookahead score must choose actual Photo-memory mode.
     await savedPage.evaluate(() => {
@@ -144,6 +150,8 @@ try {
     await savedPage.getByTestId('course-lesson-10').click();
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 7 \/ 15/);
     await savedPage.getByTestId('course-launch-selected').click();
+    await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
+    await savedPage.keyboard.press('Escape');
     const stage = savedPage.getByTestId('lesson-ten-stage');
     await stage.waitFor({ state: 'visible' });
     assert.match(await stage.innerText(), /Этап 2: Фото-память \(8\)/);
