@@ -3,6 +3,7 @@ import { ArrowLeft, FileDown, Focus, Pause, Play, Settings2, Square } from 'luci
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
 import { useAppStore } from '../../../store/useAppStore';
+import { MetronomeToggle } from './MetronomeToggle';
 
 /**
  * Active certified lessons do not expose the free-practice parameter picker.
@@ -56,6 +57,7 @@ export const CourseLessonControls: React.FC = () => {
         </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
+        <MetronomeToggle />
         {isContinuousFlow && (
           <button type="button" onClick={toggleContinuousFlow}
             title="Пауза потока завершает зачётную попытку и переводит в свободную практику"

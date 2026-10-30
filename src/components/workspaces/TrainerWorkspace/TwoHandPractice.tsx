@@ -2,6 +2,7 @@ import React, { useEffect, useMemo, useRef, useState } from 'react';
 import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { midiManager } from '../../../core/midi/MidiManager';
 import { audioEngine } from '../../../core/audio/AudioEngine';
+import { MetronomeToggle } from './MetronomeToggle';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
 import { toMusicXml } from '../../../core/notation/musicXml';
 import {
@@ -64,7 +65,7 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  */
 export const TwoHandPractice: React.FC = () => {
   const { currentTonality, scoreNoteCount, midiInputsCount, bpm,
-    twoHandTrialLessonId, switchWorkspace } = useAppStore();
+    twoHandTrialLessonId, switchWorkspace, metronomeEnabled, audioEnabled } = useAppStore();
   const courseTrial = getTwoHandCourseTrialPreset(twoHandTrialLessonId);
   // A course trial uses the actual lesson's BPM without altering persistent
   // trainer preferences or the official per-lesson grade.
@@ -94,6 +95,7 @@ export const TwoHandPractice: React.FC = () => {
   const [clockMs, setClockMs] = useState(() => performance.now());
   const timerRef = useRef<number | null>(null);
   const clickStops = useRef<Array<() => void>>([]);
+  const scheduledStart = useRef<number | null>(null);
   const [tempoError, setTempoError] = useState('');
   // Session-local training evidence ONLY. The official Zustand course ledger
   // and completedLessons are not touched by any of these callbacks.
@@ -128,6 +130,7 @@ export const TwoHandPractice: React.FC = () => {
     timerRef.current = null;
     for (const cancel of clickStops.current) cancel();
     clickStops.current = [];
+    scheduledStart.current = null;
     planRef.current = null;
     setPlan(null);
   };
@@ -150,8 +153,8 @@ export const TwoHandPractice: React.FC = () => {
   const startTempo = async () => {
     stopTempo();
     const context = audioEngine.ensureAudioContext();
-    if (!context || !audioEngine.getAudioEnabled()) {
-      setTempoError('Включите звук в настройках — метроном нужен для проверки ритма.');
+    if (!context) {
+      setTempoError('Аудиосистема недоступна для синхронизации MIDI.');
       return;
     }
     try {
@@ -163,6 +166,7 @@ export const TwoHandPractice: React.FC = () => {
       const beatSeconds = 60 / practiceBpm;
       const leadSeconds = 4 * beatSeconds + 0.20;
       const audioStart = context.currentTime + leadSeconds;
+      scheduledStart.current = audioStart;
       const startMs = performance.now() + leadSeconds * 1000;
       const nextPlan: TempoPlan = {
         startMs, bpm: practiceBpm, windowMs: 160, overlapMs: 140, holdGraceMs: 120
@@ -176,14 +180,7 @@ export const TwoHandPractice: React.FC = () => {
       setPlan(nextPlan);
       setClockMs(performance.now());
 
-      const endTicks = Math.max(...exercise.score.notes.map(note =>
-        note.onsetTicks + note.durationTicks));
-      for (let beat = -4; beat <= endTicks / 4; beat++) {
-        clickStops.current.push(audioEngine.scheduleMetronomeClick(
-          beat % 4 === 0, audioStart + beat * beatSeconds
-        ));
-      }
-
+      // Optional metronome clicks are scheduled by the effect below.
       timerRef.current = window.setInterval(() => {
         const currentPlan = planRef.current;
         if (!currentPlan) return;
@@ -208,6 +205,28 @@ export const TwoHandPractice: React.FC = () => {
       setTempoError(error instanceof Error ? error.message : String(error));
     }
   };
+
+  useEffect(() => {
+    // Reschedule future clicks without touching the timed MIDI assessment.
+    for (const cancel of clickStops.current) cancel();
+    clickStops.current = [];
+    if (!plan || timed.finished || !metronomeEnabled || !audioEnabled ||
+        scheduledStart.current === null) return;
+    const context = audioEngine.ensureAudioContext();
+    if (!context) return;
+    const beatSeconds = 60 / practiceBpm;
+    const endTicks = Math.max(...exercise.score.notes.map(note =>
+      note.onsetTicks + note.durationTicks));
+    for (let beat = -4; beat <= endTicks / 4; beat++) {
+      const time = scheduledStart.current + beat * beatSeconds;
+      if (time < context.currentTime + 0.008) continue;
+      clickStops.current.push(audioEngine.scheduleMetronomeClick(beat % 4 === 0, time));
+    }
+    return () => {
+      for (const cancel of clickStops.current) cancel();
+      clickStops.current = [];
+    };
+  }, [plan, timed.finished, metronomeEnabled, audioEnabled, exercise, practiceBpm]);
 
   useEffect(() => {
     // A different key signature, length or rhythm starts a new trial.
@@ -403,6 +422,7 @@ export const TwoHandPractice: React.FC = () => {
           <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
         </div>
         <div className="flex flex-wrap gap-2 items-center">
+          <MetronomeToggle />
           {courseTrial && (
             <button type="button" data-testid="two-hand-next-study"
               disabled={(!!plan && !timed.finished) || suggestedStudy === null}

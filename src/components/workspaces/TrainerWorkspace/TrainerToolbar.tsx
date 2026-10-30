@@ -4,6 +4,7 @@ import type { AppMode, FilterType, HanonType, SpeechType, TonalityKey } from '..
 import type { KeyboardLabelMode } from '../../../core/storage/trainerPreferences';
 import { useAppStore } from '../../../store/useAppStore';
 import { audioEngine } from '../../../core/audio/AudioEngine';
+import { MetronomeToggle } from './MetronomeToggle';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
 import { ChevronDown, FileDown, Focus, Mic, Pause, Play, RotateCw, Square, Keyboard, Music2, EyeOff, Monitor, MapPin } from 'lucide-react';
 
@@ -128,6 +129,7 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
           <input aria-label="Темп BPM" type="range" min={40} max={130} value={bpm}
             onChange={event => setBpm(Number(event.target.value))} className="w-14 accent-emerald-500"/>
         </label>
+        <MetronomeToggle />
         <button type="button" onClick={toggleContinuousFlow} className={controlClass}
           title="Включить или приостановить ритмический автоход">
           <span className="inline-flex items-center gap-1">

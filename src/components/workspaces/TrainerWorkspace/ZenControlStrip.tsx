@@ -2,6 +2,7 @@ import React, { useEffect, useRef } from 'react';
 import { ArrowLeft, EyeOff, Settings, Square, Volume2, VolumeX } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import { useAppStore } from '../../../store/useAppStore';
+import { MetronomeToggle } from './MetronomeToggle';
 
 /**
  * The controls needed during uninterrupted practice remain reachable after
@@ -65,6 +66,7 @@ export const ZenControlStrip: React.FC = () => {
       <span className="shrink-0 font-mono tabular-nums text-amber-200" data-testid="zen-tempo">{bpm} BPM</span>
       {isContinuousFlow && <span className="hidden sm:inline shrink-0 text-amber-300">Поток</span>}
       <div className="ml-auto flex items-center gap-1">
+        <MetronomeToggle compact />
         <button type="button" onClick={toggleAudioMaster} title={audioEnabled ? 'Выключить звук' : 'Включить звук'}
           className="rounded-md p-1.5 text-slate-400 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
           {audioEnabled ? <Volume2 className="w-3.5 h-3.5" aria-hidden="true"/> :
