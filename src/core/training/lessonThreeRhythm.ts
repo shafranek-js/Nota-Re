@@ -1,5 +1,5 @@
 import type { FlowNote } from './flowTiming';
-import { noteDurationMs } from './flowTiming';
+import { noteDurationMs } from './flowTiming.ts';
 
 /**
  * Lesson 3 trains reading and playing to the musical onset, not just pressing
