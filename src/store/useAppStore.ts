@@ -13,6 +13,7 @@ import { advanceExerciseNoteStatuses } from '../core/training/assistedStep';
 import { getTwoHandCourseTrialPreset } from '../core/training/twoHandCourseTrial';
 import { invalidateInterruptedTimedLesson } from '../core/training/flowInterruption';
 import { judgeExerciseNote } from '../core/training/noteJudgment';
+import { isLessonThreeLateOnset } from '../core/training/lessonThreeRhythm';
 import { createAttemptSnapshot } from '../core/training/exerciseAttempt';
 import type { AttemptEvent, AttemptSnapshot } from '../core/training/exerciseAttempt';
 import { resetNotesForRetry } from '../core/training/trainerSession';
@@ -1339,15 +1340,25 @@ export const useAppStore = create<AppState>((set, get) => ({
     if (isContinuousFlow && target.status !== 'current') return;
 
     const audioNow = audioEngine.currentAudioTime();
+    // The first graded slot is queued against the AudioContext clock. Input
+    // during the small lead-in *before* its real onset must not count as an
+    // on-time hit (including when the countdown UI has just disappeared).
+    if (isContinuousFlow && flowOnsetAudioTime !== null && audioNow !== null &&
+        audioNow < flowOnsetAudioTime) return;
     const rt = isContinuousFlow && flowOnsetAudioTime !== null && audioNow !== null
       ? Math.max(0, Math.round((audioNow - flowOnsetAudioTime) * 1000))
       : Math.round(performance.now() - noteShownTimestamp);
     // Late judgments use the same monotonic AudioContext clock as the
     // deadline / click scheduling, not an unrelated setTimeout wakeup.
     const isLate = isContinuousFlow && (
-      flowDeadlineAudioTime !== null && audioNow !== null
+      (flowDeadlineAudioTime !== null && audioNow !== null
         ? audioNow >= flowDeadlineAudioTime
-        : rt >= noteDurationMs(target, get().bpm)
+        : rt >= noteDurationMs(target, get().bpm)) ||
+      // Lesson 3 is explicitly about *rhythmic* reading. The prior logic
+      // marked an almost-next-beat strike as "correct"; grade the onset
+      // within a duration-sensitive novice window instead. Other modes and
+      // ungraded free practice retain their existing timing policy.
+      (get().activeLessonId === 3 && isLessonThreeLateOnset(target, get().bpm, rt))
     );
     const outcome = judgeExerciseNote(target.midi, noteName, isLate);
     const isCorrect = outcome === 'correct';
