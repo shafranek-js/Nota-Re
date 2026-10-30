@@ -986,13 +986,17 @@ export const OsmdStaff: React.FC<OsmdStaffProps> = ({ onRequestLegacy, zen = fal
         </div>
       </div>)}
 
-      <div data-gpattern={currentAppMode === 'gpattern'} className={`${theme === 'light' ? 'osmd-light-theme' : 'osmd-dark-theme'} relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100`}>
+      <div data-testid="osmd-scroll-region" data-gpattern={currentAppMode === 'gpattern'}
+        role="region" aria-label="Прокручиваемая нотная партитура" tabIndex={0}
+        className={`${theme === 'light' ? 'osmd-light-theme' : 'osmd-dark-theme'} relative flex-1 min-h-0 overflow-auto mt-2 rounded-lg bg-slate-950/90 text-slate-100 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400`}>
         {currentAppMode === 'photo' && isPhotoMasked && (
           <div data-testid="photo-masked-notice" className="sticky top-0 z-20 mx-auto w-fit px-3 py-1 rounded-b-lg bg-cyan-950 text-cyan-100 text-xs pointer-events-none">
             Такт {actualBar} скрыт — играйте по памяти
           </div>
         )}
-        <div data-testid="osmd-vertical-center" className="flex min-h-full min-h-[280px] w-full flex-col items-center justify-center py-6">
+        {/* Keep OSMD engraving wide enough for readable note/rhythm spacing on phones.
+            Only the score scrolls horizontally; the document and MIDI controls do not. */}
+        <div data-testid="osmd-vertical-center" className="flex min-h-full min-h-[280px] w-full min-w-[680px] sm:min-w-0 flex-col items-center justify-center py-6">
           <div className="relative w-full">
             <div ref={mountRef} className="relative w-full" aria-label="Нотная партитура OpenSheetMusicDisplay" />
             <div ref={overlayRef} data-testid="osmd-pedagogy-layer"
