@@ -5,6 +5,9 @@ import {
   locateEngravedMeasures, selectMeasureIndices,
   type EngravedRepertoireMeasure
 } from '../../core/notation/repertoireMeasureGeometry';
+import { clearRepertoireNoteOverlay, drawRepertoireNoteOverlay,
+  mapRepertoireNoteheads, type RepertoireNoteMapping
+} from '../../core/notation/repertoireNoteGeometry';
 import type { AppTheme } from '../../core/ui/themePreference';
 import { mapMusicXmlToScoreDocument, type MusicXmlTimelineResult } from '../../core/notation/musicXmlTimelineAdapter';
 import { inspectMusicXmlText, sanitizedRepertoireXml, MAX_EXPANDED_BYTES,
@@ -29,6 +32,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const [firstBar, setFirstBar] = useState(1);
   const [lastBar, setLastBar] = useState(1);
   const [selectionActive, setSelectionActive] = useState(false);
+  const [noteAnchorsVisible, setNoteAnchorsVisible] = useState(false);
+  const [noteMapping, setNoteMapping] = useState<RepertoireNoteMapping | null>(null);
   const [geometryMessage, setGeometryMessage] = useState<string | null>(null);
   const [renderEpoch, setRenderEpoch] = useState(0);
   const mappedMeasures = useRef<readonly EngravedRepertoireMeasure[]>([]);
@@ -45,6 +50,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     setMessage('');
     setTimeline(null);
     setGeometryMessage(null);
+    setNoteMapping(null);
     mappedMeasures.current = [];
     const parsed = { timeline: null as MusicXmlTimelineResult | null };
 
@@ -95,6 +101,10 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           const result = locateEngravedMeasures(osmd, mount, parsed.timeline.score);
           mappedMeasures.current = result.measures;
           setGeometryMessage(result.reason);
+          setNoteMapping(result.reason ? {
+            anchors: [], total: parsed.timeline.score.events.filter(event => event.kind === 'note').length,
+            reason: result.reason
+          } : mapRepertoireNoteheads(osmd, mount, parsed.timeline.score, result.measures));
         }
         setRenderEpoch(value => value + 1);
         let lastWidth = mount.clientWidth;
@@ -111,10 +121,15 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
                   const result = locateEngravedMeasures(osmd, mount, parsed.timeline.score);
                   mappedMeasures.current = result.measures;
                   setGeometryMessage(result.reason);
+                  setNoteMapping(result.reason ? {
+                    anchors: [], total: parsed.timeline.score.events.filter(event => event.kind === 'note').length,
+                    reason: result.reason
+                  } : mapRepertoireNoteheads(osmd, mount, parsed.timeline.score, result.measures));
                 }
                 setRenderEpoch(value => value + 1);
               } catch (error) {
                 mappedMeasures.current = [];
+                setNoteMapping(null);
                 setGeometryMessage('Ошибка измерения геометрии OSMD после изменения размера.');
                 console.warn('Repertoire resize failed', error);
               }
@@ -150,11 +165,16 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     const mount = mountRef.current;
     if (!mount) return;
     clearRepertoireMeasureOverlay(mount);
+    clearRepertoireNoteOverlay(mount);
     if (!selectionActive || !timeline?.score || geometryMessage || !mappedMeasures.current.length) return;
     const selected = selectMeasureIndices(timeline.score, firstBar - 1, lastBar - 1);
     if (!selected) return;
     drawRepertoireMeasureOverlay(mount, mappedMeasures.current, selected, theme === 'light');
-  }, [selectionActive, timeline, firstBar, lastBar, geometryMessage, renderEpoch, theme]);
+    if (noteAnchorsVisible && noteMapping && !noteMapping.reason) {
+      drawRepertoireNoteOverlay(mount, noteMapping, selected, theme === 'light');
+    }
+  }, [selectionActive, timeline, firstBar, lastBar, geometryMessage,
+      renderEpoch, theme, noteAnchorsVisible, noteMapping]);
 
   return (
     <section data-testid="repertoire-preview" aria-label="Просмотр загруженной партитуры"
@@ -229,6 +249,21 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           </button>
           {selectionActive && <button type="button" onClick={() => setSelectionActive(false)}
             data-testid="repertoire-ab-clear" className="rounded border border-slate-600 px-2 py-1 text-slate-300">Снять</button>}
+          <button type="button" data-testid="repertoire-note-anchors"
+            disabled={!!noteMapping?.reason || !noteMapping || !selectionActive}
+            onClick={() => setNoteAnchorsVisible(value => !value)}
+            title={noteMapping?.reason ?? 'Кружками выделяются только однозначно сопоставленные нотные головки'}
+            className="rounded border border-slate-600 px-2 py-1 text-sky-200 disabled:cursor-not-allowed disabled:opacity-50">
+            {noteAnchorsVisible ? 'Скрыть ноты' : 'Показать ноты'}
+          </button>
+          <span data-testid="repertoire-anchor-coverage" role="status"
+            className={noteMapping && !noteMapping.reason ? 'text-sky-300' : 'text-amber-300'}>
+            {noteMapping
+              ? noteMapping.reason
+                ? 'Привязка нот недоступна: ' + noteMapping.reason
+                : 'Ноты: ' + noteMapping.anchors.length + '/' + noteMapping.total
+              : 'Проверка нот…'}
+          </span>
           <span className="text-slate-400">Только выделение · без воспроизведения</span>
           {geometryMessage && <span role="status" data-testid="repertoire-ab-unavailable"
             className="text-amber-300">Подсветка недоступна: {geometryMessage}</span>}
