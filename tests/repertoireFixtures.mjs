@@ -22,6 +22,19 @@ export const DEMO_XML = `<?xml version="1.0" encoding="utf-8"?>
   </part>
 </score-partwise>`;
 
+export const DEMO_MULTI_XML = DEMO_XML.replace(
+  '</part-list>',
+  '<score-part id="P2"><part-name>Left hand</part-name></score-part></part-list>'
+).replace(
+  '</score-partwise>',
+  `<part id="P2"><measure number="1">
+  <attributes><divisions>1</divisions><key><fifths>0</fifths></key>
+  <time><beats>4</beats><beat-type>4</beat-type></time>
+  <clef><sign>F</sign><line>4</line></clef></attributes>
+  <note><pitch><step>C</step><octave>3</octave></pitch><duration>4</duration><type>whole</type></note>
+  </measure></part></score-partwise>`
+);
+
 export const CONTAINER_XML = `<?xml version="1.0" encoding="utf-8"?>
 <container version="1.0" xmlns="urn:oasis:names:tc:opendocument:xmlns:container">
   <rootfiles><rootfile full-path="scores/demo.musicxml"
