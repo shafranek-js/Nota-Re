@@ -3,7 +3,7 @@ import {
   MidiAudioDiagnosticsTracker, type MidiAudioDiagnostics, type AudioRoute
 } from './midiDiagnostics';
 import {
-  AudioClockQueue, articulationTimeline, sequenceTimeline, syllableTimeline,
+  AudioClockQueue, LoopAudioClockQueue, articulationTimeline, sequenceTimeline, syllableTimeline,
   type TimedTone
 } from './audioTimeline';
 
@@ -17,7 +17,7 @@ interface LiveMidiVoice {
 class AudioEngine {
   private ctx: AudioContext | null = null;
   private isAudioEnabled: boolean = true;
-  private previewQueue: AudioClockQueue | null = null;
+  private previewQueue: AudioClockQueue | LoopAudioClockQueue | null = null;
   private previewUsesSoundFont = false;
   private activeMetronomeStops = new Set<() => void>();
   private piano = new SoundFontPiano();
@@ -327,6 +327,39 @@ class AudioEngine {
     );
     this.previewQueue = queue;
     queue.start(events);
+  }
+
+  /**
+   * User repertoire only. Shares the existing SoundFont/oscillator preview
+   * route, never the MIDI input or lesson assessment pipeline.
+   */
+  public playLoopedPreview(events: readonly TimedTone[], periodSeconds: number): boolean {
+    this.clearPreviewTimeouts();
+    if (!this.isAudioEnabled || !events.length) return false;
+    const context = this.ensureAudioContext();
+    if (!context) return false;
+    const hardwareChannel16Held = [...this.liveVoices.keys()]
+      .some(key => key.startsWith('15:'));
+    const sampleReady = this.piano.getStatus().phase === 'ready' &&
+      this.piano.getStatus().output === 'soundfont' && !hardwareChannel16Held;
+    this.previewUsesSoundFont = sampleReady;
+    const queue = new LoopAudioClockQueue(
+      () => context.currentTime,
+      (tone, time) => {
+        if (sampleReady) {
+          const cancel = this.piano.schedulePreviewNote(
+            context, tone.frequencyHz, tone.durationSeconds, time
+          );
+          if (cancel) return cancel;
+        } else if (this.piano.getStatus().output === 'soundfont') {
+          void this.piano.prepare(context);
+        }
+        return this.scheduleFallbackPreview(context, tone, time);
+      }
+    );
+    this.previewQueue = queue;
+    queue.start(events, periodSeconds);
+    return queue.isPlaying;
   }
 
   public playPianoTone(freq: number, duration: number = 0.55, isStaccato: boolean = false): void {
