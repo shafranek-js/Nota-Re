@@ -29,7 +29,8 @@ test('single exercise metrics ignore session history and distinguish mistakes', 
   assert.equal(snapshot.missedSlots, 1);
   assert.equal(snapshot.accuracyPercent, 40);
   assert.equal(snapshot.averageReactionMs, 500);
-  assert.equal(snapshot.creditEligible, false);
+  // Incorrect notes lower series accuracy but do not erase completion.
+  assert.equal(snapshot.creditEligible, true);
 });
 
 test('assisted exercises cannot be marked credit eligible or given invented timing', () => {
