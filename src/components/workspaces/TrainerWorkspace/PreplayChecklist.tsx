@@ -75,7 +75,7 @@ export const PreplayChecklist: React.FC = () => {
  * No answer input is scored until the store switches to 'playing'.
  */
 export const CountInScreen: React.FC = () => {
-  const { countInBeat, bpm, currentAppMode, cancelTrainerCountIn } = useAppStore();
+  const { countInBeat, bpm, currentAppMode, activeLessonId, cancelTrainerCountIn } = useAppStore();
   return (
     <aside data-testid="trainer-count-in" aria-label="Подготовка к игре"
       className="absolute right-2 top-2 z-30 max-w-[calc(100%-1rem)] rounded-xl border border-sky-500/50 bg-slate-950/95 px-3 py-2 shadow-lg">
@@ -86,7 +86,9 @@ export const CountInScreen: React.FC = () => {
             {countInBeat === 0 ? 'Готовим нотный стан' :
               currentAppMode === 'photo'
                 ? 'Фото-память: такт появится краткой вспышкой после отсчёта'
-                : 'Ноты уже видны · игра начнётся после 4-й доли'}
+                : activeLessonId === 3
+                  ? 'После «4» играйте первую ноту на следующую сильную долю!'
+                  : 'Ноты уже видны · игра начнётся после 4-й доли'}
           </p>
         </div>
         <span data-testid="count-in-beat" role="status" aria-live="off"
