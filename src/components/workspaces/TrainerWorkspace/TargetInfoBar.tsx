@@ -1,6 +1,7 @@
 import React from 'react';
 import { useAppStore } from '../../../store/useAppStore';
 import { computeIntervalInfo } from '../../../core/generator/ExerciseGenerator';
+import { countRhythmOutcomes, lessonThreeOnsetToleranceMs } from '../../../core/training/lessonThreeRhythm';
 
 export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   const {
@@ -9,7 +10,12 @@ export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
     lastTriggeredNote,
     currentAppMode,
     isPhotoMasked,
-    isExerciseAssisted
+    isExerciseAssisted,
+    activeLessonId,
+    trainerPhase,
+    isContinuousFlow,
+    attemptEvents,
+    bpm
   } = useAppStore();
 
   const target = activeExerciseNotes[activeNoteIndex];
@@ -19,6 +25,23 @@ export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
   // Text hints must not reveal the same pitches, fingering or rhythms during
   // the masked interval (including to assistive technology).
   const hidePhotoHints = currentAppMode === 'photo' && isPhotoMasked;
+  const showRhythmFeedback = activeLessonId === 3 && isContinuousFlow &&
+    (trainerPhase === 'playing' || trainerPhase === 'countIn');
+  const rhythm = showRhythmFeedback ? countRhythmOutcomes(attemptEvents) : null;
+  const onsetWindow = target ? lessonThreeOnsetToleranceMs(target, bpm) : 0;
+  const rhythmFeedback = showRhythmFeedback && rhythm && (
+    <div data-testid="lesson-three-rhythm-feedback" aria-live="off"
+      className="flex min-w-0 flex-wrap items-center gap-x-3 gap-y-0.5 text-[11px] text-slate-300">
+      <strong className="text-emerald-300">Верно: {rhythm.correct}</strong>
+      <span className="text-rose-300">Не та нота: {rhythm.wrongPitch}</span>
+      <span className="text-amber-300">Поздно: {rhythm.late}</span>
+      <span className="text-slate-300">Пропуски: {rhythm.missed}</span>
+      <span data-testid="lesson-three-onset-window" className="text-sky-300"
+        title="Допуск измеряется от начала каждой ноты; не от её окончания.">
+        Время вступления: первые {onsetWindow} мс ноты
+      </span>
+    </div>
+  );
 
   const tips: Record<string, string> = {
     reflex: 'Вижу знак на линейке ➔ палец сразу жмёт клавишу. Запретите себе называть ноту в уме!',
@@ -55,6 +78,7 @@ export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
         className="shrink-0 w-full min-h-6 text-xs text-slate-400 px-2 flex items-center gap-2">
         {isExerciseAssisted && <strong className="text-amber-300">Без зачёта: подсказка</strong>}
         <span>{prompt}</span>
+        {rhythmFeedback}
       </div>
     );
   }
@@ -92,6 +116,10 @@ export const TargetInfoBar: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
           </span>
         </details>
       </div>
+      {showRhythmFeedback && <p className="text-[11px] text-sky-300">
+        После отсчёта 1–2–3–4 вступайте на следующую сильную долю. Не останавливайтесь при ошибке: пропуск или позднее вступление снижают точность.
+      </p>}
+      {rhythmFeedback}
     </div>
   );
 };
