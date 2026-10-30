@@ -20,7 +20,7 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
     midiInputsCount, audioEnabled, currentWorkspace, activeLessonId,
     currentAppMode, currentTonality, bpm, isTwoHandPracticeOpen,
     selectedLessonId, totalAttempts, correctHits, currentStreak, bestStreak,
-    reactionTimes, completedExercisesCount
+    reactionTimes, completedExercisesCount, isRepertoirePreviewOpen
   } = useAppStore();
   const [soundStatus, setSoundStatus] = useState(() => audioEngine.getSoundFontStatus());
   const accuracy = totalAttempts > 0 ? Math.round(100 * correctHits / totalAttempts) : null;
@@ -63,8 +63,14 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
           Банк: <span className="text-slate-300">{soundStatus.source === 'builtin' ? 'Встроенный' : 'Свой'}</span>
         </span>
         <span data-testid="status-renderer" title="Текущий движок отображения нот">
-          Ноты: <span className="text-slate-300">{renderer === 'osmd' ? 'OSMD' : 'SVG'}</span>
+          Ноты: <span className="text-slate-300">{isRepertoirePreviewOpen ? 'OSMD' : renderer === 'osmd' ? 'OSMD' : 'SVG'}</span>
         </span>
+        {currentWorkspace === 'trainer' && isRepertoirePreviewOpen ? (
+          <span data-testid="repertoire-status" className="font-semibold text-sky-300">
+            Репертуар · только просмотр · без зачёта
+          </span>
+        ) : (
+          <>
         {currentWorkspace === 'trainer' && (
           <>
             <span title={isTwoHandPracticeOpen ? 'Двухручная практика без зачёта' : activeLessonId === null ? 'Свободная практика без урока' : 'Урок курса'}>
@@ -87,6 +93,8 @@ export const StatusBar: React.FC<StatusBarProps> = ({ renderer }) => {
             <span title="Сыграно однотипных номеров в серии">
               Номеров: <span className="text-slate-300">{completedExercisesCount} / {activeLessonId !== null && lesson ? lesson.normReps : '—'}</span>
             </span>
+          </>
+        )}
       </div>
       <span
         data-testid="build-version"
