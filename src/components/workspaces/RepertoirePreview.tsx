@@ -138,20 +138,22 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           </button>
         </div>
       </div>
-      {state === 'ready' && timeline && (
-        <div data-testid="repertoire-timeline" role="status"
-          className="shrink-0 rounded-lg border border-slate-700 bg-slate-900 px-3 py-2 text-xs text-slate-300">
-          {timeline.score ? (
-            <span>Структура распознана: {timeline.score.measures.length} такт. · {' '}
-              {timeline.score.events.filter(event => event.kind === 'note').length} нот · {' '}
-              {timeline.score.parts.length} парт. · без зачёта</span>
-          ) : (
-            <span>Структурный разбор недоступен: {timeline.reason}. Просмотр нот доступен, оценка отключена.</span>
-          )}
-        </div>
-      )}
       <p className="shrink-0 text-xs text-slate-400">
-        Файл обрабатывается локально. Тренировочные режимы, MIDI-оценка и зачёт для импортированной партитуры отключены.
+        Файл обрабатывается локально. MIDI-оценка и зачёт отключены.
+        {state === 'ready' && timeline && (
+          <span data-testid="repertoire-timeline" role="status"
+            data-meters={timeline.score?.measures.map(m => m.meter.beats + '/' + m.meter.beatType).join(' ') ?? ''}
+            data-ties={timeline.score?.events.filter(event => event.tieToId).length ?? 0}
+            data-voices={timeline.score
+              ? new Set(timeline.score.events.map(event => event.partId + ':' + event.staff + ':' + event.voice)).size
+              : 0}
+            className={`ml-1 ${timeline.score ? 'text-sky-300' : 'text-amber-300'}`}
+            title={timeline.reason ?? 'Музыкальная структура распознана, но оценка исполнения отключена'}>
+            {timeline.score
+              ? `Структура распознана: ${timeline.score.measures.length} такт. · ${timeline.score.events.filter(event => event.kind === 'note').length} нот · ${timeline.score.parts.length} парт. · без зачёта`
+              : `Структурный разбор недоступен: ${timeline.reason}. Просмотр нот доступен.`}
+          </span>
+        )}
       </p>
       {info.warnings.length > 0 && (
         <div role="note" className="shrink-0 rounded-lg border border-amber-500/30 bg-amber-950/20 px-3 py-2 text-xs text-amber-300">
