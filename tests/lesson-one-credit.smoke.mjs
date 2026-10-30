@@ -19,6 +19,8 @@ try {
     } }));
   });
   await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
+  assert.match(await page.getByTestId('course-detail-panel').innerText(),
+    /Скорость \(необязательная тренировка\)/);
   await page.getByTestId('course-launch-selected').click();
   const target = page.getByTestId('active-target-note');
   await target.waitFor({ state: 'visible', timeout: 30000 });
@@ -48,6 +50,7 @@ try {
   await target.waitFor({ state: 'visible', timeout: 30000 });
   assert.equal((await page.getByTestId('course-credit-mode').innerText()).trim(),
     'Практика без зачёта');
+  assert.match(await page.getByTestId('speed-check-active').innerText(), /без зачёта/);
   await playFullScore();
   assert.match(await results.locator('#attempt-result-heading').innerText(), /Проверка скорости · без зачёта/);
   const challenge = results.getByTestId('speed-check-verdict');
