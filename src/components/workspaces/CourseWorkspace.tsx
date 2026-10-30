@@ -278,8 +278,10 @@ export const CourseWorkspace: React.FC = () => {
                   <div className="text-sm font-bold font-mono text-emerald-400 mt-0.5">≥ {lesson.normAcc}%</div>
                 </div>
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
-                  <div className="text-[10px] text-slate-400 uppercase font-mono">Скорость реакции</div>
-                  <div className="text-sm font-bold font-mono text-amber-400 mt-0.5">&lt; {lesson.normSpeed} мс</div>
+                  <div className="text-[10px] text-slate-400 uppercase font-mono">
+                    {lesson.id === 1 ? 'Скорость (необязательная тренировка)' : 'Скорость реакции'}
+                  </div>
+                  <div className="text-sm font-bold font-mono text-amber-400 mt-0.5">≤ {lesson.normSpeed} мс</div>
                 </div>
               </div>
 

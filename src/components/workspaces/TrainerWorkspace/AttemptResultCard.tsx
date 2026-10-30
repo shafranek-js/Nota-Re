@@ -3,6 +3,8 @@ import { ArrowRight, CircleMinus, CircleX, Clock3, RotateCcw, Settings2, Shuffle
 import type { LucideIcon } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import type { AttemptEvent, AttemptOutcome } from '../../../core/training/exerciseAttempt';
+import { evaluateSpeedChallenge } from '../../../core/training/flowTiming';
+import { requiresSpeedForLessonCredit } from '../../../core/training/courseAssessmentPolicy';
 import { useAppStore } from '../../../store/useAppStore';
 
 const MODE_NAMES: Record<string, string> = {
@@ -44,7 +46,8 @@ function describeError(event: AttemptEvent): string {
 export const AttemptResultCard: React.FC = () => {
   const {
     lastAttemptResult, retryExercise, regenerateExercise,
-    returnToTrainerSetup, goToNextLessonAndStart, switchWorkspace, courseEvidence
+    returnToTrainerSetup, goToNextLessonAndStart, switchWorkspace, courseEvidence,
+    speedChallengeTargetMs, beginSpeedChallenge, exitSpeedChallenge
   } = useAppStore();
   const headingRef = useRef<HTMLHeadingElement>(null);
 
@@ -57,6 +60,12 @@ export const AttemptResultCard: React.FC = () => {
   const result = lastAttemptResult;
   const lesson = COURSE_CURRICULUM.find(item => item.id === result.lessonId);
   const hasCertification = result.lessonPassed && !!lesson;
+  const speedRequired = requiresSpeedForLessonCredit(lesson?.id ?? null);
+  const isSpeedChallenge = speedChallengeTargetMs !== null;
+  const speedCheck = isSpeedChallenge ? evaluateSpeedChallenge({
+    noteCount: result.noteCount, events: result.events,
+    maximumReactionMs: speedChallengeTargetMs
+  }) : null;
   const nextPhotoStage = lesson?.id === 10 && result.mode === 'lookahead' &&
     courseEvidence.completedExercises >= 7;
   const seriesAccuracy = courseEvidence.judgedNotes > 0
@@ -66,15 +75,31 @@ export const AttemptResultCard: React.FC = () => {
   const errors = result.events.filter(event =>
     event.outcome === 'wrong-pitch' || event.outcome === 'late' || event.outcome === 'missed'
   );
-  const description = result.assistedSteps > 0
-    ? 'Использовалась подсказка. Эта попытка не засчитывается как самостоятельное выполнение.'
-    : hasCertification
-      ? 'Норматив урока выполнен. Можно перейти к следующему уроку.'
-      : lesson && result.creditEligible
-        ? 'Упражнение выполнено самостоятельно. Продолжайте зачётную серию.'
-        : lesson
-          ? 'Норматив пока не выполнен. Ошибки и пропуски показаны ниже.'
-          : 'Результат свободной практики. Зачёт урока не выполнялся.';
+  const enoughScores = !!lesson && courseEvidence.completedExercises >= lesson.normReps;
+  const accuracyReady = !!lesson && seriesAccuracy !== null && seriesAccuracy >= lesson.normAcc;
+  const validSpeedEvidence = courseEvidence.correctNotes > 0 &&
+    courseEvidence.reactionSamples === courseEvidence.correctNotes;
+  const speedReady = !!lesson && validSpeedEvidence && seriesReaction !== null &&
+    seriesReaction <= lesson.normSpeed;
+  const description = isSpeedChallenge
+    ? speedCheck?.passed
+      ? 'Скоростная проверка пройдена. Это отдельная тренировка, без зачёта урока.'
+      : 'Скоростная проверка пока не пройдена. Нужны все ноты без ошибок и средний отклик в пределах ориентира. На зачёт урока это не влияет.'
+    : result.assistedSteps > 0
+      ? 'Использовалась подсказка. Эта попытка не засчитывается как самостоятельное выполнение.'
+      : hasCertification
+        ? 'Норматив урока выполнен. Можно перейти к следующему уроку.'
+        : lesson && result.creditEligible
+          ? !enoughScores
+            ? 'Упражнение выполнено самостоятельно. Продолжайте зачётную серию.'
+            : !accuracyReady
+              ? 'Все упражнения выполнены, но точность серии ниже норматива.'
+              : speedRequired && !speedReady
+                ? 'Количество упражнений и точность достаточны, но скорость ещё не соответствует нормативу.'
+                : 'Продолжайте зачётную серию.'
+          : lesson
+            ? 'Норматив пока не выполнен. Ошибки и пропуски показаны ниже.'
+            : 'Результат свободной практики. Зачёт урока не выполнялся.';
 
   return (
     <section data-testid="attempt-results" aria-labelledby="attempt-result-heading"
@@ -84,7 +109,7 @@ export const AttemptResultCard: React.FC = () => {
           <p className="text-xs uppercase font-semibold tracking-widest text-sky-300">Результаты упражнения</p>
           <h2 id="attempt-result-heading" ref={headingRef} tabIndex={-1}
             className="text-xl sm:text-2xl font-bold text-white outline-none">
-            {lesson ? `Урок ${lesson.id}: ${lesson.title}` : 'Свободная практика'}
+            {isSpeedChallenge ? 'Проверка скорости · без зачёта' : lesson ? lesson.title : 'Свободная практика'}
           </h2>
           <p className="text-sm text-slate-400">
             {MODE_NAMES[result.mode] ?? result.mode} · {result.tonality} · {result.bpm} BPM · {result.noteCount} нот
@@ -125,6 +150,15 @@ export const AttemptResultCard: React.FC = () => {
           {description}
         </p>
 
+        {isSpeedChallenge && speedCheck && (
+          <section data-testid="speed-check-verdict" className="rounded-lg border border-sky-700/50 bg-sky-950/30 p-3 text-sm text-sky-100 space-y-1">
+            <strong>{speedCheck.passed ? 'Скоростной ориентир достигнут' : 'Скоростной ориентир пока не достигнут'}</strong>
+            <p>Цель: все {result.noteCount} нот без ошибок, средний отклик не более {speedChallengeTargetMs} мс.</p>
+            <p>Результат: {speedCheck.averageReactionMs === null ? 'нет полного корректного измерения' : `${Math.round(speedCheck.averageReactionMs)} мс`}.</p>
+            <p className="text-xs text-slate-300">Эта проверка не изменяет зачётную серию и не выдаёт сертификат.</p>
+          </section>
+        )}
+
         {nextPhotoStage && (
           <p data-testid="lesson-ten-transition" className="text-sm text-sky-200">
             Этап «Бегунок» завершён. Продолжайте в «Фото-памяти» — ещё 8 упражнений.
@@ -134,13 +168,20 @@ export const AttemptResultCard: React.FC = () => {
           <section data-testid="course-series-summary" className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200 space-y-1">
             <strong className="block text-emerald-300">Зачётная серия: {courseEvidence.completedExercises} / {lesson.normReps} упражнений</strong>
             <p>Точность серии: {seriesAccuracy === null ? '—' : `${seriesAccuracy.toFixed(1)}%`} (нужно ≥{lesson.normAcc}%).</p>
-            <p>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`} (нужно ≤{lesson.normSpeed} мс).</p>
+            <p data-testid="course-speed-status">
+              {speedRequired
+                ? <>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`} (нужно ≤{lesson.normSpeed} мс). {speedReady ? 'Условие выполнено.' : 'Условие не выполнено.'}</>
+                : <>Средний отклик: {seriesReaction === null ? '—' : `${Math.round(seriesReaction)} мс`}. Ориентир для дополнительной тренировки: ≤{lesson.normSpeed} мс. <strong>Скорость не блокирует зачёт первого урока.</strong></>}
+            </p>
+            <p className="text-slate-400">Отклик — время от показа ноты до нажатия, а не оценка соблюдения ритма.</p>
             {!hasCertification && <p className="text-amber-200">
-              {courseEvidence.completedExercises < lesson.normReps
+              {!enoughScores
                 ? `Осталось завершить минимум ${lesson.normReps - courseEvidence.completedExercises} упражнений.`
-                : seriesAccuracy === null || seriesAccuracy < lesson.normAcc
+                : !accuracyReady
                   ? 'Точность ниже норматива. Продолжайте самостоятельную практику в зачётном режиме.'
-                  : 'Проверьте скорость реакции: нужны измеренные своевременные ответы.'}
+                  : speedRequired && !speedReady
+                    ? 'Скорость реакции не соответствует нормативу; нужны полные и корректные измерения.'
+                    : 'Сохранённые результаты будут проверены после следующего самостоятельного упражнения.'}
             </p>}
           </section>
         )}
@@ -206,6 +247,18 @@ export const AttemptResultCard: React.FC = () => {
             className="inline-flex items-center gap-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-2 text-sm font-semibold">
             <Shuffle className="w-4 h-4" /> Новое упражнение
           </button>
+          {lesson?.id === 1 && result.creditEligible && !isSpeedChallenge && (
+            <button type="button" onClick={beginSpeedChallenge} data-testid="start-speed-check"
+              className="inline-flex items-center gap-2 rounded-lg border border-sky-500/60 bg-sky-500/10 hover:bg-sky-500/20 text-sky-200 px-3 py-2 text-sm font-semibold">
+              <Clock3 className="w-4 h-4" /> Отдельная проверка скорости (без зачёта)
+            </button>
+          )}
+          {isSpeedChallenge && (
+            <button type="button" onClick={exitSpeedChallenge} data-testid="exit-speed-check"
+              className="rounded-lg border border-slate-600 hover:bg-slate-800 px-3 py-2 text-sm text-slate-200">
+              Закончить проверку · к курсу
+            </button>
+          )}
           {hasCertification && lesson && lesson.id < COURSE_CURRICULUM.length && (
             <button type="button" onClick={goToNextLessonAndStart}
               className="inline-flex items-center gap-2 rounded-lg bg-sky-500 hover:bg-sky-400 text-slate-950 px-3 py-2 text-sm font-semibold">
@@ -218,10 +271,10 @@ export const AttemptResultCard: React.FC = () => {
               К карте курса
             </button>
           )}
-          <button type="button" onClick={returnToTrainerSetup}
+          {!isSpeedChallenge && <button type="button" onClick={returnToTrainerSetup}
             className="inline-flex items-center gap-2 rounded-lg border border-slate-700 hover:bg-slate-800 px-3 py-2 text-sm text-slate-200">
             <Settings2 className="w-4 h-4" /> К настройкам упражнения
-          </button>
+          </button>}
         </div>
       </div>
     </section>

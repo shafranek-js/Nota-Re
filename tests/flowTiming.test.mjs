@@ -1,6 +1,6 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import { noteDurationMs, startsMeasure, evaluateLessonCredit, metronomeBeatsInNote } from '../src/core/training/flowTiming.ts';
+import { noteDurationMs, startsMeasure, evaluateLessonCredit, evaluateSpeedChallenge, metronomeBeatsInNote } from '../src/core/training/flowTiming.ts';
 
 test('flow deadlines follow note lengths and BPM', () => {
   assert.equal(noteDurationMs({ durMultiplier: 1 }, 60), 1000);
@@ -145,4 +145,45 @@ test('long notes include internal beats while offbeats do not trigger extra tick
     { offsetQuarters: 1.5, strong: false }
   ]);
   assert.deepEqual(metronomeBeatsInNote([], 0), []);
+});
+
+test('lesson one passes accuracy with complete unassisted evidence even when historical reaction is slow', () => {
+  const old = {
+    completedExercises: 10, judgedNotes: 160, correctNotes: 158,
+    reactionTotalMs: 158 * 1450, reactionSamples: 158
+  };
+  const events = Array.from({ length: 16 }, (_, i) => lessonEvent(i, 'correct', 1810));
+  const r = evaluateLessonCredit({ ...normal, previous: old, events,
+    requireSpeed: false, maximumReactionMs: 800 });
+  assert.equal(r.credited, true);
+  assert.equal(r.creditedRepetitions, 11);
+  assert.equal(r.passed, true);
+  assert.ok(r.averageReactionMs > 800);
+  assert.ok(r.accuracy > 90);
+
+  assert.equal(evaluateLessonCredit({ ...normal, previous: old, events,
+    requireSpeed: true }).passed, false, 'other lessons retain speed gate');
+  assert.equal(evaluateLessonCredit({ ...normal, previous: old, events,
+    requireSpeed: false, requiredAccuracy: 100 }).passed, false);
+  assert.equal(evaluateLessonCredit({ ...normal, previous: old, events: [events[0]],
+    requireSpeed: false }).passed, false, 'partial notes never count');
+  assert.equal(evaluateLessonCredit({ ...normal, previous: old, events,
+    assisted: true, requireSpeed: false }).passed, false, 'assisted input never counts');
+});
+
+test('standalone speed challenge requires every correct note and reliable timing', () => {
+  const entries = Array.from({ length: 16 }, (_, i) => lessonEvent(i, 'correct', 700));
+  assert.deepEqual(evaluateSpeedChallenge({ events: entries, noteCount: 16,
+    maximumReactionMs: 800 }), { passed: true, averageReactionMs: 700 });
+  assert.equal(evaluateSpeedChallenge({ events: entries, noteCount: 16,
+    maximumReactionMs: 650 }).passed, false);
+  for (const events of [
+    entries.slice(1), [...entries, entries[0]],
+    entries.map((e, i) => i === 4 ? { ...e, reactionMs: Number.NaN } : e),
+    entries.map((e, i) => i === 4 ? { ...e, outcome: 'assisted' } : e),
+    entries.map((e, i) => i === 4 ? { ...e, noteIndex: 3 } : e)
+  ]) {
+    assert.equal(evaluateSpeedChallenge({ events, noteCount: 16,
+      maximumReactionMs: 800 }).passed, false);
+  }
 });

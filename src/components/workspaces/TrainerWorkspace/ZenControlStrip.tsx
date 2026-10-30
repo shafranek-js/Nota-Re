@@ -13,7 +13,8 @@ export const ZenControlStrip: React.FC = () => {
   const {
     activeLessonId, activeExerciseNotes, activeNoteIndex, completedExercisesCount, bpm,
     isContinuousFlow, audioEnabled, toggleAudioMaster, toggleSettingsDrawer,
-    switchWorkspace, stopTrainerExercise, dismissZenForSession
+    switchWorkspace, stopTrainerExercise, dismissZenForSession,
+    speedChallengeTargetMs, exitSpeedChallenge
   } = useAppStore();
   const exitButton = useRef<HTMLButtonElement>(null);
   const lesson = COURSE_CURRICULUM.find(item => item.id === activeLessonId);
@@ -44,16 +45,21 @@ export const ZenControlStrip: React.FC = () => {
     <div data-testid="zen-control-strip" role="group" aria-label="Управление игрой в Zen Mode"
       className="shrink-0 w-full min-w-0 rounded-xl border border-slate-800 bg-slate-950/95 px-2 py-1.5 flex flex-wrap items-center gap-2 text-xs">
       <button type="button" className="rounded-md px-2 py-1.5 text-slate-300 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400"
-        onClick={lesson ? () => switchWorkspace('course') : stopTrainerExercise}>
+        onClick={lesson ? () => switchWorkspace('course') : speedChallengeTargetMs !== null ? exitSpeedChallenge : stopTrainerExercise}>
         <span className="inline-flex gap-1 items-center"><ArrowLeft className="w-3.5 h-3.5" aria-hidden="true"/>
-          {lesson ? 'К курсу' : 'К настройке'}</span>
+          {lesson || speedChallengeTargetMs !== null ? 'К курсу' : 'К настройке'}</span>
       </button>
       <span className="truncate min-w-0 max-w-40 sm:max-w-sm text-slate-300" title={lesson?.title ?? 'Свободная практика'}>
-        {lesson ? `Урок ${lesson.id}` : 'Студия'} <span className="hidden sm:inline text-slate-500">· {lesson?.title ?? 'Свободная практика'}</span>
+        {lesson ? `Урок ${lesson.id}` : speedChallengeTargetMs !== null ? 'Проверка скорости' : 'Студия'} <span className="hidden sm:inline text-slate-500">· {lesson?.title ?? 'Свободная практика'}</span>
       </span>
       {lesson && (
         <span className="shrink-0 text-emerald-300 font-medium" data-testid="zen-course-credit">
           Зачёт {completedExercisesCount}/{lesson.normReps}
+        </span>
+      )}
+      {speedChallengeTargetMs !== null && (
+        <span data-testid="zen-speed-challenge" className="shrink-0 text-sky-200 font-medium">
+          ≤{speedChallengeTargetMs} мс · без зачёта
         </span>
       )}
       <span data-testid="zen-progress" className="shrink-0 font-mono tabular-nums text-slate-200"
