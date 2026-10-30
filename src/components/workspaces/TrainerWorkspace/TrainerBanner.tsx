@@ -21,16 +21,17 @@ export const TrainerBanner: React.FC = () => {
   const isAssessmentActive = activeLessonId === lesson.id && trainerPhase === 'playing';
 
   return (
-    <div data-testid="trainer-banner" className="shrink-0 w-full bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-wrap items-center justify-between gap-2">
-      <div className="flex items-center gap-2.5 text-xs">
-        <span className="px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[11px]">
+    <div data-testid="trainer-banner" className="shrink-0 w-full min-w-0 bg-gradient-to-r from-emerald-950/80 via-slate-900 to-slate-900 border border-emerald-500/30 rounded-xl px-3 py-1.5 flex flex-col xl:flex-row xl:items-center xl:justify-between gap-1.5">
+      <div className="flex min-w-0 w-full xl:w-auto flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+        <span className="shrink-0 px-2 py-0.5 rounded bg-emerald-500 text-slate-950 font-mono font-bold text-[11px]">
           УРОК {lesson.id} / 12
         </span>
-        <strong className="text-white truncate max-w-md">
+        <strong data-testid="trainer-lesson-title" title={lesson.title}
+          className="min-w-0 max-w-full whitespace-normal break-words leading-snug text-white sm:max-w-md">
           {lesson.title}
         </strong>
         <span data-testid="course-credit-mode" className={isAssessmentActive
-          ? 'text-emerald-300 font-semibold' : 'text-amber-300 font-semibold'}>
+          ? 'shrink-0 text-emerald-300 font-semibold' : 'shrink-0 text-amber-300 font-semibold'}>
           {isAssessmentActive ? 'Зачётная попытка' : 'Практика без зачёта'}
         </span>
         <span className="hidden lg:inline text-slate-400">
@@ -38,14 +39,14 @@ export const TrainerBanner: React.FC = () => {
         </span>
       </div>
 
-      <div className="flex flex-wrap items-center gap-2 text-xs">
+      <div className="flex min-w-0 w-full xl:w-auto flex-wrap items-center gap-1.5 text-xs">
         {!isAssessmentActive && (
           <button type="button" data-testid="studio-start-course" onClick={startActiveLessonInTrainer}
             className="rounded-lg bg-emerald-500 px-3 py-1.5 text-xs font-semibold text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-offset-2 focus-visible:outline-sky-400">
             Начать зачёт урока {lesson.id}
           </button>
         )}
-        <div className="flex items-center gap-2 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
+        <div className="flex max-w-full flex-wrap items-center gap-x-2 gap-y-1 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
           <span className="text-slate-400">{isAssessmentActive ? 'Зачёт серии:' : 'Сохранено:'}</span>
           <strong className="text-purple-400">{isAssessmentActive ? completedExercisesCount : (courseSeries[lesson.id]?.completedExercises ?? 0)} / {lesson.normReps} ном.</strong>
           <span className="text-slate-700">|</span>
