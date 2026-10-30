@@ -23,32 +23,7 @@ try {
       const status = page.getByTestId('status-bar');
       const build = status.getByTestId('build-version');
       await status.waitFor({ state: 'visible' });
-      assert.match(await build.innerText(), new RegExp(`^v${version.replaceAll('.', '\\.')} · сборка (?:[a-f0-9]{7}|unknown)/**
- * Persistent technical status bar: live MIDI, audio/renderer state and build.
- * Run after building and starting the production preview on port 4173.
- */
-import assert from 'node:assert/strict';
-import { readFileSync } from 'node:fs';
-
-const { version } = JSON.parse(readFileSync('package.json', 'utf8'));
-import { chromium } from 'playwright';
-
-const browser = await chromium.launch({
-  headless: true, executablePath: process.env.CHROME_PATH,
-  args: ['--no-sandbox']
-});
-
-try {
-  for (const width of [320, 1440]) {
-    const page = await browser.newPage({ viewport: { width, height: 780 } });
-    const errors = [];
-    page.on('pageerror', e => errors.push(e.message));
-    try {
-      await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
-      const status = page.getByTestId('status-bar');
-      const build = status.getByTestId('build-version');
-      await status.waitFor({ state: 'visible' });
-      ));
+      assert.match(await build.innerText(), new RegExp(`^v${version.replaceAll('.', '\\.')} · сборка (?:[a-f0-9]{7}|unknown)$`));
       assert.match(await status.getByTestId('status-midi').innerText(), /MIDI:/);
       assert.match(await status.getByTestId('status-audio').innerText(), /Аудио:/);
       assert.match(await status.getByTestId('status-renderer').innerText(), /OSMD/);
