@@ -1,5 +1,5 @@
 import React from 'react';
-import { ArrowLeft, FileDown, Focus, Pause, Play, Settings2, Square } from 'lucide-react';
+import { ArrowLeft, FileDown, Pause, Play, Settings2, Square } from 'lucide-react';
 import { COURSE_CURRICULUM } from '../../../data/curriculum';
 import { downloadExerciseMusicXml } from '../../../core/notation/downloadMusicXml';
 import { useAppStore } from '../../../store/useAppStore';
@@ -14,12 +14,20 @@ export const CourseLessonControls: React.FC = () => {
   const {
     activeLessonId, selectedLessonId, activeExerciseNotes, currentTonality,
     currentAppMode, bpm, isContinuousFlow, completedExercisesCount,
-    zenModeEnabled, toggleZenMode, openTrainerPrecheck, stopTrainerExercise,
+    zenSessionStarted, zenDismissedForSession, openTrainerPrecheck, stopTrainerExercise,
     toggleContinuousFlow, switchWorkspace
   } = useAppStore();
   const lesson = COURSE_CURRICULUM.find(item =>
     item.id === activeLessonId && item.id === selectedLessonId
   );
+
+  React.useLayoutEffect(() => {
+    if (zenSessionStarted && zenDismissedForSession) {
+      document.querySelector<HTMLButtonElement>('[data-testid="course-focused-controls"] button')?.focus();
+    }
+    // Focus only on mount, after Zen has unmounted and Course controls exist.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
 
   if (!lesson) return null;
 
@@ -76,11 +84,6 @@ export const CourseLessonControls: React.FC = () => {
         <button type="button" onClick={exportScore}
           className="rounded-lg border border-slate-700 px-2.5 py-1.5 text-slate-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
           <span className="inline-flex items-center gap-1"><FileDown aria-hidden="true" className="h-3.5 w-3.5" /> MusicXML</span>
-        </button>
-        <button type="button" onClick={toggleZenMode}
-          data-testid="toolbar-zen-toggle" aria-pressed={zenModeEnabled}
-          className="rounded-lg border border-sky-600/50 px-2.5 py-1.5 text-sky-200 hover:bg-sky-900/20 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
-          <span className="inline-flex items-center gap-1"><Focus aria-hidden="true" className="h-3.5 w-3.5" /> Zen</span>
         </button>
         <button type="button" onClick={stopTrainerExercise}
           data-testid="course-to-free-setup"

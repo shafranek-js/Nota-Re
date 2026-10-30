@@ -15,6 +15,12 @@ try {
     const page = await browser.newPage({ viewport: { width, height: width === 375 ? 700 : 900 } });
     page.on('pageerror', error => errors.push(error.message));
     try {
+      // This result-card test reads the active pitch and manipulates in-play
+      // controls. Validate the explicit normal-view opt-out, not Zen masking.
+      await page.addInitScript(() => localStorage.setItem(
+        'notare-trainer-preferences-v1',
+        JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })
+      ));
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       await page.getByRole('navigation', { name: 'Рабочие пространства' })
         .getByRole('button', { name: /^Студия$/ }).click();

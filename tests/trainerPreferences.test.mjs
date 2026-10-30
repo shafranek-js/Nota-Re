@@ -58,7 +58,9 @@ test('malformed values never crash or override defaults with invalid data', () =
   assert.equal(p.currentTonality, 'C');
   assert.equal(p.photoExposureMs, 1800);
   assert.equal(p.isBlindfolded, false);
-  assert.equal(p.zenModeEnabled, false);
+  assert.equal(p.zenModeEnabled, true);
+  assert.equal(DEFAULT_TRAINER_PREFERENCES.zenModeEnabled, true,
+    'auto Zen is the default unless the user explicitly opts out');
   assert.equal(p.audioEnabled, true);
   assert.equal(p.metronomeEnabled, false);
   assert.equal(p.currentFilter, 'bass');
@@ -76,7 +78,7 @@ test('saved envelope is versioned and excludes flow/grades/MIDI runtime', () => 
     saveTrainerPreferences(snapshot);
     const raw = store.getItem(TRAINER_PREFERENCES_KEY);
     const envelope = JSON.parse(raw);
-    assert.equal(envelope.version, 1);
+    assert.equal(envelope.version, 2);
     assert.equal(envelope.preferences.bpm, 100);
     assert.equal(envelope.preferences.currentTonality, 'G');
     assert.equal(envelope.preferences.zenModeEnabled, true);
@@ -85,6 +87,12 @@ test('saved envelope is versioned and excludes flow/grades/MIDI runtime', () => 
     assert.equal('totalAttempts' in envelope.preferences, false);
     assert.equal('completedLessons' in envelope.preferences, false);
     assert.deepEqual(loadTrainerPreferences(), snapshot);
+    store.setItem(TRAINER_PREFERENCES_KEY,
+      JSON.stringify({ version: 1, preferences: { bpm: 103, currentTonality: 'D', zenModeEnabled: false } }));
+    const migrated = loadTrainerPreferences();
+    assert.equal(migrated.zenModeEnabled, true, 'old manual Zen false must not disable new auto default');
+    assert.equal(migrated.bpm, 103, 'migration preserves exercise preferences');
+    assert.equal(migrated.currentTonality, 'D');
     store.setItem(TRAINER_PREFERENCES_KEY,
       JSON.stringify({ version: 999, preferences: { bpm: 100 } }));
     assert.deepEqual(loadTrainerPreferences(), DEFAULT_TRAINER_PREFERENCES);
