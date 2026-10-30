@@ -10,6 +10,6 @@ export function allowsAutomaticLessonCredit(lessonId: number | null): boolean {
 
 /** Raw visual-to-key delay is not a measured rhythm or motor proficiency.
  * Speed targets remain optional diagnostics in *all* course lessons. */
-export function requiresSpeedForLessonCredit(lessonId: number | null): boolean {
+export function requiresSpeedForLessonCredit(_lessonId: number | null): boolean {
   return false;
 }
