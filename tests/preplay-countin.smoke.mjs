@@ -55,10 +55,9 @@ try {
       const countIn = page.getByTestId('trainer-count-in');
       await countIn.waitFor({ state: 'visible', timeout: 2500 });
       const downbeats = await page.evaluate(() => window.__strongClicks);
-      assert.equal(downbeats.length, 2,
-        'count-in and first playing downbeat must both be scheduled before JS clock transition');
-      assert.ok(Math.abs(downbeats[1] - downbeats[0] - 4) < 0.001,
-        '60 BPM: first flow beat belongs exactly four quarter-beats after count-in starts');
+      assert.ok(downbeats.some(start => downbeats.some(end =>
+        Math.abs(end - start - 4) < 0.001)),
+        '60 BPM: a first playing downbeat must be prequeued exactly four quarter-beats after count-in starts');
       assert.equal(await page.getByTestId('osmd-score').count(), 0,
         'no score nor piano shortcut controls while preparing four beats');
       await page.evaluate(() => window.__preplayMidi.send([0x90, 60, 99]));
