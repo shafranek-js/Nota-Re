@@ -5,7 +5,7 @@
   "type": "module",
   "scripts": {
     "dev": "npm run prepare:worklet && npm run prepare:soundfont && vite",
-    "build": "npm run prepare:worklet && npm run prepare:soundfont && tsc -b && vite build",
+    "build": "node scripts/prepare-release-history.mjs && npm run prepare:worklet && npm run prepare:soundfont && tsc -b && vite build",
     "preview": "vite preview",
     "test": "node --experimental-strip-types --test tests/*.test.mjs",
     "prepare:worklet": "node scripts/copy-soundfont-worklet.mjs",

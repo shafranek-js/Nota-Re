@@ -12,7 +12,7 @@ const { version } = JSON.parse(readFileSync(new URL('./package.json', import.met
 // Cloudflare provide their checkout SHA; local dev uses the current git HEAD.
 // Do not use a time/random build ID: those cannot be traced back to code.
 function getBuildRevision(): string {
-  const ciRevision = process.env.NOTARE_BUILD_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
+  const ciRevision = process.env.NOTARE_BUILD_SHA || process.env.WORKERS_CI_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA || process.env.GITHUB_SHA;
   if (ciRevision && /^[a-f0-9]{7,40}$/i.test(ciRevision)) return ciRevision.slice(0, 7);
   try {
     const gitRevision = execFileSync('git', ['rev-parse', '--short=7', 'HEAD'], {
@@ -27,6 +27,13 @@ function getBuildRevision(): string {
 
 const revision = getBuildRevision();
 const release = resolveReleaseVersion({ baseVersion: version, revision });
+// Cloudflare Workers Builds/Pages must never publish a stale v3.0.0+gSHA
+// when the corresponding complete local checkout has v3.0.N.
+if ((process.env.WORKERS_CI === '1' || process.env.CF_PAGES === '1' ||
+     process.env.WORKERS_CI_COMMIT_SHA || process.env.CF_PAGES_COMMIT_SHA) &&
+    release.source !== 'git-history') {
+  throw new Error('Cloudflare release history missing: run npm run build (which restores Git ancestry) before deployment.');
+}
 
 export default defineConfig({
   // GitHub Pages is hosted under /Nota-Re/; local dev and other hosts stay at /.

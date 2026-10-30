@@ -19,10 +19,17 @@ Both fields are injected at Vite startup/build, never from localStorage.
   GitHub Pages. No clocks, CI run-number counters, dirty-worktree state,
   or manually maintained per-commit version edits are involved.
 - Actions checkout uses `fetch-depth: 0` for complete version history.
-  Source archives, shallow checkouts and other unsupported build systems
-  use an **explicit fallback** `v3.0.0+g<sha>`, rather than falsely
-  presenting the frozen `v3.0.0`. A complete checkout is required for
-  sequential numeric patch versions.
+  Cloudflare Workers Builds (`WORKERS_CI=1` / `WORKERS_CI_COMMIT_SHA`) and
+  Cloudflare Pages (`CF_PAGES=1`) may provide only a shallow checkout.
+  The standard `npm run build` first runs `scripts/prepare-release-history.mjs`,
+  which fetches the missing commit ancestry from GitHub and verifies the
+  build SHA and base release epoch before Vite injects the version.
+  If this cannot be verified, **Cloudflare build fails** instead of serving
+  `v3.0.0+g<sha>` while local and GitHub Pages show `v3.0.N`.
+- Local source archives without Git history still support the explicit
+  `v3.0.0+g<sha>` fallback. The numeric patch requires complete ancestry.
+  A Cloudflare Worker must use the repository build command `npm run build`
+  (not direct `vite build`), and then deploy the generated `dist`.
 - To start a new minor or major series, update the base package version
   **and epoch** together in a reviewed release PR, with a matching npm
   lockfile update. The epoch must correspond to that new base release.
