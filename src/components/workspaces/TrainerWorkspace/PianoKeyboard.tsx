@@ -32,7 +32,9 @@ export const PianoKeyboard: React.FC<{ zen?: boolean }> = ({ zen = false }) => {
       // practice instead of activating the button. A focused piano key is a
       // special case: letters still play notes, while Space activates that
       // exact native button via its regular click handler.
-      if (useAppStore.getState().isSettingsOpen || e.ctrlKey || e.metaKey || e.altKey) return;
+      const session = useAppStore.getState();
+      if (session.isSettingsOpen || session.trainerPhase === 'countIn' ||
+          session.trainerPhase === 'precheck' || e.ctrlKey || e.metaKey || e.altKey) return;
       const target = e.target instanceof HTMLElement ? e.target : null;
       const isPianoKey = !!target?.closest('.piano-white-key, .piano-black-key');
       if (target?.isContentEditable || (target?.closest(
