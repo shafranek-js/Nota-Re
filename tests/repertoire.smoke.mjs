@@ -29,17 +29,39 @@ try {
       assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
       await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
       assert.match(await page.getByTestId('repertoire-timeline').innerText(), /Структура распознана: 2 такт/);
+      const coverage = page.getByTestId('repertoire-anchor-coverage');
+      await coverage.waitFor({ state: 'visible' });
+      assert.match(await coverage.innerText(), /Ноты: 2\/2/,
+        'two individual MusicXML pitches must map to actual OSMD noteheads');
+      const toggleNotes = page.getByTestId('repertoire-note-anchors');
+      assert.ok(await toggleNotes.isDisabled(),
+        'individual notes can be highlighted only after selecting a measure range');
       const ab = page.getByTestId('repertoire-ab-controls');
       await ab.waitFor({ state: 'visible' });
       await ab.getByRole('button', { name: 'Выделить' }).click();
       await page.waitForFunction(() =>
         document.querySelectorAll('[data-repertoire-measure]').length === 1);
+      assert.ok(await toggleNotes.isEnabled());
+      await toggleNotes.click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-note]').length === 1);
+      const noteMarker = page.locator('[data-repertoire-note]').first();
+      assert.match((await noteMarker.getAttribute('data-repertoire-note')) ?? '', /^P1:/);
+      assert.equal(await noteMarker.getAttribute('pointer-events'), null,
+        'SVG note marker inherits pointer-events none from its layer');
+      await toggleNotes.click();
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-note]').length === 0);
+      await toggleNotes.click();
+
       assert.equal(await page.locator('[data-repertoire-measure="measure-1"]').count(), 1);
       assert.equal(await page.locator('[data-repertoire-boundary="A"]').count(), 1);
       await ab.getByRole('spinbutton', { name: 'Конечный такт B' }).fill('2');
       await page.waitForFunction(() =>
         document.querySelectorAll('[data-repertoire-measure]').length === 2);
       assert.equal(await page.locator('[data-repertoire-measure="measure-2"]').count(), 1);
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-note]').length === 2);
       assert.equal(await page.locator('[data-repertoire-boundary="B"]').count(), 1);
       assert.equal(await page.getByTestId('repertoire-status').count(), 1,
         'A–B highlighting is never a graded exercise');
@@ -67,6 +89,9 @@ try {
         document.querySelectorAll('[data-repertoire-measure]').length === 2);
       assert.equal(await page.locator('[data-repertoire-measure="measure-1"]').count(), 1,
         'A–B must be recomputed on a fresh light-theme engraving');
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-note]').length === 2);
+      assert.match(await page.getByTestId('repertoire-anchor-coverage').innerText(), /Ноты: 2\/2/);
 
       await mkdir('artifacts', { recursive: true });
       await page.screenshot({ path: `artifacts/repertoire-preview-${width}.png`, fullPage: true });
@@ -79,6 +104,8 @@ try {
       assert.equal(await page.getByTestId('repertoire-preview').count(), 0);
       assert.equal(await page.locator('[data-repertoire-measure]').count(), 0,
         'A–B overlays must be removed when leaving repertoire preview');
+      assert.equal(await page.locator('[data-repertoire-note]').count(), 0,
+        'individual note overlays must also be removed on close');
       assert.equal(await page.getByTestId('repertoire-status').count(), 0);
 
       // Invalid / unsafe XML is rejected before it reaches OSMD.
