@@ -66,10 +66,19 @@ then again on the merged `main` commit. Chrome tests cover:
 
 ## Zen / Focus mode (Stage D)
 
-- In Studio, click **Zen** while playing: the normal app header, lesson
-  banner and setup toolbar are replaced by a compact **Back / progress /
-  tempo / audio / Settings / Stop / Exit** strip. Focus is opt-in and
-  persisted; toggling it never changes the MIDI/audio/grading clock.
+- In Studio, **Start exercise** (or launch a Course lesson) automatically
+  enters Zen. The saved checkbox **Вид → Автоматически включать Zen при
+  начале упражнения** is enabled by default; users may opt out.
+  The normal header, lesson banner and setup toolbar become a compact
+  **Back / progress / tempo / audio / Settings / Stop / Exit** strip.
+  The preference is migrated from the old v1 manual Zen toggle without
+  losing key, tempo or MIDI settings. No audio/MIDI/grading clock changes.
+- Esc dismisses Zen for only the current attempt without disabling the
+  saved preference; a subsequent Start automatically re-enters focus.
+  Choosing the checkbox during a running attempt never abruptly hides the
+  interface. Count-in retains its four-beat preparation view with focused
+  shell before the first actual notation appears; Precheck and Results
+  never enter Zen, and visiting Studio alone never starts Zen.
 - Check both OSMD and Classic on 320, 375, 768, 1024, 1440 and 1920px.
   In OSMD Zen, the notation renderer uses a responsive engraving zoom rather
   than the fixed effective 1.0 scale in a large blank white canvas. The screenshot matrix
