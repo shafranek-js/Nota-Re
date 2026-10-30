@@ -46,7 +46,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     setTimeline(null);
     setGeometryMessage(null);
     mappedMeasures.current = [];
-    let parsedTimeline: MusicXmlTimelineResult | null = null;
+    const parsed = { timeline: null as MusicXmlTimelineResult | null };
 
     (async () => {
       try {
@@ -67,7 +67,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
             inspectMusicXmlText(safe);
             // Map the same sanitized XML passed to OSMD. Unsupported notation
             // remains renderable and is never silently made assessable.
-            parsedTimeline = mapMusicXmlToScoreDocument(safe, info.title);
+            parsed.timeline = mapMusicXmlToScoreDocument(safe, info.title);
             return safe;
           }
         });
@@ -90,9 +90,9 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         osmd.render();
         if (cancelled) return;
         if (!mount.querySelector('svg')) throw new Error('Нотный движок не вернул SVG партитуры.');
-        setTimeline(parsedTimeline ?? { score: null, reason: 'Нотный движок не предоставил XML для структурного анализа.' });
-        if (parsedTimeline?.score) {
-          const result = locateEngravedMeasures(osmd, mount, parsedTimeline.score);
+        setTimeline(parsed.timeline ?? { score: null, reason: 'Нотный движок не предоставил XML для структурного анализа.' });
+        if (parsed.timeline?.score) {
+          const result = locateEngravedMeasures(osmd, mount, parsed.timeline.score);
           mappedMeasures.current = result.measures;
           setGeometryMessage(result.reason);
         }
@@ -107,8 +107,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
             if (!cancelled) {
               try {
                 osmd.render();
-                if (parsedTimeline?.score) {
-                  const result = locateEngravedMeasures(osmd, mount, parsedTimeline.score);
+                if (parsed.timeline?.score) {
+                  const result = locateEngravedMeasures(osmd, mount, parsed.timeline.score);
                   mappedMeasures.current = result.measures;
                   setGeometryMessage(result.reason);
                 }
