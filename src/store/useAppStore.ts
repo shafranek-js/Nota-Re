@@ -85,6 +85,8 @@ export interface AppState {
 
   // Аудио и MIDI
   audioEnabled: boolean;
+  /** Opt-in pulse setting loaded from versioned trainer preferences. */
+  metronomeEnabled: boolean;
   midiInputsCount: number;
 
   // Телеметрия
