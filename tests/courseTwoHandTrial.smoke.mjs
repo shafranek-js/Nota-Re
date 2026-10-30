@@ -35,7 +35,8 @@ try {
   assert.equal(await page.getByTestId('course-two-hand-trial-launch').count(), 0);
 
   await page.getByTestId('course-lesson-11').click();
-  await page.getByTestId('course-two-hand-trial-launch').click();
+  assert.match(await page.getByTestId('two-hand-certification-policy').innerText(), /Автоматический зачёт отключён/);
+  await page.getByTestId('course-launch-selected').click();
   const trial = page.getByTestId('two-hand-practice');
   await trial.waitFor({ state: 'visible', timeout: 30000 });
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 11/);
@@ -64,7 +65,7 @@ try {
   assert.equal(await page.getByTestId('two-hand-practice').count(), 0);
 
   await page.getByTestId('course-lesson-12').click();
-  await page.getByTestId('course-two-hand-trial-launch').click();
+  await page.getByTestId('course-launch-selected').click();
   await trial.waitFor({ state: 'visible' });
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
   assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /аппликатуру/);
@@ -124,14 +125,14 @@ try {
   await page.getByTestId('two-hand-back-to-course').click();
   await courseProgress.waitFor({ state: 'visible' });
 
-  // Existing official lesson launch still routes to the usual monophonic
-  // preset. The new examples do not silently replace course certification.
-  await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
-  await page.getByTestId('two-hand-practice').waitFor({ state: 'detached' });
-  await page.getByTestId('course-credit-mode').waitFor({ state: 'visible' });
-  assert.equal(await page.getByTestId('course-credit-mode').innerText(), 'Зачётная попытка');
+  // Default launch no longer pretends that single-note grading certifies two hands.
+  await page.getByTestId('course-launch-selected').click();
+  await page.getByTestId('two-hand-practice').waitFor({ state: 'visible' });
+  assert.equal(await page.getByTestId('course-credit-mode').count(), 0);
+  assert.match(await page.getByTestId('two-hand-trial-context').innerText(), /Урок 12/);
+  assert.match(await courseProgress.innerText(), /0\/12/);
   assert.deepEqual(errors, []);
-  console.log('Course trial smoke passed: lesson-linked RH/LH presets, real MIDI, no credit, original lesson preserved.');
+  console.log('Course trial smoke passed: lesson-linked RH/LH presets, real MIDI, no credit, lesson launches polyphonic practice.');
 } finally {
   await browser.close();
 }

@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
+import { isTwoHandCourseLesson } from '../../core/training/courseAssessmentPolicy';
 import { CheckCircle2, Circle, ArrowLeft, ArrowRight, BookOpen, Info, Play, RotateCcw } from 'lucide-react';
 
 const COURSE_MODULES = [
@@ -19,12 +20,12 @@ export const CourseWorkspace: React.FC = () => {
     toggleLessonCompleted,
     resetCourseProgress,
     startActiveLessonInTrainer,
-    prepareSelectedLessonInTrainer,
-    startTwoHandCourseTrial
+    prepareSelectedLessonInTrainer
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
+  const isTwoHand = isTwoHandCourseLesson(lesson.id);
   const savedRepetitions = courseSeries[lesson.id]?.completedExercises ?? 0;
   const doneCount = completedLessons.length;
   const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM
@@ -186,11 +187,13 @@ export const CourseWorkspace: React.FC = () => {
               </div>
               <div className="shrink-0 flex flex-col items-stretch gap-2">
                 <button type="button" data-testid="course-launch-selected"
-                  aria-label={`Запустить этот урок в тренажёре: Урок ${lesson.id}`}
+                  aria-label={isTwoHand
+                    ? `Открыть двухручную MIDI-практику: Урок ${lesson.id}`
+                    : `Запустить этот урок в тренажёре: Урок ${lesson.id}`}
                   onClick={startActiveLessonInTrainer}
                   className="inline-flex items-center justify-center gap-1.5 rounded-lg bg-emerald-500 px-3 py-2 text-xs font-bold text-slate-950 hover:bg-emerald-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
                   <Play className="w-3.5 h-3.5 fill-current" aria-hidden="true" />
-                  Запустить урок {lesson.id} (Студия)
+                  {isTwoHand ? `Две руки · MIDI · Урок ${lesson.id}` : `Запустить урок ${lesson.id} (Студия)`}
                 </button>
                 {isDone ? (
                   <span className="flex items-center gap-1.5 text-xs font-mono uppercase px-2.5 py-1 rounded bg-emerald-500/20 text-emerald-300 font-bold border border-emerald-500/40">
@@ -199,13 +202,20 @@ export const CourseWorkspace: React.FC = () => {
                   </span>
                 ) : (
                   <span className="flex items-center gap-1.5 text-xs font-mono uppercase px-2.5 py-1 rounded bg-amber-500/15 text-amber-300 font-bold border border-amber-500/30">
-                    ТРЕБУЕТСЯ СДАТЬ НОРМАТИВ
+                    {isTwoHand ? 'РУЧНОЕ ПОДТВЕРЖДЕНИЕ' : 'ТРЕБУЕТСЯ СДАТЬ НОРМАТИВ'}
                   </span>
                 )}
               </div>
             </div>
 
           <div data-testid="course-detail-scroll" className="flex-1 min-h-0 lg:overflow-y-auto custom-scroll space-y-2.5 pt-2">
+            {isTwoHand && (
+              <p data-testid="two-hand-certification-policy" className="text-xs text-amber-200 border border-amber-700/40 bg-amber-950/20 px-3 py-2 rounded-lg">
+                MIDI-практика проверяет партии двух рук, синхронность и длительности.
+                Аппликатуру, движение взгляда и выразительность legato MIDI не подтверждает.
+                Автоматический зачёт отключён: после проверки остальных требований отметь урок сданным вручную.
+              </p>
+            )}
             {/* Методическое обоснование */}
             <div>
               <h4 className="text-xs font-bold uppercase font-mono text-slate-400 mb-1">
@@ -314,16 +324,10 @@ export const CourseWorkspace: React.FC = () => {
               >
                 <RotateCcw className="w-4 h-4" />
               </button>
-              <button type="button" onClick={prepareSelectedLessonInTrainer}
-                className="px-3 py-2 rounded-xl border border-sky-500/40 bg-slate-800 hover:bg-slate-700 text-sky-200 font-semibold text-xs transition">
-                Сначала анализ нот
-              </button>
-              {(lesson.id === 11 || lesson.id === 12) && (
-                <button type="button" data-testid="course-two-hand-trial-launch"
-                  onClick={() => startTwoHandCourseTrial(lesson.id)}
-                  className="rounded-xl border border-sky-500/50 bg-sky-500/10 px-4 py-2 text-xs font-semibold text-sky-200 hover:bg-sky-500/20"
-                  title="Отдельная MIDI-практика с двумя руками, без зачёта учебного норматива">
-                  Пробное задание: две руки (без зачёта)
+              {!isTwoHand && (
+                <button type="button" onClick={prepareSelectedLessonInTrainer}
+                  className="px-3 py-2 rounded-xl border border-sky-500/40 bg-slate-800 hover:bg-slate-700 text-sky-200 font-semibold text-xs transition">
+                  Сначала анализ нот
                 </button>
               )}
 

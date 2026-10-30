@@ -21,6 +21,7 @@ import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } 
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
 import { assessmentModeForLesson, canCreditLessonMode } from '../core/training/lessonStages';
+import { allowsAutomaticLessonCredit, isTwoHandCourseLesson } from '../core/training/courseAssessmentPolicy';
 import { 
   loadCourseProgressFromStorage, 
   saveCourseProgressToStorage, 
@@ -320,6 +321,7 @@ function finishExercise(
     requiredAccuracy: lesson?.normAcc ?? 100,
     maximumReactionMs: lesson?.normSpeed ?? 0,
     lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId &&
+      allowsAutomaticLessonCredit(lesson.id) &&
       canCreditLessonMode(lesson.id, state.courseEvidence.completedExercises, state.currentAppMode))
   });
 
@@ -591,7 +593,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     stopFlowClock();
     const { selectedLessonId } = get();
     const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
-    
+    // Polyphonic practicum, not a false single-pitch course certificate.
+    if (isTwoHandCourseLesson(lesson.id)) {
+      get().startTwoHandCourseTrial(lesson.id);
+      return;
+    }
+
     const resumedEvidence = get().courseSeries[lesson.id] ?? EMPTY_LESSON_EVIDENCE;
     get().resetSessionStats();
 
@@ -625,7 +632,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     // Existing direct-start button remains unchanged for previously issued
     // course presets and their browser regression contract.
     get().startActiveLessonInTrainer();
-    get().openTrainerPrecheck();
+    if (!isTwoHandCourseLesson(get().selectedLessonId)) get().openTrainerPrecheck();
   },
 
   openTrainerPrecheck: () => {
