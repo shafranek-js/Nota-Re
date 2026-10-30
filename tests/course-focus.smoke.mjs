@@ -81,6 +81,46 @@ try {
       await page.close();
     }
   }
+  // Saved graded evidence resumes per lesson; leaving an active assessment
+  // requires confirmation, while declining preserves the current course.
+  const savedPage = await browser.newPage({ viewport: { width: 1280, height: 900 } });
+  savedPage.on('pageerror', error => errors.push('resume: ' + error.message));
+  let approveExit = false;
+  const dialogs = [];
+  savedPage.on('dialog', dialog => {
+    dialogs.push(dialog.message());
+    void (approveExit ? dialog.accept() : dialog.dismiss());
+  });
+  await savedPage.addInitScript(() => {
+    localStorage.setItem('notare_course_series_v1', JSON.stringify({ version: 1, lessons: {
+      1: { completedExercises: 3, judgedNotes: 48, correctNotes: 46,
+        reactionSamples: 46, reactionTotalMs: 46 * 450 }
+    }}));
+  });
+  try {
+    await savedPage.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
+    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
+    await savedPage.getByTestId('course-launch-selected').click();
+    const focused = savedPage.getByTestId('course-focused-controls');
+    await focused.waitFor({ state: 'visible' });
+    assert.match(await focused.innerText(), /3 \/ 10 ном/);
+    await focused.getByRole('button', { name: 'Остановить' }).click();
+    assert.equal(await focused.count(), 1, 'cancelled interruption must keep graded controls');
+    assert.equal(dialogs.length, 1);
+    assert.match(dialogs[0], /Завершённые упражнения \(3\) сохранены/);
+    approveExit = true;
+    await focused.getByRole('button', { name: 'Остановить' }).click();
+    await savedPage.getByTestId('trainer-setup').waitFor({ state: 'visible' });
+    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:.*3 \/ 10/);
+    assert.equal(dialogs.length, 2);
+    await savedPage.reload({ waitUntil: 'domcontentloaded' });
+    assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
+    await savedPage.getByTestId('course-lesson-2').click();
+    await savedPage.getByTestId('course-launch-selected').click();
+    assert.match(await savedPage.getByTestId('course-focused-controls').innerText(), /0 \/ 15 ном/);
+  } finally {
+    await savedPage.close();
+  }
   assert.deepEqual(errors, [], 'no uncaught errors in focused course journey');
   console.log('Focused course controls Chrome acceptance passed at 375px / 1440px');
 } finally {
