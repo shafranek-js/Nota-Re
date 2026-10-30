@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import { mkdir } from 'node:fs/promises';
 import { chromium } from 'playwright';
-import { DEMO_XML, makeMxl } from './repertoireFixtures.mjs';
+import { DEMO_XML, DEMO_MULTI_XML, makeMxl } from './repertoireFixtures.mjs';
 
 const browser = await chromium.launch({
   headless: true, executablePath: process.env.CHROME_PATH, args: ['--no-sandbox']
@@ -59,6 +59,29 @@ try {
       assert.ok(await page.getByTestId('studio-score-area').isVisible());
 
       if (width === 1440) {
+        // A multi-part score is rendered without inventing an ExerciseNote
+        // sequence, deleting a voice, or claiming it can be graded.
+        await filePicker.setInputFiles({ name: 'two-parts.musicxml',
+          mimeType: 'application/vnd.recordare.musicxml+xml',
+          buffer: Buffer.from(DEMO_MULTI_XML) });
+        await preview.waitFor({ state: 'visible', timeout: 35000 });
+        assert.match(await preview.innerText(), /2 партий/);
+        await page.getByTestId('repertoire-score').locator('svg').first()
+          .waitFor({ state: 'visible', timeout: 45000 });
+        await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
+
+        // Native HTML drag and drop exercises the same validation path.
+        await page.evaluate(xml => {
+          const payload = new DataTransfer();
+          payload.items.add(new File([xml], 'dropped.musicxml', { type: 'text/xml' }));
+          const studio = document.querySelector('[data-testid="studio-root"]');
+          studio.dispatchEvent(new DragEvent('dragover', { bubbles: true, cancelable: true, dataTransfer: payload }));
+          studio.dispatchEvent(new DragEvent('drop', { bubbles: true, cancelable: true, dataTransfer: payload }));
+        }, DEMO_XML);
+        await preview.waitFor({ state: 'visible', timeout: 35000 });
+        assert.match(await preview.innerText(), /dropped.musicxml/);
+        await preview.getByRole('button', { name: 'Вернуться к упражнению' }).click();
+
         // ZIP container rootfile is deliberately nested rather than the first
         // entry. OSMD 2.2.1 must handle the original File directly.
         await filePicker.setInputFiles({ name: 'nested.mxl',
