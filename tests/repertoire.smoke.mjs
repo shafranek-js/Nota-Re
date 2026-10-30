@@ -27,6 +27,8 @@ try {
       const preview = page.getByTestId('repertoire-preview');
       await preview.waitFor({ state: 'visible', timeout: 35000 });
       assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
+      assert.ok(await page.getByTestId('repertoire-status').isVisible());
+      assert.equal(await page.getByTestId('status-bar').getByText('Точность:', { exact: false }).count(), 0);
       await page.getByTestId('repertoire-score').locator('svg').first()
         .waitFor({ state: 'visible', timeout: 45000 });
       assert.equal(await page.getByTestId('studio-score-area').count(), 0,
@@ -47,6 +49,7 @@ try {
       assert.equal(await page.evaluate(() => localStorage.getItem('notare_course_completed_v3')),
         progressBefore);
       assert.equal(await page.getByTestId('repertoire-preview').count(), 0);
+      assert.equal(await page.getByTestId('repertoire-status').count(), 0);
 
       // Invalid / unsafe XML is rejected before it reaches OSMD.
       await filePicker.setInputFiles({ name: 'invalid.musicxml', mimeType: 'text/xml',
