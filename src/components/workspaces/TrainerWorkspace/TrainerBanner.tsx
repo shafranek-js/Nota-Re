@@ -9,6 +9,7 @@ export const TrainerBanner: React.FC = () => {
     activeLessonId,
     completedLessons,
     completedExercisesCount,
+    courseSeries,
     switchWorkspace,
     goToNextLessonAndStart,
     startActiveLessonInTrainer,
@@ -45,8 +46,8 @@ export const TrainerBanner: React.FC = () => {
           </button>
         )}
         <div className="flex items-center gap-2 bg-slate-950/90 px-2.5 py-1 rounded-lg border border-slate-800 font-mono text-[11px]">
-          <span className="text-slate-400">Зачёт серии:</span>
-          <strong className="text-purple-400">{isAssessmentActive ? completedExercisesCount : 0} / {lesson.normReps} ном.</strong>
+          <span className="text-slate-400">{isAssessmentActive ? 'Зачёт серии:' : 'Сохранено:'}</span>
+          <strong className="text-purple-400">{isAssessmentActive ? completedExercisesCount : (courseSeries[lesson.id]?.completedExercises ?? 0)} / {lesson.normReps} ном.</strong>
           <span className="text-slate-700">|</span>
           {isDone ? (
             <span className="flex items-center gap-1 text-emerald-400 font-bold">

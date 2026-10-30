@@ -26,6 +26,10 @@ import {
   clearCourseProgressFromStorage 
 } from '../core/storage/progressStorage';
 import {
+  loadCourseSeriesFromStorage, saveCourseSeriesToStorage, clearCourseSeriesFromStorage
+} from '../core/storage/courseSeriesStorage';
+import type { CourseSeries } from '../core/storage/courseSeriesStorage';
+import {
   DEFAULT_TRAINER_PREFERENCES, loadTrainerPreferences,
   saveTrainerPreferences, selectTrainerPreferences
 } from '../core/storage/trainerPreferences';
@@ -47,6 +51,8 @@ export interface AppState {
   // Курс
   selectedLessonId: number;
   completedLessons: number[];
+  /** Graded, fully completed exercises survive reload; live timing never does. */
+  courseSeries: CourseSeries;
   activeLessonId: number | null;
 
   // Настройки тренажёра
@@ -313,6 +319,11 @@ function finishExercise(
   });
   set({ courseEvidence: result.evidence, completedExercisesCount: result.creditedRepetitions,
     lastAttemptResult, trainerPhase: 'results' });
+  if (lesson && result.credited) {
+    const courseSeries = { ...get().courseSeries, [lesson.id]: result.evidence };
+    set({ courseSeries });
+    saveCourseSeriesToStorage(courseSeries);
+  }
   if (lesson && result.passed && !state.completedLessons.includes(lesson.id)) {
     const completedLessons = [...state.completedLessons, lesson.id];
     saveCourseProgressToStorage(completedLessons);
@@ -335,6 +346,7 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   // Session-only state: never resume graded flow or restore fake results.
   completedLessons: [],
+  courseSeries: {},
   activeLessonId: null,
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
@@ -365,7 +377,8 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   initApp: () => {
     const saved = loadCourseProgressFromStorage();
-    set({ completedLessons: saved });
+    const courseSeries = loadCourseSeriesFromStorage();
+    set({ completedLessons: saved, courseSeries });
     audioEngine.setAudioEnabled(get().audioEnabled);
 
     // Save preference changes only, not thousands of note/status updates.
@@ -545,7 +558,9 @@ export const useAppStore = create<AppState>((set, get) => ({
 
   resetCourseProgress: () => {
     clearCourseProgressFromStorage();
-    set({ completedLessons: [], courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
+    clearCourseSeriesFromStorage();
+    set({ completedLessons: [], courseSeries: {},
+      courseEvidence: EMPTY_LESSON_EVIDENCE, completedExercisesCount: 0 });
   },
 
   startActiveLessonInTrainer: () => {
@@ -554,9 +569,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     const { selectedLessonId } = get();
     const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
     
+    const resumedEvidence = get().courseSeries[lesson.id] ?? EMPTY_LESSON_EVIDENCE;
     get().resetSessionStats();
 
     set({
+      courseEvidence: resumedEvidence,
+      completedExercisesCount: resumedEvidence.completedExercises,
       currentTonality: lesson.preset.tonality,
       currentFilter: lesson.preset.filter,
       bpm: lesson.preset.bpm,

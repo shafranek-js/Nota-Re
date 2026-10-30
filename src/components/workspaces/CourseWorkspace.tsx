@@ -15,6 +15,7 @@ export const CourseWorkspace: React.FC = () => {
     selectedLessonId,
     selectCourseLesson,
     completedLessons,
+    courseSeries,
     toggleLessonCompleted,
     resetCourseProgress,
     startActiveLessonInTrainer,
@@ -24,6 +25,7 @@ export const CourseWorkspace: React.FC = () => {
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
   const isDone = completedLessons.includes(lesson.id);
+  const savedRepetitions = courseSeries[lesson.id]?.completedExercises ?? 0;
   const doneCount = completedLessons.length;
   const filteredLessons = moduleFilter === 'all' ? COURSE_CURRICULUM
     : COURSE_CURRICULUM.filter(item => item.module.startsWith(`Модуль ${moduleFilter} •`));
@@ -250,6 +252,9 @@ export const CourseWorkspace: React.FC = () => {
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Серия номеров</div>
                   <div className="text-sm font-bold font-mono text-purple-400 mt-0.5">{lesson.normReps} упр.</div>
+              {savedRepetitions > 0 && !isDone && (
+                <p className="text-[11px] text-emerald-300 mt-1">Сохранено: {savedRepetitions} / {lesson.normReps}</p>
+              )}
                 </div>
                 <div className="bg-slate-950 px-2.5 py-1.5 rounded-lg border border-slate-800">
                   <div className="text-[10px] text-slate-400 uppercase font-mono">Точность попадания</div>
