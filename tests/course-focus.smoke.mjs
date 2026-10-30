@@ -15,6 +15,9 @@ try {
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       await page.getByText(/Урок 3:/).first().click();
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+      // Lesson 3 is timed and must prepare four beats with the score visible.
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
 
       const course = page.getByTestId('course-focused-controls');
       const zen = page.getByTestId('zen-control-strip');
@@ -69,6 +72,8 @@ try {
       const studioLaunch = page.getByTestId('studio-start-course');
       assert.match(await studioLaunch.innerText(), /Начать зачёт урока 3/);
       await studioLaunch.click();
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
       await zen.waitFor({ state: 'visible' });
       await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
@@ -84,6 +89,8 @@ try {
 
       await page.getByRole('button', { name: /^Курс$/ }).click();
       await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'visible' });
+      await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 30000 });
       await zen.waitFor({ state: 'visible' });
       await page.keyboard.press('Escape');
       await course.waitFor({ state: 'visible' });
