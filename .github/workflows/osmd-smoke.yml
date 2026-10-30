@@ -41,6 +41,10 @@ jobs:
           done
           cat /tmp/notare-preview.log
           exit 1
+      - name: Verify lesson-one pitch certification and standalone speed test
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/lesson-one-credit.smoke.mjs
       - name: Verify result card, exact retry, assisted exclusion and lifecycle
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
