@@ -91,14 +91,15 @@ try {
     dialogs.push(dialog.message());
     void (approveExit ? dialog.accept() : dialog.dismiss());
   });
-  await savedPage.addInitScript(() => {
-    localStorage.setItem('notare_course_series_v1', JSON.stringify({ version: 1, lessons: {
-      1: { completedExercises: 3, judgedNotes: 48, correctNotes: 46,
-        reactionSamples: 46, reactionTotalMs: 46 * 450 }
-    }}));
-  });
   try {
     await savedPage.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
+    await savedPage.evaluate(() => {
+      localStorage.setItem('notare_course_series_v1', JSON.stringify({ version: 1, lessons: {
+        1: { completedExercises: 3, judgedNotes: 48, correctNotes: 46,
+          reactionSamples: 46, reactionTotalMs: 46 * 450 }
+      }}));
+    });
+    await savedPage.reload({ waitUntil: 'domcontentloaded' });
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
     await savedPage.getByTestId('course-launch-selected').click();
     const focused = savedPage.getByTestId('course-focused-controls');
@@ -111,7 +112,7 @@ try {
     approveExit = true;
     await focused.getByRole('button', { name: 'Остановить' }).click();
     await savedPage.getByTestId('trainer-setup').waitFor({ state: 'visible' });
-    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:.*3 \/ 10/);
+    assert.match(await savedPage.getByTestId('trainer-banner').innerText(), /Сохранено:[\\s\\S]*3 \/ 10/);
     assert.equal(dialogs.length, 2);
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     assert.match(await savedPage.getByTestId('course-detail-panel').innerText(), /Сохранено: 3 \/ 10/);
