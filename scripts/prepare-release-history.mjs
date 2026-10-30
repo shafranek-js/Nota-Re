@@ -61,14 +61,26 @@ export function prepareReleaseHistory({
     return release;
   };
 
-  if (shallow) {
-    // Cloudflare typically has origin but may use an ephemeral remote without
-    // credentials. This repo is public: retry against its explicit HTTPS URL.
-    const failures = [];
+  let firstFailure;
+  try {
+    const release = verifyHistory();
+    logger.info(`Release version: v${release.version} · ${actualCommit.slice(0, 7)}`);
+    return release;
+  } catch (error) { firstFailure = error; }
+
+  // A shallow clone must be deepened, but some build providers also present a
+  // non-shallow truncated Git object database. Try the public source before
+  // giving up, and never replace HEAD with the remote branch's latest commit.
+  if (shallow || cloudflare) {
+    const failures = [String(firstFailure.message ?? firstFailure)];
     for (const remote of ['origin', SOURCE_REMOTE]) {
       try {
-        logger.info(`Release history: shallow checkout, fetching ancestry from ${remote === 'origin' ? 'origin' : 'public GitHub'}...`);
-        runGit(['fetch', '--unshallow', '--no-tags', remote], cwd);
+        const stillShallow = runGit(['rev-parse', '--is-shallow-repository'], cwd) === 'true';
+        const args = stillShallow
+          ? ['fetch', '--unshallow', '--no-tags', remote]
+          : ['fetch', '--no-tags', remote, 'main'];
+        logger.info(`Release history: fetching missing ancestry from ${remote === 'origin' ? 'origin' : 'public GitHub'}...`);
+        runGit(args, cwd);
         const release = verifyHistory();
         logger.info(`Release history recovered: v${release.version} · ${actualCommit.slice(0, 7)}`);
         return release;
@@ -78,16 +90,8 @@ export function prepareReleaseHistory({
       failures.join('; '));
   }
 
-  try {
-    const release = verifyHistory();
-    logger.info(`Release version: v${release.version} · ${actualCommit.slice(0, 7)}`);
-    return release;
-  } catch (error) {
-    if (cloudflare) throw new Error(
-      'Cloudflare has no complete v3.0.0 ancestry; refusing an inconsistent release.', { cause: error });
-    logger.warn('Release history is not anchored; using explicit +gSHA fallback for this local build.');
-    return { source: 'unverified-history', version: null };
-  }
+  logger.warn('Release history is not anchored; using explicit +gSHA fallback for this local build.');
+  return { source: 'unverified-history', version: null };
 }
 
 if (process.argv[1] && import.meta.url === pathToFileURL(resolve(process.argv[1])).href) {
