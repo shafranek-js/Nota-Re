@@ -24,6 +24,9 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     const mount = mountRef.current;
     if (!mount) return;
     let cancelled = false;
+    let osmdInstance: OpenSheetMusicDisplay | null = null;
+    let resizeObserver: ResizeObserver | null = null;
+    let resizeFrame = 0;
     mount.replaceChildren();
     setState('loading');
     setMessage('');
@@ -31,7 +34,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     (async () => {
       try {
         const osmd = new OpenSheetMusicDisplay(mount, {
-          autoResize: true,
+          autoResize: false,
           backend: 'svg',
           // The file header already shows the title. OSMD's page title can
           // overflow narrow SVG viewports and duplicates the file metadata.
@@ -48,6 +51,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
             return safe;
           }
         });
+        osmdInstance = osmd;
         const rules = osmd.EngravingRules;
         const dark = theme === 'dark';
         const ink = dark ? '#f8fafc' : '#0f172a';
@@ -66,6 +70,20 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         osmd.render();
         if (cancelled) return;
         if (!mount.querySelector('svg')) throw new Error('Нотный движок не вернул SVG партитуры.');
+        let lastWidth = mount.clientWidth;
+        resizeObserver = new ResizeObserver(() => {
+          const width = mount.clientWidth;
+          if (cancelled || width <= 100 || Math.abs(width - lastWidth) <= 2) return;
+          lastWidth = width;
+          window.cancelAnimationFrame(resizeFrame);
+          resizeFrame = window.requestAnimationFrame(() => {
+            if (!cancelled) {
+              try { osmd.render(); }
+              catch (error) { console.warn('Repertoire resize failed', error); }
+            }
+          });
+        });
+        resizeObserver.observe(mount);
         setState('ready');
       } catch (err) {
         if (cancelled) return;
@@ -75,7 +93,16 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
       }
     })();
 
-    return () => { cancelled = true; mount.replaceChildren(); };
+    return () => {
+      cancelled = true;
+      resizeObserver?.disconnect();
+      window.cancelAnimationFrame(resizeFrame);
+      // No public OSMD dispose; avoid autoResize global listeners and release
+      // cursor/backend resources explicitly on close, replacement and theme change.
+      try { osmdInstance?.cursor?.Dispose(); } catch { /* cursor may be absent */ }
+      try { osmdInstance?.clear(); } catch { /* renderer may still be loading */ }
+      mount.replaceChildren();
+    };
   }, [info, theme]);
 
   return (
