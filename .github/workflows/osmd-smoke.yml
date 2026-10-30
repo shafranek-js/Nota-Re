@@ -100,6 +100,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/studio-navigation.smoke.mjs
+      - name: Verify lesson-three live rhythm onset accuracy and missed-note counters
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/lesson-three-rhythm.smoke.mjs
       - name: Verify distinct wrong/missed feedback against live rhythmic flow
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
