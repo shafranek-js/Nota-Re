@@ -39,7 +39,7 @@ try {
 
   const stats = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
   assert.match(stats, /\(0\)/, 'assisted actions must not create scoring attempts');
-  const numbers = await page.getByTitle('Сыграно однотипных номеров в серии').innerText();
+  const numbers = await page.getByTestId('status-course-window').innerText();
   assert.match(numbers, /0\s*\//, 'assisted actions must not count completed repetitions');
 
   assert.deepEqual(errors, [], 'no uncaught browser errors');
