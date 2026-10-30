@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { audioEngine } from '../../core/audio/AudioEngine';
 import { buildScoreLoopAudio } from '../../core/notation/scoreLoopAudio';
+import { inspectRepertoireCapabilities } from '../../core/notation/repertoireCapabilities';
 import {
   clearRepertoireMeasureOverlay, drawRepertoireMeasureOverlay,
   locateEngravedMeasures, selectMeasureIndices,
@@ -224,6 +225,22 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   }, [selectionActive, timeline, firstBar, lastBar, geometryMessage,
       renderEpoch, theme, noteAnchorsVisible, noteMapping]);
 
+  // Report what this *specific* file and OSMD rendering prove. A rendered
+  // score does not imply exact note identities or grading eligibility.
+  const capabilities = state === 'ready' ? inspectRepertoireCapabilities({
+    rendered: renderEpoch > 0,
+    score: timeline?.score ?? null,
+    parsingReason: timeline?.reason ?? null,
+    measureGeometryReady: !!timeline?.score &&
+      mappedMeasures.current.length === timeline.score.measures.length,
+    measureGeometryReason: geometryMessage,
+    noteMapping: noteMapping
+      ? { matched: noteMapping.anchors.length, total: noteMapping.total, reason: noteMapping.reason }
+      : null
+  }) : [];
+  const supports = (key: typeof capabilities[number]['key']) =>
+    capabilities.some(feature => feature.key === key && feature.available);
+
   return (
     <section data-testid="repertoire-preview" aria-label="Просмотр загруженной партитуры"
       className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden p-2">
@@ -266,6 +283,25 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           </span>
         )}
       </p>
+      {state === 'ready' && (
+        <details data-testid="repertoire-capabilities"
+          className="shrink-0 rounded-lg border border-slate-700 bg-slate-900/80 text-xs text-slate-200">
+          <summary className="cursor-pointer px-3 py-1.5 font-medium focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+            Возможности партитуры · {capabilities.filter(item => item.available).length} из 5 · зачёт отключён
+          </summary>
+          <ul className="grid max-h-40 grid-cols-1 gap-1 overflow-y-auto border-t border-slate-700 px-3 py-2 sm:grid-cols-2">
+            {capabilities.map(item => (
+              <li key={item.key} data-repertoire-capability={item.key}
+                data-available={item.available ? 'true' : 'false'}>
+                <strong className={item.available ? 'text-emerald-300' : 'text-amber-300'}>
+                  {item.available ? 'Доступно' : 'Недоступно'} · {item.label}
+                </strong>
+                <p className="text-slate-400">{item.explanation}</p>
+              </li>
+            ))}
+          </ul>
+        </details>
+      )}
       {state === 'ready' && timeline?.score && (
         <div data-testid="repertoire-ab-controls"
           className="shrink-0 flex flex-wrap items-center gap-2 rounded-lg border border-sky-500/30 bg-slate-900 px-3 py-1.5 text-xs text-slate-200">
@@ -295,14 +331,14 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               }}
               className="w-14 rounded border border-slate-600 bg-slate-800 px-1.5 py-1 text-slate-100" />
           </label>
-          <button type="button" disabled={!!geometryMessage} onClick={() => { stopLoop(); setSelectionActive(true); }}
+          <button type="button" disabled={!supports('measure-selection')} onClick={() => { stopLoop(); setSelectionActive(true); }}
             data-testid="repertoire-ab-show" className="rounded border border-sky-600 bg-sky-950/40 px-2 py-1 text-sky-200 disabled:opacity-50">
             Выделить
           </button>
           {selectionActive && <button type="button" onClick={() => { stopLoop(); setSelectionActive(false); }}
             data-testid="repertoire-ab-clear" className="rounded border border-slate-600 px-2 py-1 text-slate-300">Снять</button>}
           <button type="button" data-testid="repertoire-note-anchors"
-            disabled={!!noteMapping?.reason || !noteMapping || !selectionActive}
+            disabled={!supports('notehead-overlay') || !selectionActive}
             onClick={() => setNoteAnchorsVisible(value => !value)}
             title={noteMapping?.reason ?? 'Кружками выделяются только однозначно сопоставленные нотные головки'}
             className="rounded border border-slate-600 px-2 py-1 text-sky-200 disabled:cursor-not-allowed disabled:opacity-50">
@@ -317,7 +353,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               : 'Проверка нот…'}
           </span>
           <button type="button" data-testid="repertoire-loop-toggle"
-            disabled={!selectionActive || !!geometryMessage}
+            disabled={!selectionActive || !supports('audio-loop')}
             onClick={() => { if (loopPlaying) stopLoop(); else void playLoop(); }}
             className="rounded border border-emerald-600/60 bg-emerald-950/30 px-2 py-1 font-medium text-emerald-200 disabled:opacity-50">
             {loopPlaying ? '■ Стоп A–B' : '▶ Повтор A–B'}
