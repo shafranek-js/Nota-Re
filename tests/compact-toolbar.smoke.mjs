@@ -22,6 +22,9 @@ try {
       });
     }
     try {
+      // Verify the explicit normal-view option while inspecting the toolbar.
+      await page.addInitScript(() => localStorage.setItem('notare-trainer-preferences-v1',
+        JSON.stringify({ version: 2, preferences: { zenModeEnabled: false } })));
       await page.goto('http://127.0.0.1:4173/', { waitUntil: 'domcontentloaded' });
       await page.getByRole('button', { name: /^Студия$/ }).click();
       await page.getByTestId('osmd-score').waitFor({ state: 'visible', timeout: 35000 });
