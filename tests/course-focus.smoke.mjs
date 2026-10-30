@@ -160,7 +160,7 @@ try {
     });
     await savedPage.reload({ waitUntil: 'domcontentloaded' });
     await savedPage.getByTestId('course-lesson-10').click();
-    assert.match(await savedPage.getByTestId('course-detail-panel').getByTestId('course-recent-count').innerText(), /7 \\/ 15/);
+    assert.match(await savedPage.getByTestId('course-detail-panel').getByTestId('course-recent-count').innerText(), /7 \/ 15/);
     await savedPage.getByTestId('course-launch-selected').click();
     await savedPage.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
     await savedPage.keyboard.press('Escape');
