@@ -147,6 +147,8 @@ export interface AppState {
   openTrainerPrecheck: () => void;
   completeTrainerPrecheck: () => void;
   cancelTrainerCountIn: () => void;
+  /** Starts four audible preparatory beats only after visible engraving is ready. */
+  beginVisibleCountIn: () => void;
   goToNextLessonAndStart: () => void;
 
   setAppMode: (mode: AppMode) => void;
@@ -848,6 +850,12 @@ export const useAppStore = create<AppState>((set, get) => ({
     get().startTrainerExercise();
   },
 
+  beginVisibleCountIn: () => {
+    const state = get();
+    if (state.trainerPhase !== 'countIn' || state.countInBeat !== 0 ||
+        !state.isContinuousFlow || state.currentWorkspace !== 'trainer') return;
+    beginTrainerCountIn(get, patch => set(patch));
+  },
   cancelTrainerCountIn: () => {
     if (get().trainerPhase !== 'countIn') return;
     stopCountIn();
@@ -1148,18 +1156,22 @@ export const useAppStore = create<AppState>((set, get) => ({
       noteShownTimestamp: performance.now(),
       lastTriggeredNote: null,
       lastKeyResult: null,
-      isPhotoMasked: false,
+      isPhotoMasked: get().isContinuousFlow && get().currentAppMode === 'photo',
       isExerciseAssisted: false,
       isExerciseFlawless: true,
       attemptEvents: [],
       lastAttemptResult: null,
+      // Photo-memory must not gain four extra seconds of visual exposure:
+      // the current bar stays masked until the normal flash at the downbeat.
       trainerPhase: get().isContinuousFlow ? 'countIn' : 'playing',
       zenSessionStarted: true,
       zenDismissedForSession: false,
       countInBeat: 0
     });
-    if (get().isContinuousFlow) beginTrainerCountIn(get, patch => set(patch));
-    else if (get().currentAppMode === 'photo') get().triggerPhotoFlash();
+    // The score is mounted during count-in. The OSMD renderer (or classic
+    // SVG) starts the four beats only after the notes have become visible,
+    // otherwise slow first-load engraving steals the entire preparation.
+    if (get().currentAppMode === 'photo' && !get().isContinuousFlow) get().triggerPhotoFlash();
   },
 
   returnToTrainerSetup: () => {

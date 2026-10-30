@@ -9,6 +9,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean; theme: AppTheme }> = ({ ze
   const {
     activeExerciseNotes,
     activeNoteIndex,
+    trainerPhase,
     currentAppMode,
     currentFilter,
     currentTonality,
@@ -56,6 +57,7 @@ export const GrandStaffSvg: React.FC<{ zen?: boolean; theme: AppTheme }> = ({ ze
       {/* In Zen, retain only the controls relevant to the exercise. */}
       {(!zen || currentAppMode === 'photo' || currentAppMode === 'rhythm' || showBassLandmarks) && (
       <div data-testid={zen ? 'zen-score-actions' : undefined}
+        inert={trainerPhase === 'countIn'}
         className="shrink-0 w-full flex flex-wrap items-center justify-between gap-2 z-10 border-b border-slate-800/60 pb-1.5">
         {!zen && <div className="flex flex-wrap items-center gap-2.5 text-xs">
           <span className="flex items-center gap-1.5 font-mono text-slate-300 bg-slate-950/90 px-2.5 py-0.5 rounded-md border border-slate-800">
