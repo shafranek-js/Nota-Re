@@ -47,7 +47,13 @@ export const CourseLessonControls: React.FC = () => {
           </span>
           <span className="text-slate-400">{completedExercisesCount} / {lesson.normReps} ном.</span>
         </div>
-        <p className="truncate text-slate-200" title={lesson.title}>{lesson.title} · {bpm} BPM</p>
+        <p className="truncate text-slate-200" title={lesson.title}>{lesson.title} · {bpm} BPM
+          {lesson.id === 10 && (
+            <span data-testid="lesson-ten-stage" className="ml-2 text-sky-300">
+              · Этап {completedExercisesCount < 7 ? '1: Бегунок (7)' : '2: Фото-память (8)'}
+            </span>
+          )}
+        </p>
       </div>
       <div className="flex min-w-0 flex-wrap items-center gap-1.5">
         {isContinuousFlow && (

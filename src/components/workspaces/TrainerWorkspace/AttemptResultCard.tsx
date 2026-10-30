@@ -57,6 +57,8 @@ export const AttemptResultCard: React.FC = () => {
   const result = lastAttemptResult;
   const lesson = COURSE_CURRICULUM.find(item => item.id === result.lessonId);
   const hasCertification = result.lessonPassed && !!lesson;
+  const nextPhotoStage = lesson?.id === 10 && result.mode === 'lookahead' &&
+    courseEvidence.completedExercises >= 7;
   const seriesAccuracy = courseEvidence.judgedNotes > 0
     ? 100 * courseEvidence.correctNotes / courseEvidence.judgedNotes : null;
   const seriesReaction = courseEvidence.reactionSamples > 0
@@ -123,6 +125,11 @@ export const AttemptResultCard: React.FC = () => {
           {description}
         </p>
 
+        {nextPhotoStage && (
+          <p data-testid="lesson-ten-transition" className="text-sm text-sky-200">
+            Этап «Бегунок» завершён. Продолжайте в «Фото-памяти» — ещё 8 упражнений.
+          </p>
+        )}
         {lesson && (
           <section data-testid="course-series-summary" className="rounded-lg border border-slate-700 bg-slate-950 p-3 text-xs text-slate-200 space-y-1">
             <strong className="block text-emerald-300">Зачётная серия: {courseEvidence.completedExercises} / {lesson.normReps} упражнений</strong>
@@ -191,9 +198,9 @@ export const AttemptResultCard: React.FC = () => {
         )}
 
         <div className="flex flex-wrap gap-2 pt-2 border-t border-slate-800">
-          <button type="button" onClick={retryExercise} data-testid="retry-exercise"
+          <button type="button" onClick={nextPhotoStage ? regenerateExercise : retryExercise} data-testid="retry-exercise"
             className="inline-flex items-center gap-2 rounded-lg bg-emerald-500 hover:bg-emerald-400 text-slate-950 px-4 py-2 text-sm font-bold">
-            <RotateCcw className="w-4 h-4" /> Ещё раз
+            <RotateCcw className="w-4 h-4" /> {nextPhotoStage ? 'Перейти к Фото-памяти' : 'Ещё раз'}
           </button>
           <button type="button" onClick={regenerateExercise}
             className="inline-flex items-center gap-2 rounded-lg bg-slate-800 hover:bg-slate-700 text-slate-100 px-3 py-2 text-sm font-semibold">

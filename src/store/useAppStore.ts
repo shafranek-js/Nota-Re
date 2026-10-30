@@ -20,6 +20,7 @@ import type { KeyboardLabelMode } from '../core/storage/trainerPreferences';
 import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } from '../core/training/countInTiming';
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
+import { assessmentModeForLesson, canCreditLessonMode } from '../core/training/lessonStages';
 import { 
   loadCourseProgressFromStorage, 
   saveCourseProgressToStorage, 
@@ -318,7 +319,8 @@ function finishExercise(
     targetRepetitions: lesson?.normReps ?? Infinity,
     requiredAccuracy: lesson?.normAcc ?? 100,
     maximumReactionMs: lesson?.normSpeed ?? 0,
-    lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId)
+    lessonActive: Boolean(lesson && lesson.id === state.selectedLessonId &&
+      canCreditLessonMode(lesson.id, state.courseEvidence.completedExercises, state.currentAppMode))
   });
 
   // Snapshot the completed score before regenerating its notes.
@@ -972,10 +974,13 @@ export const useAppStore = create<AppState>((set, get) => ({
   regenerateExercise: () => {
     if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
     audioEngine.clearPreviewTimeouts();
-    const { currentAppMode, currentFilter, currentTonality, scoreNoteCount, currentHanonType } = get();
+    const { currentAppMode, currentFilter, currentTonality, scoreNoteCount, currentHanonType,
+      activeLessonId, courseEvidence } = get();
+    const exerciseMode = assessmentModeForLesson(activeLessonId,
+      courseEvidence.completedExercises, currentAppMode);
 
     const notes = generateExerciseNotes({
-      mode: currentAppMode,
+      mode: exerciseMode,
       filter: currentFilter,
       tonality: currentTonality,
       scoreNoteCount,
@@ -983,6 +988,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
 
     set({
+      currentAppMode: exerciseMode,
       activeExerciseNotes: notes,
       activeNoteIndex: 0,
       noteShownTimestamp: performance.now(),
@@ -996,7 +1002,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
     armFlowClock(get);
 
-    if (currentAppMode === 'photo' && get().trainerPhase === 'playing') {
+    if (exerciseMode === 'photo' && get().trainerPhase === 'playing') {
       get().triggerPhotoFlash();
     }
   },
