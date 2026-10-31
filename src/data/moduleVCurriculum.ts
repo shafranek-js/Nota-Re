@@ -3,7 +3,8 @@
  * These are NOT numeric CourseLesson IDs and are never used for certification.
  */
 export const MODULE_V_TRIADS_ID = 'module-v/v1/triads-5-3' as const;
-export type ModuleVLessonId = typeof MODULE_V_TRIADS_ID;
+export const MODULE_V_INVERSIONS_ID = 'module-v/v1/inversions' as const;
+export type ModuleVLessonId = typeof MODULE_V_TRIADS_ID; // V2 reads and responds within the Module V route, not the graded trainer.
 
 export const MODULE_V_STAGES = [
   {
@@ -13,10 +14,10 @@ export const MODULE_V_STAGES = [
     available: true
   },
   {
-    id: 'module-v/v1/inversions',
-    title: 'Обращения 6 и 6/4',
-    summary: 'Узнать обращение по басу без преждевременной подсказки.',
-    available: false
+    id: MODULE_V_INVERSIONS_ID,
+    title: 'Основной вид и обращения 5/3, 6, 6/4',
+    summary: 'Самостоятельно определить обращение по настоящему нотному тексту.',
+    available: true
   },
   {
     id: 'module-v/v1/left-textures',
