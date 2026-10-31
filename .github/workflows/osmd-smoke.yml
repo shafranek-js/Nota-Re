@@ -96,6 +96,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/adaptive-reflex.smoke.mjs
+      - name: Verify ungraded major/minor triad inversions with physical MIDI
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/chordStudy.smoke.mjs
       - name: Verify Zen score space, audio, MIDI and photo safety in Chrome
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
