@@ -1,10 +1,15 @@
-import React from 'react';
+import React, { Suspense, useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { audioEngine } from '../../core/audio/AudioEngine';
 import { HanonType } from '../../types/music';
-import { Volume2 } from 'lucide-react';
+import { Mic, Volume2 } from 'lucide-react';
+
+const MicrophoneResearchPanel = React.lazy(() => import('./MicrophoneResearchPanel').then(
+  module => ({ default: module.MicrophoneResearchPanel })
+));
 
 export const LabWorkspace: React.FC = () => {
+  const [microphoneOpen, setMicrophoneOpen] = useState(false);
   const {
     setHanonType,
     setAppMode,
@@ -194,6 +199,33 @@ export const LabWorkspace: React.FC = () => {
           </div>
         </div>
 
+      </div>
+      <div className="mt-3 rounded-2xl border border-slate-700 bg-slate-900/90 p-3"
+        data-testid="studio-microphone-lab">
+        <div className="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <h2 className="flex items-center gap-2 text-sm font-semibold text-white">
+              <Mic className="w-4 h-4 text-sky-300" aria-hidden="true"/>
+              Акустическое пианино · Микрофон
+            </h2>
+            <p className="text-xs text-slate-400 mt-1">
+              Слушайте реальные ноты и аккорды через микрофон — без зачётов и записи звука.
+            </p>
+          </div>
+          <button type="button" data-testid="studio-microphone-toggle"
+            aria-expanded={microphoneOpen}
+            onClick={() => setMicrophoneOpen(value => !value)}
+            className="rounded-lg border border-sky-500/40 bg-sky-500/10 px-3 py-2 text-xs font-semibold text-sky-200 hover:border-sky-400 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+            {microphoneOpen ? 'Закрыть микрофон' : 'Открыть диагностику'}
+          </button>
+        </div>
+        {microphoneOpen && (
+          <div className="mt-3">
+            <Suspense fallback={<p role="status" className="p-3 text-xs text-slate-400">Загрузка интерфейса диагностики…</p>}>
+              <MicrophoneResearchPanel />
+            </Suspense>
+          </div>
+        )}
       </div>
     </section>
   );
