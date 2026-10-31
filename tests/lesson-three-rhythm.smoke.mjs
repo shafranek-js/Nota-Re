@@ -21,12 +21,18 @@ try {
   const countIn = page.getByTestId('trainer-count-in');
   await countIn.waitFor({ state: 'visible' });
   await page.getByTestId('osmd-score').locator('svg').first().waitFor({ state: 'visible' });
-  // On a cold OSMD load the HUD correctly says "Готовим нотный стан"
-  // until a real painted score starts beat one. Do not assert the subsequent
-  // downbeat cue prematurely (or mistake loading for an active count-in).
-  await page.getByText(/После «4» играйте первую ноту на следующую сильную долю/)
-    .waitFor({ state: 'visible', timeout: 15000 });
-  assert.match(await countIn.innerText(), /После «4» играйте первую ноту на следующую сильную долю/);
+  // The compact score-first HUD intentionally removed redundant verbal
+  // instructions. The cue is a visible numerical beat once OSMD is painted;
+  // never start counting while the first score is still loading.
+  await page.waitForFunction(() => Number(document.querySelector(
+    '[data-testid="osmd-score"]')?.getAttribute('data-osmd-render-epoch')) > 0,
+    null, { timeout: 15000 });
+  await page.waitForFunction(() => /^[1-4]$/.test(document.querySelector(
+    '[data-testid="count-in-beat"]')?.textContent?.trim() ?? ''),
+    null, { timeout: 15000 });
+  assert.match(await countIn.innerText(), /Приготовьтесь/);
+  assert.equal(await countIn.getByText(/После «4» играйте первую ноту на следующую сильную долю/).count(), 0,
+    'no duplicate instructions inside the compact count-in HUD');
   await countIn.waitFor({ state: 'hidden', timeout: 20000 });
 
   const feedback = page.getByTestId('lesson-three-rhythm-feedback');
