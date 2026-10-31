@@ -54,6 +54,10 @@ test('condition classification uses the scored one-to-one matcher and independen
   assert.equal(second.condition.truthConditions.simultaneousWithin50Ms.detectedReferenceAttacks, 2);
   assert.equal(first.condition.truthConditions.repeatedSamePitchWithin500Ms.referenceAttacks, 1);
   assert.equal(first.condition.truthConditions.repeatedSamePitchWithin500Ms.detectedReferenceAttacks, 1);
+  assert.equal(first.condition.truthConditions.genuineOctaveWithin50Ms.referenceAttacks, 2);
+  assert.equal(first.condition.truthConditions.genuineOctaveWithin50Ms.detectedReferenceAttacks, 2);
+  assert.equal(second.condition.truthConditions.genuineOctaveWithin50Ms.detectedReferenceAttacks, 1);
+  assert.equal(first.condition.truthConditions.pedalDownAtOnset, null);
   assert.equal(first.condition.truthConditions.isolatedNoOtherPitchWithin50Ms.referenceAttacks, 2);
   assert.equal(first.coincidences.unmatchedOctave12, 1);
   assert.deepEqual(first.condition.registers.map(r => r.falsePositives), [0, 0, 1]);
@@ -76,4 +80,34 @@ test('refuses to infer any general conclusion from one recording', () => {
   const shortB = dataset('model-b', b);
   shortA.cases.length = 1; shortB.cases.length = 1;
   assert.throws(() => summarizePianoCorpus([shortA, shortB]), /three/);
+});
+
+test('independent CC64 partitions recall and cannot be silently changed by a model', () => {
+  const reference = expected.map((note, i) => ({
+    ...note, pedalDownAtOnset: i < 3 ? true : i === 3 ? false : null
+  }));
+  const first = dataset('model-a', a);
+  const second = dataset('model-b', b);
+  for (const item of [...first.cases, ...second.cases]) item.expected = reference;
+  const summary = summarizePianoCorpus([first, second]);
+  const truth = summary.models[0].takes[0].condition.truthConditions;
+  assert.equal(truth.pedalDownAtOnset.referenceAttacks, 3);
+  assert.equal(truth.pedalDownAtOnset.detectedReferenceAttacks, 3);
+  assert.equal(truth.pedalUpAtOnset.referenceAttacks, 1);
+  assert.equal(truth.pedalUpAtOnset.detectedReferenceAttacks, 1);
+  assert.equal(truth.pedalUnknownAtOnset.referenceAttacks, 1);
+  assert.equal(summary.models[1].takes[0].condition.truthConditions.pedalDownAtOnset.recall, 2 / 3);
+  assert.match(summary.pedalCondition, /CC64/);
+  second.cases[1].expected = reference.map((note, i) =>
+    i === 0 ? { ...note, pedalDownAtOnset: false } : note);
+  assert.throws(() => summarizePianoCorpus([first, second]), /Different audio/);
+});
+
+test('different independently labeled pedal ground truth is invalid, even when notes match', () => {
+  const first = dataset('model-a', a);
+  const second = dataset('model-b', b);
+  first.cases[0].expected = expected.map(x => ({...x, pedalDownAtOnset: null}));
+  assert.throws(() => summarizePianoCorpus([first, second]), /Different audio/);
+  second.cases[0].expected = expected.map(x => ({...x, pedalDownAtOnset: 'definitely'}));
+  assert.throws(() => summarizePianoCorpus([first, second]), /Invalid independent CC64/);
 });

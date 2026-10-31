@@ -1,10 +1,12 @@
 /**
  * Read note-on reference events from a Standard MIDI File (SMF 0 or 1)
  * without turning note-off, pedal or model predictions into piano attacks.
+ * The expanded reference annotates CC64 pedal state at a note attack, not
+ * acoustic sustain or note duration; channels without CC64 remain unknown.
  * MAESTRO MIDI/audio must already be aligned; any residual acoustic offset
  * needs independent calibration before onset timing is trusted.
  */
-export function parseMidiOnsets(bytes) {
+export function parseMidiReference(bytes) {
   const data = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   let position = 0;
   const requireBytes = length => {
@@ -54,6 +56,7 @@ export function parseMidiOnsets(bytes) {
   position += headerSize - 6;
 
   const attacks = [];
+  const pedalChanges = [];
   const tempoChanges = [];
   let serial = 0;
   for (let track = 0; track < trackCount; track++) {
@@ -104,7 +107,10 @@ export function parseMidiOnsets(bytes) {
         }
         if (kind === 0x90 && velocityOrData > 0 &&
             pitchOrData >= 21 && pitchOrData <= 108) {
-          attacks.push({ tick, midi: pitchOrData, serial: serial++ });
+          attacks.push({ tick, midi: pitchOrData, channel: status & 0x0f, serial: serial++ });
+        }
+        if (kind === 0xb0 && pitchOrData === 64) {
+          pedalChanges.push({ tick, value: velocityOrData, channel: status & 0x0f, serial: serial++ });
         }
       } else throw new Error('Unsupported MIDI system message');
     }
@@ -112,25 +118,53 @@ export function parseMidiOnsets(bytes) {
   }
   tempoChanges.sort((a, b) => a.tick - b.tick || a.serial - b.serial);
   attacks.sort((a, b) => a.tick - b.tick || a.serial - b.serial);
+  pedalChanges.sort((a, b) => a.tick - b.tick || a.serial - b.serial);
 
   let tempo = 500_000;
   let lastTick = 0;
   let elapsedMicros = 0;
   let tempoIndex = 0;
-  const result = [];
-  for (const attack of attacks) {
-    while (tempoIndex < tempoChanges.length &&
-           tempoChanges[tempoIndex].tick <= attack.tick) {
+  const msAtTick = tick => {
+    while (tempoIndex < tempoChanges.length && tempoChanges[tempoIndex].tick <= tick) {
       const change = tempoChanges[tempoIndex++];
       elapsedMicros += (change.tick - lastTick) * tempo / ticksPerQuarter;
       lastTick = change.tick;
       tempo = change.microsPerQuarter;
     }
-    const onsetMs =
-      (elapsedMicros + (attack.tick - lastTick) * tempo / ticksPerQuarter) / 1000;
-    result.push({ midi: attack.midi, onsetMs });
+    return (elapsedMicros + (tick - lastTick) * tempo / ticksPerQuarter) / 1000;
+  };
+  // MIDI controller messages are channel-scoped. If a channel never records
+  // CC64, its pedal state is unknown rather than silently declared "up".
+  const channelsWithPedal = new Set(pedalChanges.map(x => x.channel));
+  const state = new Map();
+  const timeline = [
+    ...attacks.map(x => ({ ...x, type: 'attack' })),
+    ...pedalChanges.map(x => ({ ...x, type: 'pedal' }))
+  ].sort((a, b) => a.tick - b.tick || a.serial - b.serial);
+  const annotated = [];
+  const convertedPedal = [];
+  for (const event of timeline) {
+    const onsetMs = msAtTick(event.tick);
+    if (event.type === 'pedal') {
+      state.set(event.channel, event.value >= 64);
+      convertedPedal.push({ onsetMs, value: event.value, channel: event.channel });
+    } else {
+      annotated.push({
+        midi: event.midi, onsetMs,
+        // MIDI's default controller state is pedal-up, but only channels with
+        // independent CC64 evidence receive an observed condition label.
+        pedalDownAtOnset: channelsWithPedal.has(event.channel)
+          ? (state.get(event.channel) ?? false) : null
+      });
+    }
   }
-  return result;
+  return { attacks: annotated, pedalChanges: convertedPedal };
+}
+
+/** Backward-compatible note-on-only reference: CC64 is never treated as a note. */
+export function parseMidiOnsets(bytes) {
+  return parseMidiReference(bytes).attacks.map(x => ({ midi: x.midi, onsetMs: x.onsetMs }));
+
 }
 
 /** Select a WAV clip's MIDI reference window and rebase to clip-local milliseconds. */
@@ -141,5 +175,8 @@ export function selectMidiAttacksForAudioClip(events, { startMs, durationMs }) {
   }
   return events
     .filter(item => item.onsetMs >= startMs && item.onsetMs < startMs + durationMs)
-    .map(item => ({ midi: item.midi, onsetMs: item.onsetMs - startMs }));
+    .map(item => ({
+      midi: item.midi, onsetMs: item.onsetMs - startMs,
+      ...('pedalDownAtOnset' in item ? { pedalDownAtOnset: item.pedalDownAtOnset } : {})
+    }));
 }

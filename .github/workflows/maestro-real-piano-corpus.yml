@@ -6,9 +6,12 @@ on:
       - '.github/workflows/maestro-real-piano-corpus.yml'
       - 'scripts/fetch-maestro-corpus.py'
       - 'scripts/prepare-maestro-corpus.mjs'
+      - 'scripts/maestro-midi-onsets.mjs'
+      - 'src/core/audio/microphoneComparison.ts'
       - 'scripts/summarize-piano-corpus.mjs'
       - 'src/core/audio/microphoneConditionAnalysis.ts'
       - 'tests/maestroCorpusCondition.test.mjs'
+      - 'tests/maestroMidiOnsets.test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -26,7 +29,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate corpus and independent-condition test fixtures
-        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs
+        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs tests/maestroMidiOnsets.test.mjs
       - name: Install ffmpeg for temporary WAV conversion
         run: |
           sudo apt-get update -qq
@@ -61,13 +64,20 @@ jobs:
             for (const source of audit.cases) console.log(JSON.stringify({
               id: source.id, composer: source.composer, title: source.title,
               sourceSha256: source.source_audio.sha256,
-              referenceAttacks: source.derived_clip.referenceNoteAttacks
+              referenceAttacks: source.derived_clip.referenceNoteAttacks,
+              sourceCc64Events: source.derived_clip.pedalCc64EventsInSource,
+              pedalLabeledAttacks: source.derived_clip.pedalAnnotatedAttacks,
+              pedalDownAttacks: source.derived_clip.pedalDownAtAttackCount
             }));
             for (const model of report.models) for (const take of model.takes) console.log(JSON.stringify({
               engine: model.engine, take: take.id, TP: take.truePositives,
               FP: take.falsePositives, FN: take.falseNegatives,
               F1: take.f1, p95OnsetMs: take.onsetP95Ms,
               falsePositiveOctaveCoincidences: take.coincidences.unmatchedOctave12,
+              genuineOctaveTruthAttacks: take.condition.truthConditions.genuineOctaveWithin50Ms.referenceAttacks,
+              trueOctaveRecall: take.condition.truthConditions.genuineOctaveWithin50Ms.recall,
+              pedalDownAttackRecall: take.condition.truthConditions.pedalDownAtOnset?.recall ?? null,
+              pedalUpAttackRecall: take.condition.truthConditions.pedalUpAtOnset?.recall ?? null,
               liveMicrophoneLatencyMs: null
             }));
             console.log(JSON.stringify({exploratoryPairedMacroF1: report.pairedMacroF1,

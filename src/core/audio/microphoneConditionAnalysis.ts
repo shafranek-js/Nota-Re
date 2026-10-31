@@ -39,6 +39,14 @@ function conditionBreakdown(data: PianoBenchmarkCase, toleranceMs: number) {
     data.expected[i].onsetMs - other.onsetMs > 50 &&
     data.expected[i].onsetMs - other.onsetMs <= 500));
   const setChord = new Set(simultaneous);
+  // A genuine written/performed octave is an independent MIDI reference pair,
+  // not an unmatched model prediction one octave above a different note.
+  const genuineOctaves = all.filter(i => data.expected.some((other, j) =>
+    i !== j && Math.abs(other.midi - data.expected[i].midi) === 12 &&
+    Math.abs(other.onsetMs - data.expected[i].onsetMs) <= 50));
+  const pedalAnnotations = data.expected.map(note =>
+    (note as typeof note & { pedalDownAtOnset?: boolean | null }).pedalDownAtOnset);
+  const hasPedalEvidence = pedalAnnotations.some(x => typeof x === 'boolean');
   const unmatched = data.detected.filter((_, i) => !matchedDetected.has(i));
   return {
     registers: ranges.map(r => ({
@@ -51,7 +59,13 @@ function conditionBreakdown(data: PianoBenchmarkCase, toleranceMs: number) {
       simultaneousWithin50Ms: recall(simultaneous, matchedTruth),
       isolatedNoOtherPitchWithin50Ms: recall(all.filter(i => !setChord.has(i)), matchedTruth),
       repeatedSamePitchWithin500Ms: recall(repeated, matchedTruth),
-      notRepeatedSamePitchWithin500Ms: recall(all.filter(i => !repeated.includes(i)), matchedTruth)
+      notRepeatedSamePitchWithin500Ms: recall(all.filter(i => !repeated.includes(i)), matchedTruth),
+      genuineOctaveWithin50Ms: recall(genuineOctaves, matchedTruth),
+      pedalDownAtOnset: hasPedalEvidence
+        ? recall(all.filter(i => pedalAnnotations[i] === true), matchedTruth) : null,
+      pedalUpAtOnset: hasPedalEvidence
+        ? recall(all.filter(i => pedalAnnotations[i] === false), matchedTruth) : null,
+      pedalUnknownAtOnset: recall(all.filter(i => pedalAnnotations[i] == null), matchedTruth)
     }
   };
 }
@@ -136,6 +150,8 @@ export function summarizePianoCorpus(datasets: readonly PianoBenchmarkDataset[])
       registers: 'bass MIDI 21–47; middle 48–71; treble 72–108',
       simultaneous: 'independent MIDI truth: other pitch attacked within ±50ms',
       repeated: 'independent MIDI truth: earlier same-pitch attack 51–500ms before',
+      genuineOctave: 'independent MIDI truth: another note with pitch 12 semitones away attacked within ±50ms; counts attacked notes, not pairs',
+      pedal: 'channel-scoped MIDI CC64 value ≥64 at note onset; channel with no CC64 events is unknown; this is NOT evidence of acoustic string sustain',
       attackDensity: 'all truth attacks divided by the selected clip duration',
       caveat: 'Conditions overlap; truth-condition recall cannot be converted to precision/F1 by assigning unmatched predicted notes to arbitrary truth categories'
     },
@@ -145,6 +161,8 @@ export function summarizePianoCorpus(datasets: readonly PianoBenchmarkDataset[])
     modelRuntimeMs: null,
     modelColdStartMs: null,
     actualDeviceMicrophoneLatencyMs: null,
-    pedalCondition: null
+    pedalCondition: datasets[0].cases.some(item => item.expected.some(note =>
+      typeof (note as typeof note & { pedalDownAtOnset?: boolean | null }).pedalDownAtOnset === 'boolean'))
+      ? 'independent MIDI CC64 pedal state at attack (not acoustic sustain)' : null
   };
 }

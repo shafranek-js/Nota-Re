@@ -40,6 +40,37 @@ Artifacts:
 - `conditions.json`: per-performance TP/FP/FN, precision/recall/F1, timing
   error, false notes by register and reference-derived recall conditions.
 
+### R0C pedal and genuine-octave attribution (follow-up to #131)
+
+The next research slice parses **independent channel-specific MIDI CC64** from each
+original MAESTRO MIDI file. It uses the full recording's controller history
+even when the evaluated audio clip begins mid-performance, preserving pedal
+state at the first selected note. The note-on-only parser remains backward
+compatible. CC64 never creates an extra note attack.
+
+A MIDI channel containing no CC64 messages is annotated
+`pedalDownAtOnset: null` (unknown). On channels where CC64 is present, the
+MIDI default before its first controller event is pedal-up; CC64 values 64–127
+are down and 0–63 are up. Same-tick ordering follows the raw SMF event order
+and may be ambiguous across independent MIDI tracks. These flags indicate
+**controller state at note onset**, not audible sustain duration, acoustic
+damping, or proof the physical piano used an identical pedal mechanism.
+
+`conditions.json` now describes three extra reference-derived note-recall
+conditions: `genuineOctaveWithin50Ms`, `pedalDownAtOnset` and
+`pedalUpAtOnset`; a separate `pedalUnknownAtOnset` counts unannotated
+attacks. Both ends of a genuine octave can be counted because these are
+reference **note attacks**, not an octave-pair count. Model FPs cannot be
+reassigned to these truth conditions and are still scored only in the main
+one-to-one benchmark. The output keeps independent octave-truth conditions
+strictly separate from *unmatched* prediction/octave coincidences.
+
+The exact CC64 annotations are propagated through both offline exported
+datasets; their equality is enforced by `comparePianoDetectors` along with
+matching note attacks, WAV SHA-256 and clip duration. Invalid or conflicting
+CC64 labels fail the comparison. All original WAV/MIDI remain runner-local;
+only JSON truth annotations, source audit and summary are uploaded.
+
 Conditions are defined *before viewing predictions*: bass MIDI 21–47, middle
 48–71, treble 72–108; a simultaneous attack has another **different-pitch
 MIDI truth attack** within ±50 ms; a repeated attack has an earlier same-pitch
@@ -53,12 +84,13 @@ interval for the difference between the first and second model's macro-F1.
 It is **exploratory**, not an interval proving generalization. Three selected
 performances are too few to declare one model superior.
 
-Missing measurements are explicitly `null`: live microphone latency,
-model cold-start/runtime, pedal condition. Do not call offline onset-time
-errors live I/O latency. Pedal-specific work requires independent MIDI CC64
-ground truth and independent alignment. The next phase should add pedal
-annotations, more diverse passages, noise conditions, and an actual
-phone/laptop microphone with calibrated reference timing.
+Missing measurements remain explicitly `null`: live microphone latency,
+model cold-start/runtime, and **acoustic sustain behavior**. Do not call
+offline onset-time errors live I/O latency. A reference-derived CC64 label
+must not be called a measurement of audible pedal resonance. The next phase
+should add note-off/release-aware sustain windows, more diverse passages,
+noise conditions, and an actual phone/laptop microphone with calibrated
+reference timing.
 
 ## Safeguards and limitations
 

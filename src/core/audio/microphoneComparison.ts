@@ -68,8 +68,11 @@ function aggregate(cases: readonly ReportCase[], durations: ReadonlyMap<string, 
 }
 
 function normalizedGroundTruth(data: VerifiedPianoCase): string {
-  return JSON.stringify(data.expected.map(x => [x.midi, x.onsetMs])
-    .sort((a, b) => a[1] - b[1] || a[0] - b[0]));
+  return JSON.stringify(data.expected.map(x => {
+    const truth = x as typeof x & { pedalDownAtOnset?: boolean | null };
+    return [x.midi, x.onsetMs,
+      Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') ? truth.pedalDownAtOnset : 'unavailable'];
+  }).sort((a, b) => Number(a[1]) - Number(b[1]) || Number(a[0]) - Number(b[0])));
 }
 function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is VerifiedPianoCase {
   const candidate = data as Partial<VerifiedPianoCase>;
@@ -82,6 +85,15 @@ function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is V
   }
   if (data.expected.some(x => x.onsetMs > candidate.durationMs!)) {
     throw new Error('Ground-truth onset outside recording in ' + engine + '/' + data.id);
+  }
+  for (const truth of data.expected as readonly (typeof data.expected[number] & {
+    pedalDownAtOnset?: unknown
+  })[]) {
+    if (Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') &&
+        truth.pedalDownAtOnset !== null &&
+        typeof truth.pedalDownAtOnset !== 'boolean') {
+      throw new Error('Invalid independent CC64 attack label in ' + engine + '/' + data.id);
+    }
   }
 }
 export function comparePianoDetectors(
