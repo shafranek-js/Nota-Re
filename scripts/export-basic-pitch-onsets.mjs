@@ -9,6 +9,7 @@ import { createHash } from 'node:crypto';
 import { createRequire } from 'node:module';
 import { dirname, join, resolve } from 'node:path';
 import { readPianoWav } from './read-piano-wav.mjs';
+import { timeOfflineOperation, describeOfflineRunner, validateOfflineRuntimeProfile } from './offline-model-timing.mjs';
 import { basicPitchNotesToOnsets } from '../src/core/audio/basicPitchBenchmarkAdapter.ts';
 import { evaluatePianoBenchmark } from '../src/core/audio/microphoneBenchmark.ts';
 
@@ -75,9 +76,12 @@ async function main(path) {
     throw new Error('Expected benchmark manifest schemaVersion 1, onsetToleranceMs and nonempty cases');
   }
 
-  const { pkg, tf, hash, model } = await loadLocalBasicPitch();
+  const initialized = await timeOfflineOperation(loadLocalBasicPitch);
+  const { pkg, tf, hash, model } = initialized.value;
   const recognizer = new pkg.BasicPitch(Promise.resolve(model));
   const cases = [];
+  const timingCases = [];
+  let firstClipWarmRepeat = null;
   try {
     for (const item of manifest.cases) {
       if (!item || typeof item.id !== 'string' || !item.id.trim() ||
@@ -87,9 +91,13 @@ async function main(path) {
         throw new Error('Invalid corpus case metadata');
       }
       const pathToWav = resolve(dirname(file), item.wav);
-      const wavBytes = await readFile(pathToWav);
-      const audioSha256 = createHash('sha256').update(wavBytes).digest('hex');
-      const { samples, sampleRate, durationSeconds } = await readPianoWav(pathToWav);
+      const decoded = await timeOfflineOperation(async () => {
+        const wavBytes = await readFile(pathToWav);
+        const audioSha256 = createHash('sha256').update(wavBytes).digest('hex');
+        const audio = await readPianoWav(pathToWav);
+        return { audioSha256, ...audio };
+      });
+      const { audioSha256, samples, sampleRate, durationSeconds } = decoded.value;
       const durationMs = durationSeconds * 1000;
       if (sampleRate !== 22050) {
         throw new Error('Basic Pitch requires 22050 Hz. Convert the shared corpus WAV to 22050 Hz before running BOTH detectors.');
@@ -101,20 +109,41 @@ async function main(path) {
           (!Number.isFinite(item.durationMs) || Math.abs(item.durationMs - durationMs) > 1)) {
         throw new Error('Reference duration mismatch for ' + item.id);
       }
-      const frames = [], onsets = [];
-      await recognizer.evaluateModel(samples, (f, o) => {
-        frames.push(...f);
-        onsets.push(...o);
-      }, () => {});
-      const events = pkg.noteFramesToTime(
-        pkg.outputToNotesPoly(frames, onsets, 0.25, 0.25, 5)
-      );
-      const detected = basicPitchNotesToOnsets(events);
+      const infer = async () => {
+        const frames = [], onsets = [];
+        await recognizer.evaluateModel(samples, (f, o) => {
+          frames.push(...f);
+          onsets.push(...o);
+        }, () => {});
+        const events = pkg.noteFramesToTime(
+          pkg.outputToNotesPoly(frames, onsets, 0.25, 0.25, 5)
+        );
+        return basicPitchNotesToOnsets(events);
+      };
+      const first = await timeOfflineOperation(infer);
+      const detected = first.value;
       cases.push({
         id: item.id, category: item.category, audioSha256, durationMs,
         expected: item.expected, detected
       });
-      console.error('Basic Pitch ' + item.id + ': ' + detected.length + ' predicted note attacks');
+      timingCases.push({
+        id: item.id, audioSha256, durationMs,
+        coldModelInvocation: timingCases.length === 0,
+        wavReadDecodeMs: decoded.elapsedMs,
+        inferenceAndAdapterMs: first.elapsedMs,
+        realtimeFactor: first.elapsedMs / durationMs
+      });
+      if (timingCases.length === 1) {
+        const warm = await timeOfflineOperation(infer);
+        firstClipWarmRepeat = {
+          id: item.id, audioSha256,
+          inferenceAndAdapterMs: warm.elapsedMs,
+          realtimeFactor: warm.elapsedMs / durationMs,
+          identicalDetectedEvents: JSON.stringify(warm.value) === JSON.stringify(detected)
+        };
+      }
+      console.error('Basic Pitch ' + item.id + ': ' + detected.length +
+        ' predicted note attacks; offline inference ' + first.elapsedMs.toFixed(1) + 'ms');
     }
   } finally {
     model.dispose();
@@ -127,8 +156,16 @@ async function main(path) {
     schemaVersion: 1,
     engine: 'spotify-basic-pitch@1.0.1:tfjs3.21.0:' + hash + ':onset-0.25-frame-0.25',
     onsetToleranceMs: manifest.onsetToleranceMs,
-    cases
+    cases,
+    offlineRuntime: {
+      kind: 'research-only-node-offline-throughput-v1',
+      runner: describeOfflineRunner(),
+      modelInitializationMs: initialized.elapsedMs,
+      cases: timingCases,
+      firstClipWarmRepeat
+    }
   };
+  validateOfflineRuntimeProfile(dataset.offlineRuntime, cases);
   evaluatePianoBenchmark(dataset);
   console.log(JSON.stringify(dataset, null, 2));
 }
