@@ -84,6 +84,10 @@ test('extra notes are wrong and duplicate held note-on is not a new attack', () 
   state = recordPolyphonicKey(state, plan, { type: 'note-on', note: 72 });
   assert.equal(state.wrong, 1);
   state = recordPolyphonicKey(state, plan, { type: 'note-on', note: 60 });
+  assert.equal(state.index, 0, 'unreleased wrong key must block the correct attack');
+  state = recordPolyphonicKey(state, plan, { type: 'note-off', note: 60 });
+  state = recordPolyphonicKey(state, plan, { type: 'note-off', note: 72 });
+  state = recordPolyphonicKey(state, plan, { type: 'note-on', note: 60 });
   assert.equal(state.index, 1);
   assert.equal(recordPolyphonicKey(state, plan, { type: 'note-on', note: 60 }), state);
   state = recordPolyphonicKey(state, plan, { type: 'note-off', note: 60 });
