@@ -262,7 +262,7 @@ export const TwoHandPractice: React.FC = () => {
         setTimed(timedRef.current);
         if (timedRef.current.finished) recordAttempt(timedRef.current, currentPlan);
       } else {
-        trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant);
+        trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant, 180, isChordStudy);
         setTrial(trialRef.current);
       }
     });
