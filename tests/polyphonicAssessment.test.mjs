@@ -7,18 +7,27 @@ import { assessPolyphonicPractice } from '../src/core/training/polyphonicAssessm
 const exercise = createTwoHandPractice('C', 8, 'staggered');
 const { score, steps } = exercise;
 
-const completed = (overrides = {}) => ({
-  ...initialTimedPractice(),
-  stepIndex: steps.length,
-  finished: true,
-  hits: steps.length,
-  hitOnsets: steps.map(step => step.onsetTicks),
-  acceptedAttacks: score.notes.map(n => ({
+const completed = (overrides = {}) => {
+  const acceptedAttacks = overrides.acceptedAttacks ?? score.notes.map(n => ({
     onsetTicks: n.onsetTicks, midi: n.midi, atMs: 10000 + n.onsetTicks * 250
-  })),
-  onsetDeviationsMs: steps.map(() => 45),
-  ...overrides
-});
+  }));
+  const releasedNotes = score.notes
+    .filter(n => acceptedAttacks.some(a => a.onsetTicks === n.onsetTicks && a.midi === n.midi))
+    .map(n => ({
+      onsetTicks: n.onsetTicks, midi: n.midi,
+      atMs: 10000 + (n.onsetTicks + n.durationTicks) * 250
+    }));
+  return {
+    ...initialTimedPractice(),
+    stepIndex: steps.length,
+    finished: true,
+    hits: steps.length,
+    hitOnsets: steps.map(step => step.onsetTicks),
+    acceptedAttacks, releasedNotes,
+    onsetDeviationsMs: steps.map(() => 45),
+    ...overrides
+  };
+};
 
 test('clean two-hand performance reports separate hands and trial readiness, never course credit', () => {
   const result = assessPolyphonicPractice(score, steps, completed());
@@ -28,6 +37,9 @@ test('clean two-hand performance reports separate hands and trial readiness, nev
     [score.notes.filter(n => n.staff === 2).length, score.notes.filter(n => n.staff === 2).length]);
   assert.equal(result.meanAbsoluteDeviationMs, 45);
   assert.equal(result.complete, true);
+  assert.deepEqual(result.releaseEvidence, {
+    expected: score.notes.length, matched: score.notes.length, missing: 0
+  });
   assert.equal(result.clean, true);
   assert.equal(result.readyForCourseTrial, true);
   assert.ok(!('completedLessons' in result));
@@ -97,7 +109,11 @@ test('incomplete, inconsistent, duplicated or tampered evidence is never accepte
     { hitOnsets: [...steps.map(x => x.onsetTicks), 999] },
     { onsetDeviationsMs: steps.map(() => NaN) },
     { acceptedAttacks: [] },
-    { acceptedAttacks: [...completed().acceptedAttacks, completed().acceptedAttacks[0]] }
+    { acceptedAttacks: [...completed().acceptedAttacks, completed().acceptedAttacks[0]] },
+    { releasedNotes: [] },
+    { releasedNotes: [...completed().releasedNotes, completed().releasedNotes[0]] },
+    { releasedNotes: [{ onsetTicks: -4, midi: 99, atMs: 12000 }] },
+    { releasedNotes: [{ ...completed().releasedNotes[0], atMs: Number.NaN }] }
   ];
   for (const changes of variants) {
     const result = assessPolyphonicPractice(score, steps, completed(changes));
@@ -124,4 +140,22 @@ test('a lone correct bass NoteOn is reported independently when right-hand chord
   assert.equal(result.left.matched, 1);
   assert.equal(result.right.matched, 0);
   assert.equal(result.readyForCourseTrial, false);
+});
+
+
+test('missing physical NoteOff cannot be counted as a clean performance even when all attacks match', () => {
+  const sample = completed({ releasedNotes: completed().releasedNotes.slice(0, -1) });
+  const result = assessPolyphonicPractice(score, steps, sample);
+  assert.equal(result.complete, true, 'musical onset timeline can still be complete');
+  assert.equal(result.clean, false, 'physical release evidence is mandatory');
+  assert.equal(result.readyForCourseTrial, false);
+  assert.deepEqual(result.releaseEvidence, {
+    expected: score.notes.length, matched: score.notes.length - 1, missing: 1
+  });
+  assert.ok(result.recommendations.some(line => line.includes('NoteOff')));
+  const pending = assessPolyphonicPractice(score, steps, completed({
+    sustained: [{ note: 55, channel: 0, onsetTicks: 0,
+      minReleaseMs: 10000, untilMs: 20000 }]
+  }));
+  assert.equal(pending.clean, false, 'unreleased physical holds cannot be cleared by the timeline ending');
 });

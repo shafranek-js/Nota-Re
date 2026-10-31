@@ -20,6 +20,12 @@ export interface PolyphonicAssessment {
   readonly totalOnsets: number;
   readonly matchedOnsets: number;
   readonly meanAbsoluteDeviationMs: number | null;
+  /** A correct NoteOn alone is not evidence of a physical key release. */
+  readonly releaseEvidence: {
+    readonly expected: number;
+    readonly matched: number;
+    readonly missing: number;
+  };
   readonly errors: {
     readonly misses: number;
     readonly wrongPitches: number;
@@ -61,7 +67,22 @@ export function assessPolyphonicPractice(
   const matched = new Set(state.hitOnsets);
   const expectedKeys = new Set(score.notes.map(note => note.onsetTicks + ':' + note.midi));
   const attackKeys = new Set(state.acceptedAttacks.map(note => note.onsetTicks + ':' + note.midi));
+  const releaseKeys = new Set(state.releasedNotes.map(note => note.onsetTicks + ':' + note.midi));
+  const releaseEvidence = {
+    expected: score.notes.length,
+    matched: score.notes.filter(note =>
+      releaseKeys.has(note.onsetTicks + ':' + note.midi)).length,
+    missing: 0
+  };
+  releaseEvidence.missing = releaseEvidence.expected - releaseEvidence.matched;
   const evidenceConsistent =
+    // A single MIDI key cannot establish two simultaneous staff voices.
+    expectedKeys.size === score.notes.length &&
+    releaseKeys.size === state.releasedNotes.length &&
+    state.releasedNotes.every(note =>
+      expectedKeys.has(note.onsetTicks + ':' + note.midi) &&
+      attackKeys.has(note.onsetTicks + ':' + note.midi) &&
+      Number.isFinite(note.atMs)) &&
     state.hits === state.hitOnsets.length &&
     matched.size === state.hitOnsets.length &&
     state.onsetDeviationsMs.length === state.hitOnsets.length &&
@@ -104,6 +125,7 @@ export function assessPolyphonicPractice(
     evidenceConsistent && right.expected > 0 && left.expected > 0;
   const clean = complete && state.hitOnsets.length === steps.length &&
     right.matched === right.expected && left.matched === left.expected &&
+    releaseEvidence.missing === 0 && state.sustained.length === 0 &&
     Object.values(errors).every(value => value === 0);
   const readyForCourseTrial = clean && meanAbsoluteDeviationMs !== null &&
     meanAbsoluteDeviationMs <= maxMeanDeviationMs;
@@ -121,6 +143,9 @@ export function assessPolyphonicPractice(
   if (errors.interruptions) {
     recommendations.push('Повторите попытку без отключения MIDI-устройства.');
   }
+  if (state.finished && releaseEvidence.missing > 0) {
+    recommendations.push('Не для всех нот подтверждено физическое отпускание клавиши (MIDI NoteOff).');
+  }
   if (meanAbsoluteDeviationMs !== null &&
       meanAbsoluteDeviationMs > maxMeanDeviationMs) {
     recommendations.push('Улучшите ритм: уменьшите среднее отклонение атак от метронома.');
@@ -131,7 +156,7 @@ export function assessPolyphonicPractice(
 
   return {
     right, left, totalOnsets: steps.length, matchedOnsets: state.hitOnsets.length,
-    meanAbsoluteDeviationMs, errors, complete, clean, readyForCourseTrial,
+    meanAbsoluteDeviationMs, releaseEvidence, errors, complete, clean, readyForCourseTrial,
     recommendations
   };
 }
