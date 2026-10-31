@@ -14,11 +14,12 @@ import { fileURLToPath } from 'node:url';
 const root=resolve(dirname(fileURLToPath(import.meta.url)),'..');
 const scripts=join(root,'scripts');
 const packageRoot=join(root,'node_modules','@markusstrasser','pitchplease');
-const type={'.html':'text/html; charset=utf-8','.js':'text/javascript; charset=utf-8',
+const type={'.html':'text/html; charset=utf-8','.css':'text/css; charset=utf-8','.js':'text/javascript; charset=utf-8',
   '.mjs':'text/javascript; charset=utf-8','.wasm':'application/wasm',
   '.bin':'application/octet-stream','.json':'application/json; charset=utf-8'};
 const routes=new Map([
   ['/',join(scripts,'local-microphone-lab.html')],
+  ['/local-microphone-lab.css',join(scripts,'local-microphone-lab.css')],
   ['/local-microphone-lab.mjs',join(scripts,'local-microphone-lab.mjs')],
   ['/tracker.mjs',join(scripts,'streaming-attack-tracker.mjs')],
   ['/report.mjs',join(scripts,'local-microphone-report.mjs')],
