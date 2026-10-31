@@ -89,6 +89,14 @@ try {
     await page.getByTestId('chord-quality').selectOption('minor');
     assert.equal(await page.getByTestId('accompaniment-left-notes').innerText(),'B2 · D3 · F#3');
     assert.equal(await page.getByTestId('accompaniment-right-notes').innerText(),'D4 · F#4 · B4');
+    await page.getByTestId('accompaniment-hands').selectOption('left');
+    await page.getByTestId('accompaniment-octave').selectOption('12');
+    assert.equal(await page.getByTestId('accompaniment-left-notes').innerText(),'B3 · D4 · F#4');
+    assert.equal(await page.getByTestId('accompaniment-right-notes').count(),0);
+    await page.getByTestId('accompaniment-hands').selectOption('both');
+    assert.equal(await page.getByTestId('accompaniment-left-notes').innerText(),'B2 · D3 · F#3',
+      'full two-hand exercise must never inherit short-keyboard transpose');
+    assert.equal(await page.getByTestId('accompaniment-octave').count(),0);
     await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
       .first().waitFor({state:'visible',timeout:45000});
     assert.deepEqual(await courseSnapshot(),before,'neither hand mode may change graded course records');
