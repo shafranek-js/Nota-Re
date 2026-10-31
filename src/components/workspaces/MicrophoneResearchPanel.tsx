@@ -68,6 +68,8 @@ export const MicrophoneResearchPanel: React.FC = () => {
     if (stopTimeout.current !== null) clearTimeout(stopTimeout.current);
     stopTimeout.current = null;
     const detector = detectorRef.current;
+    // Snapshot stats BEFORE stop(): PitchPlease resets its runtime status.
+    const lastStats = detector?.stats;
     detectorRef.current = null;
     try { detector?.stop(); } catch { /* Always release the media track. */ }
     streamRef.current?.getTracks().forEach(track => track.stop());
@@ -85,8 +87,8 @@ export const MicrophoneResearchPanel: React.FC = () => {
           observed: session.detected, midiReference: session.midi,
           usesSameInstrumentMidi: session.sameInstrumentMidi,
           pedalEventCount: session.pedal,
-          modelKernel: detector?.stats.kernel ?? null,
-          modelCpuLoad: detector?.stats.cpuLoad ?? null
+          modelKernel: lastStats?.kernel ?? null,
+          modelCpuLoad: lastStats?.cpuLoad ?? null
         }));
       } catch {
         setReport(null);
