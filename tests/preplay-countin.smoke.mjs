@@ -73,15 +73,20 @@ try {
         const hudRect = hud.getBoundingClientRect();
         const beatRect = beat.getBoundingClientRect();
         const scoreRect = score.getBoundingClientRect();
+        const notation = [...document.querySelectorAll('[data-testid="osmd-score"] .vf-notehead, [data-testid="osmd-score"] .vf-clef')]
+          .map(element => element.getBoundingClientRect())
+          .filter(rect => rect.height > 0);
         return {
           centerOffset: Math.abs((beatRect.left + beatRect.right - scoreRect.left - scoreRect.right) / 2),
-          aboveStaff: hudRect.bottom <= scoreRect.top + 2,
-          beatHeight: beatRect.height
+          aboveStaff: notation.length > 0 && hudRect.bottom <= Math.min(...notation.map(rect => rect.top)) - 4,
+          beatHeight: beatRect.height,
+          scoreTop: scoreRect.top,
+          staffTop: Math.min(...notation.map(rect => rect.top))
         };
       });
       assert.ok(geometry.centerOffset < 3,
         'the large countdown must be horizontally centred above the score');
-      assert.ok(geometry.aboveStaff, 'count-in must not cover the staff');
+      assert.ok(geometry.aboveStaff, 'count-in must stay above engraved notes and clefs');
       assert.ok(geometry.beatHeight >= 70, 'count-in numeral must be clearly legible');
       assert.equal(await countIn.getByText('Приготовьтесь').count(), 1);
       assert.equal(await countIn.getByText(/Ноты уже видны|игра начнётся|после 4-й доли/).count(), 0,
@@ -115,6 +120,17 @@ try {
       // No giant replacement screen: the notation exists while the HUD is up.
       assert.ok(await countIn.isVisible());
       await page.getByTestId('trainer-count-in').waitFor({ state: 'hidden', timeout: 13000 });
+      const afterCountdown = await page.evaluate(() => {
+        const score = document.querySelector('[data-testid="studio-score-area"]');
+        const notation = [...document.querySelectorAll('[data-testid="osmd-score"] .vf-notehead, [data-testid="osmd-score"] .vf-clef')]
+          .map(element => element.getBoundingClientRect()).filter(rect => rect.height > 0);
+        return { scoreTop: score.getBoundingClientRect().top,
+          staffTop: Math.min(...notation.map(rect => rect.top)) };
+      });
+      assert.ok(Math.abs(afterCountdown.scoreTop - geometry.scoreTop) < 2,
+        'count-in disappearing must not move the score area');
+      assert.ok(Math.abs(afterCountdown.staffTop - geometry.staffTop) < 2,
+        'count-in disappearing must not jump the engraved notes');
       await page.getByTestId('zen-control-strip').waitFor({ state: 'visible' });
       assert.equal(await page.getByTestId('trainer-count-in').count(), 0,
         'Zen starts without unloading/reloading the score after beat four');
