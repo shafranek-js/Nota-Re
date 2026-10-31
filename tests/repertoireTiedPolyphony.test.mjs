@@ -101,8 +101,14 @@ test('right-hand tie remains one attack; split companion transport rejects long 
   assert.equal(right.reason,null);
   assert.deepEqual(right.steps.map(x=>x.targets.map(n=>n.midi)),[[60],[62]]);
   const left=planPolyphonicRehearsal(score,r,'left');
-  assert.match(left.reason,/непрерывный аудиотранспорт/);
-  assert.equal(left.steps.length,0,'never start truncated audible tie');
+  assert.equal(left.reason,null,'additive audio does not truncate the tied companion');
+  assert.deepEqual(left.steps.map(s=>s.targets.map(n=>n.midi)),[[55],[57],[59]]);
+  assert.equal(left.steps[0].companion.length,1);
+  assert.equal(left.steps[0].companion[0].frequencyHz,
+    440*Math.pow(2,(60-69)/12));
+  assert.ok(left.steps[0].companion[0].durationSeconds>4.5,
+    'the whole tie is sustained by one companion batch');
+  assert.equal(left.steps[1].companion.length,0,'no new C4 attack at continuation');
 });
 
 test('broken and cyclic tied links fail closed even when normalization is bypassed',()=>{
