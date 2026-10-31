@@ -6,6 +6,7 @@ export const MODULE_V_TRIADS_ID = 'module-v/v1/triads-5-3' as const;
 export const MODULE_V_INVERSIONS_ID = 'module-v/v1/inversions' as const;
 export const MODULE_V_LEFT_TEXTURES_ID = 'module-v/v1/left-textures' as const;
 export const MODULE_V_TWO_HANDS_ID = 'module-v/v1/two-hands' as const;
+export const MODULE_V_CADENCES_ID = 'module-v/v1/cadences' as const;
 export type ModuleVLessonId = typeof MODULE_V_TRIADS_ID; // V2 reads and responds within the Module V route, not the graded trainer.
 
 export const MODULE_V_STAGES = [
@@ -34,9 +35,9 @@ export const MODULE_V_STAGES = [
     available: true
   },
   {
-    id: 'module-v/v1/cadences',
+    id: MODULE_V_CADENCES_ID,
     title: 'Гармонический минор: V–i',
-    summary: 'Повышенная VII ступень, доминанта и разрешение в тонику.',
-    available: false
+    summary: '36 упражнений: мажорная доминанта с повышенной VII ступенью, реальные партии обеих рук и разрешение в тонику.',
+    available: true
   }
 ] as const;
