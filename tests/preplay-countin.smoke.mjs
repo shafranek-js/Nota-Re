@@ -66,6 +66,26 @@ try {
         null, { timeout: 10000 });
       assert.ok(await osmd.locator('svg').first().isVisible(),
         'the notated first note must remain readable throughout preparation');
+      const geometry = await page.evaluate(() => {
+        const hud = document.querySelector('[data-testid="trainer-count-in"]');
+        const beat = document.querySelector('[data-testid="count-in-beat"]');
+        const score = document.querySelector('[data-testid="studio-score-area"]');
+        const hudRect = hud.getBoundingClientRect();
+        const beatRect = beat.getBoundingClientRect();
+        const scoreRect = score.getBoundingClientRect();
+        return {
+          centerOffset: Math.abs((beatRect.left + beatRect.right - scoreRect.left - scoreRect.right) / 2),
+          aboveStaff: hudRect.bottom <= scoreRect.top + 2,
+          beatHeight: beatRect.height
+        };
+      });
+      assert.ok(geometry.centerOffset < 3,
+        'the large countdown must be horizontally centred above the score');
+      assert.ok(geometry.aboveStaff, 'count-in must not cover the staff');
+      assert.ok(geometry.beatHeight >= 70, 'count-in numeral must be clearly legible');
+      assert.equal(await countIn.getByText('Приготовьтесь').count(), 1);
+      assert.equal(await countIn.getByText(/Ноты уже видны|игра начнётся|после 4-й доли/).count(), 0,
+        'the count-in must not show redundant instructions');
       const downbeats = await page.evaluate(() => window.__strongClicks);
       assert.ok(downbeats.some(start => downbeats.some(end =>
         Math.abs(end - start - 4) < 0.001)),

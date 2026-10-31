@@ -70,36 +70,31 @@ export const PreplayChecklist: React.FC = () => {
 };
 
 /**
- * Minimal count-in HUD. The actual score and piano remain mounted beneath
- * it so students can examine the first notes before the downbeat.
- * No answer input is scored until the store switches to 'playing'.
+ * Score-first preparation: the count is large and centred above the staff,
+ * without covering notes or repeating the instructions from the lesson.
+ * Musical timing and scoring remain owned by the trainer store.
  */
 export const CountInScreen: React.FC = () => {
-  const { countInBeat, bpm, currentAppMode, activeLessonId, cancelTrainerCountIn } = useAppStore();
+  const { countInBeat, bpm, cancelTrainerCountIn } = useAppStore();
   return (
     <aside data-testid="trainer-count-in" aria-label="Подготовка к игре"
-      className="absolute right-2 top-2 z-30 max-w-[calc(100%-1rem)] rounded-xl border border-sky-500/50 bg-slate-950/95 px-3 py-2 shadow-lg">
-      <div className="flex flex-wrap items-center justify-end gap-x-3 gap-y-1 text-xs">
-        <div className="min-w-0">
-          <strong className="text-slate-100">Приготовьтесь · {bpm} BPM</strong>
-          <p className="text-slate-400">
-            {countInBeat === 0 ? 'Готовим нотный стан' :
-              currentAppMode === 'photo'
-                ? 'Фото-память: такт появится краткой вспышкой после отсчёта'
-                : activeLessonId === 3
-                  ? 'После «4» играйте первую ноту на следующую сильную долю!'
-                  : 'Ноты уже видны · игра начнётся после 4-й доли'}
-          </p>
-        </div>
+      className="relative z-20 w-full shrink-0 flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 text-center">
+      <button type="button" onClick={cancelTrainerCountIn}
+        aria-label="Отменить отсчёт" title="Отменить отсчёт"
+        className="absolute right-1 top-1 rounded-lg border border-slate-700 bg-slate-950/80 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+        <span className="hidden sm:inline">Отменить отсчёт</span>
+        <span className="sm:hidden" aria-hidden="true">✕</span>
+      </button>
+      <p className="text-base sm:text-xl font-semibold text-slate-100">Приготовьтесь</p>
+      <div className="flex items-center justify-center gap-5 sm:gap-10">
+        <span aria-hidden="true" className="h-px w-7 sm:w-12 bg-slate-600" />
         <span data-testid="count-in-beat" role="status" aria-live="off"
-          className="min-w-8 text-center text-2xl font-bold font-mono tabular-nums text-emerald-300">
+          className="min-w-[1ch] text-center font-mono text-[clamp(4.5rem,10vw,7.5rem)] font-bold leading-none tabular-nums text-emerald-300">
           {countInBeat || '…'}
         </span>
-        <button type="button" onClick={cancelTrainerCountIn}
-          className="rounded-lg border border-slate-600 px-2 py-1.5 text-xs text-slate-200 hover:bg-slate-800">
-          Отменить отсчёт
-        </button>
+        <span aria-hidden="true" className="h-px w-7 sm:w-12 bg-slate-600" />
       </div>
+      <p className="text-xs sm:text-sm font-medium tracking-wide text-slate-400">{bpm} BPM</p>
     </aside>
   );
 };
