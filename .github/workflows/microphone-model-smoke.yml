@@ -1,0 +1,55 @@
+name: Optional microphone models — synthetic runtime smoke
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/microphone-model-smoke.yml'
+      - 'scripts/export-basic-pitch-onsets.mjs'
+      - 'scripts/export-pitchplease-onsets.mjs'
+      - 'scripts/create-microphone-model-smoke.mjs'
+      - 'scripts/read-piano-wav.mjs'
+      - 'scripts/compare-piano-detectors.mjs'
+      - 'src/core/audio/basicPitchBenchmarkAdapter.ts'
+      - 'src/core/audio/microphoneComparison.ts'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  model-runtime:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Install optional pinned benchmark dependencies without changing production manifests
+        run: npm install --no-save --package-lock=false @spotify/basic-pitch@1.0.1 @tensorflow/tfjs@3.21.0 @markusstrasser/pitchplease@3.1.0
+      - name: Generate synthetic test WAV (not acoustic accuracy evidence)
+        run: node scripts/create-microphone-model-smoke.mjs .microphone-smoke
+      - name: Execute real PitchPlease piano model on synthetic WAV
+        run: node --experimental-strip-types scripts/export-pitchplease-onsets.mjs .microphone-smoke/manifest.json > .microphone-smoke/pitchplease.json
+      - name: Execute real Spotify Basic Pitch model on identical synthetic WAV
+        run: node --experimental-strip-types scripts/export-basic-pitch-onsets.mjs .microphone-smoke/manifest.json > .microphone-smoke/basicpitch.json
+      - name: Verify independent model outputs share the same reference WAV
+        run: node --experimental-strip-types scripts/compare-piano-detectors.mjs .microphone-smoke/pitchplease.json .microphone-smoke/basicpitch.json > .microphone-smoke/comparison.json
+      - name: Ensure both real models ran without asserting musical accuracy
+        run: |
+          node --input-type=module -e '
+            import assert from "node:assert/strict";
+            import { readFileSync } from "node:fs";
+            const result = JSON.parse(readFileSync(".microphone-smoke/comparison.json", "utf8"));
+            assert.equal(result.models.length, 2);
+            assert.equal(result.caseCount, 1);
+            assert.equal(result.totalAudioDurationMs, 3200);
+            for (const model of result.models) {
+              assert.ok(model.engine.includes(":"));
+              assert.ok(Number.isFinite(model.overall.falsePositivesPerMinute));
+              assert.equal(model.overall.medianProcessingLatencyMs, null);
+            }
+            console.log("PASS: both model runtimes executed; accuracy NOT evaluated on real piano");
+          '
