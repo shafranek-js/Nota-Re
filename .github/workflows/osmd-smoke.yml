@@ -44,6 +44,10 @@ jobs:
           done
           cat /tmp/notare-preview.log
           exit 1
+      - name: Verify integrated Studio microphone consent, AudioWorklet, privacy and stop on navigation
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/microphone-in-studio.smoke.mjs
       - name: Verify lesson-one pitch certification and standalone speed test
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
