@@ -6,6 +6,7 @@ on:
       - '.github/workflows/microphone-local-device-lab.yml'
       - 'scripts/serve-local-microphone-lab.mjs'
       - 'scripts/local-microphone-lab.html'
+      - 'scripts/local-microphone-lab.css'
       - 'scripts/local-microphone-lab.mjs'
       - 'scripts/local-microphone-report.mjs'
       - 'scripts/streaming-attack-tracker.mjs'
