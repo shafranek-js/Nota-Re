@@ -35,7 +35,9 @@ try {
         assert.ok(positions.buttonTop < positions.listTop,
           'mobile selected lesson and its launch action must precede the full lesson list');
       }
-      assert.equal(await tabs.getByRole('button').count(), 5);
+      assert.equal(await tabs.getByRole('button').count(), 6,
+        'four original modules, all-lessons filter and separate ungraded Module V');
+      assert.equal(await page.getByTestId('course-module-V').count(), 1);
       assert.match(await page.getByTestId('course-module-all').innerText(), /2\/12/);
       assert.match(await page.getByTestId('course-module-I').innerText(), /2\/3/);
       assert.equal(await page.locator('[data-testid^="course-lesson-"]').count(), 12);
