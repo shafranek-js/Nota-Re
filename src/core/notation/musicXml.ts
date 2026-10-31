@@ -34,7 +34,8 @@ export interface ExerciseScore {
   readonly fifths: number;
   /** Music mode is independent of key signature; legacy scores omit it. */
   readonly mode?: 'major' | 'minor';
-  readonly beats: 4;
+  /** Explicit musical meter, independent of sixteenth-tick timebase. */
+  readonly beats: 3 | 4;
   readonly beatType: 4;
   readonly divisions: 4;
   readonly notes: readonly ScoreEvent[];
@@ -157,10 +158,12 @@ export function createScoreFromTimedHands(
   rightHand: readonly TimedHandPitch[],
   leftHand: readonly TimedHandPitch[],
   tonality: SupportedKey,
-  title = 'Nota-Re independent hands'
+  title = 'Nota-Re independent hands',
+  beats: 3 | 4 = 4
 ): ExerciseScore {
   if (!rightHand.length && !leftHand.length) throw new Error('Cannot export an empty exercise.');
   if (!(tonality in FIFTHS)) throw new Error('Unsupported tonality.');
+  if (beats !== 3 && beats !== 4) throw new Error('Unsupported generated meter.');
 
   function collect(hand: readonly TimedHandPitch[], staff: StaffNumber): ScoreEvent[] {
     const sorted = [...hand].sort((a, b) => a.onsetTicks - b.onsetTicks || a.midi - b.midi);
@@ -197,7 +200,7 @@ export function createScoreFromTimedHands(
   return {
     title,
     fifths: FIFTHS[tonality],
-    beats: 4,
+    beats,
     beatType: 4,
     divisions: 4,
     notes: [...collect(rightHand, 1), ...collect(leftHand, 2)]
@@ -300,11 +303,15 @@ function renderEvent(
   return xml;
 }
 
-/** Exports a valid 4/4 two-staff MusicXML score with independent voices. */
+/** Exports exact-meter two-staff MusicXML scores with independent voices. */
 export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): string {
   if (!score.notes.length) throw new Error('Cannot export an empty score.');
+  if (score.beats !== 3 && score.beats !== 4 || score.beatType !== 4 || score.divisions !== 4) {
+    throw new Error('Unsupported generated meter or MusicXML divisions.');
+  }
+  const ticksPerBar = score.beats * score.divisions;
   const lastTick = Math.max(...score.notes.map(n => n.onsetTicks + n.durationTicks));
-  const measures = Math.ceil(lastTick / TICKS_PER_BAR);
+  const measures = Math.ceil(lastTick / ticksPerBar);
   let xml = '<?xml version="1.0" encoding="utf-8"?>\n' +
     '<!DOCTYPE score-partwise  PUBLIC "-//Recordare//DTD MusicXML 4.0 Partwise//EN" "http://www.musicxml.org/dtds/partwise.dtd">\n' +
     '<score-partwise version="4.0"><work><work-title>' + escapeXml(score.title) +
@@ -316,8 +323,8 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
     '<midi-program>1</midi-program></midi-instrument></score-part></part-list><part id="P1">';
 
   for (let bar = 0; bar < measures; bar++) {
-    const begin = bar * TICKS_PER_BAR;
-    const end = begin + TICKS_PER_BAR;
+    const begin = bar * ticksPerBar;
+    const end = begin + ticksPerBar;
     xml += '<measure number="' + (bar + 1) + '">';
     if (bar === 0) {
       xml += '<attributes><divisions>' + score.divisions + '</divisions>' +
@@ -330,7 +337,7 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
 
     for (const staff of [1, 2] as const) {
       const silentStaff = !!options.hideInactiveStaffRests && !score.notes.some(note => note.staff === staff);
-      if (staff === 2) xml += '<backup><duration>' + TICKS_PER_BAR + '</duration></backup>';
+      if (staff === 2) xml += '<backup><duration>' + ticksPerBar + '</duration></backup>';
       let cursor = begin;
       const staffNotes = score.notes.filter(n => n.staff === staff &&
         n.onsetTicks < end && n.onsetTicks + n.durationTicks > begin)
