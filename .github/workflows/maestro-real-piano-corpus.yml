@@ -67,7 +67,12 @@ jobs:
               referenceAttacks: source.derived_clip.referenceNoteAttacks,
               sourceCc64Events: source.derived_clip.pedalCc64EventsInSource,
               pedalLabeledAttacks: source.derived_clip.pedalAnnotatedAttacks,
-              pedalDownAttacks: source.derived_clip.pedalDownAtAttackCount
+              pedalDownAttacks: source.derived_clip.pedalDownAtAttackCount,
+              observedKeyReleases: source.derived_clip.observedKeyReleaseCount,
+              heldAfterKeyRelease: source.derived_clip.pedalHeldAfterKeyReleaseCount,
+              completePedalControlEnds: source.derived_clip.completePedalControlEndCount,
+              ambiguousReleases: source.derived_clip.ambiguousSamePitchReleaseCount,
+              unmatchedNoteOffsInSource: source.derived_clip.unmatchedMidiNoteOffsInSource
             }));
             for (const model of report.models) for (const take of model.takes) console.log(JSON.stringify({
               engine: model.engine, take: take.id, TP: take.truePositives,
@@ -78,6 +83,11 @@ jobs:
               trueOctaveRecall: take.condition.truthConditions.genuineOctaveWithin50Ms.recall,
               pedalDownAttackRecall: take.condition.truthConditions.pedalDownAtOnset?.recall ?? null,
               pedalUpAttackRecall: take.condition.truthConditions.pedalUpAtOnset?.recall ?? null,
+              releaseObservedRecall: take.condition.releaseAware?.observedUnambiguousKeyRelease.recall ?? null,
+              pedalHeldAfterKeyReleaseRecall: take.condition.releaseAware?.pedalHeldAfterKeyRelease.recall ?? null,
+              nonPedalHeldKeyReleaseRecall: take.condition.releaseAware?.keyReleaseWithoutPedalHold.recall ?? null,
+              completedMidiControllerHolds: take.condition.releaseAware?.completePedalHeldControlEnds ?? null,
+              medianMidiControllerHoldMs: take.condition.releaseAware?.medianMidiControllerHoldAfterKeyReleaseMs ?? null,
               liveMicrophoneLatencyMs: null
             }));
             console.log(JSON.stringify({exploratoryPairedMacroF1: report.pairedMacroF1,
