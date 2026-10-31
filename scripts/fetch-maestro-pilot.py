@@ -62,14 +62,14 @@ def main():
             year = int(row["year"])
         except (ValueError, KeyError):
             continue
-        if row.get("split") == "test" and 20 <= duration <= 180:
-            choices.append((0 if year == 2018 else 1, duration, row))
-    choices.sort(key=lambda x: (x[0], x[1], x[2]["midi_filename"]))
+        if row.get("split") == "validation" and 20 <= duration <= 400:
+            choices.append((duration, year, row))
+    choices.sort(key=lambda x: (x[0], x[2]["midi_filename"]))
     if not choices:
-        raise RuntimeError("No short held-out MAESTRO v3 test performances found")
+        raise RuntimeError("No short MAESTRO v3 validation performances found")
 
     errors = []
-    for _, duration, row in choices[:6]:
+    for duration, _, row in choices[:6]:
         midi = destination / "source.mid"
         wav = destination / "source.wav"
         try:
