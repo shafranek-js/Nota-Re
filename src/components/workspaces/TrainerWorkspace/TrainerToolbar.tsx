@@ -257,15 +257,48 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
                   Пять чистых быстрых попаданий по одной ноте снимают её штраф ошибок.
                 </p>
                 {adaptiveTrace && adaptiveReflexEnabled && activeLessonId === null && (
-                  <p className="mt-1" data-testid="adaptive-trace">
-                    Seed: {adaptiveTrace.seed} · {adaptiveTrace.source === 'midi' ? 'MIDI' : 'ПК'} ·
-                    {' '}вес ошибок +0,1, медленной реакции +0,5;
-                    {' '}следующая выборка: {adaptiveTrace.chosen.slice(0, 8).join(' ')}.
-                    <span className="sr-only"> Вес и число наблюдений по нотам:
-                      {adaptiveTrace.candidates.map(item =>
-                        ` ${item.noteName}: ${item.weight.toFixed(2)} при ${item.sampleCount} наблюдениях.`).join('')}
-                    </span>
-                  </p>
+                  <div className="mt-1">
+                    <p data-testid="adaptive-trace">
+                      Seed: {adaptiveTrace.seed} · {adaptiveTrace.source === 'midi' ? 'MIDI' : 'ПК'} ·
+                      {' '}нота +0,1 за ошибку, интервал +0,1 за ошибку;
+                      {' '}медленное чтение ПК +0,5;
+                      {' '}последовательность: {adaptiveTrace.chosen.slice(0, 8).join(' ')}.
+                    </p>
+                    <details data-testid="adaptive-explanation" className="mt-1">
+                      <summary className="cursor-pointer text-sky-300 focus-visible:outline-sky-400">
+                        Почему выбраны эти ноты? Вес, интервал, число наблюдений
+                      </summary>
+                      <p className="mt-1 text-slate-400">
+                        Выбор вероятностный, не диагноз. Неизученные ноты сохраняют шанс;
+                        однажды выбранная нота меняет веса следующего перехода.
+                        MIDI без калибровки учитывает ошибки, но не время реакции.
+                      </p>
+                      <ol className="mt-1 max-h-48 overflow-y-auto space-y-1 text-slate-300">
+                        {adaptiveTrace.steps.slice(0, 16).map(step => {
+                          const chosen = step.candidates.find(item => item.noteName === step.selected);
+                          return (
+                            <li key={step.position} data-testid="adaptive-trace-step">
+                              {step.position}. {step.from ?? 'Начало'} → <strong>{step.selected}</strong>
+                              {' '}· вес {chosen?.totalWeight.toFixed(2) ?? '?'}
+                              {' '}(нота {chosen?.weight.toFixed(2) ?? '?'}, переход +{chosen?.intervalBoost.toFixed(2) ?? '0'})
+                              {' '}· наблюдений по ноте {chosen?.sampleCount ?? 0},
+                              по интервалу {chosen?.intervalObservations ?? 0}
+                              {chosen?.intervalLabel ? ` · ${chosen.intervalLabel}` : ''}
+                              <span className="block text-slate-500">
+                                Кандидаты: {step.candidates.map(item =>
+                                  `${item.noteName} ${item.totalWeight.toFixed(2)}
+                                  (нот ${item.sampleCount}, интерв. ${item.intervalObservations},
+                                  ошибок ${item.intervalErrors})`.replace(/\\s+/g, ' ').trim()
+                                ).join(' · ')}
+                              </span>
+                            </li>
+                          );
+                        })}
+                      </ol>
+                      {adaptiveTrace.steps.length > 16 &&
+                        <p className="text-slate-400">Первые 16 из {adaptiveTrace.steps.length} нот.</p>}
+                    </details>
+                  </div>
                 )}
               </div>
               {currentAppMode === 'hanon' && (

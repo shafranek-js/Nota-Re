@@ -1,7 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { emptyPracticeStats, noteStatisticsKey, intervalStatisticsKey,
-  addPracticeObservation, addSelfPacedReflexAttempt, validatePracticeStats
+  addPracticeObservation, addPracticeIntervalObservation, addSelfPacedReflexAttempt, validatePracticeStats
 } from '../src/core/training/practiceStatistics.ts';
 import { loadPracticeStats, savePracticeStats, clearPracticeStats,
   PRACTICE_STATS_STORAGE_KEY } from '../src/core/storage/practiceStatsStorage.ts';
@@ -25,7 +25,9 @@ function memory() {
 test('true note/interval observations preserve independent MIDI and PC contexts', () => {
   let state = emptyPracticeStats();
   state = addPracticeObservation(state, obs('wrong-pitch', null));
-  state = addPracticeObservation(state, obs('correct', 900, { previousNoteName: 'E4', previousClef: 'treble' }));
+  state = addPracticeObservation(state, obs('correct', 900));
+  state = addPracticeIntervalObservation(state,
+    obs('correct', 900, { previousNoteName: 'E4', previousClef: 'treble' }));
   state = addPracticeObservation(state, obs('correct', 300, { source: 'pc' }));
   assert.deepEqual([state.notes[key].observations, state.notes[key].wrong,
     state.notes[key].correct, state.notes[key].reactionSamples],
