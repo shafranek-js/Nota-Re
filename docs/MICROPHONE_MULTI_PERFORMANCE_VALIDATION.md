@@ -209,6 +209,59 @@ full-clip evaluation. No microphone permissions, certificates,
 lesson scoring, front-end model bundles, or captured recordings are
 introduced. The workflow uploads JSON-only causal diagnostics.
 
+## R0D: Native AudioWorklet streaming, without a physical microphone
+
+The pinned [PitchPlease 3.1.0](https://github.com/markusstrasser/pitchplease)
+already has a genuinely incremental browser API: `create({ model: 'piano',
+onNotes })`, `detector.start(stream)`, and an AudioWorklet with its own
+model state. Previous R0C tests only invoked `analyze()` on complete
+clips or independently re-analyzed overlapping 2-second windows.
+
+`scripts/streaming-pitchplease-browser.mjs` now exercises the *real*
+AudioWorklet with a `MediaStream` **injected from Web Audio**. It decodes
+each of the three pre-existing 14-second independent MAESTRO validation
+WAVs in Chrome and feeds a playback node into
+`AudioContext.createMediaStreamDestination()`. A real
+`MediaStream` reaches `detector.start(stream)`: there is no
+`getUserMedia()`, physical room/microphone noise, permission prompt,
+fake callback, or look-ahead into later WAV samples.
+
+For each callback, the stateful bounded
+`scripts/streaming-attack-tracker.mjs` consumes frame activations
+*once*. With 2 observed frames and a 55 ms inactive-gap rule, it emits
+note attacks without rereading prior audio; the exact same finite-state
+policy is verified against the legacy offline activation adapter.
+The classifier sees no expected score, and the research adapter never
+pretends that continuously held keys were released or retriggered.
+
+The browser starts the detector before the audio; 450 ms of silence
+establishes a limited cross-context clock alignment from live frame
+`emitTime` to `performance.now()`. The audio's scheduled
+`AudioContext` playback start is estimated using
+`getOutputTimestamp()`. Browser callback arrivals are recorded
+separately from the model frame timestamps. The shared ±100 ms
+independent MIDI onset matcher is retained, and P50/P95 **loopback
+callback delivery after reference attack** is reported for matched
+notes. The frame count, model revision, CPU load, worklet kernel,
+frame rate, exact source WAV SHA-256 and browser errors are all audited.
+
+**Interpretation is limited.** The output is end-to-end *browser
+WebAudio loopback*, not true device mic-to-screen latency. Playback
+scheduling, separate context clocks, JavaScript event-loop jitter and
+the estimated origin can shift both onset classification and apparent
+latency. A median or P95 from this experiment is exploratory, not an
+externally calibrated hardware latency measurement or guarantee.
+Room acoustics, fan noise, input devices and OS audio drivers remain
+unmeasured. Three selected MAESTRO excerpts are too few for a
+population-generalizable model claim.
+
+This research runs only in a dedicated opt-in GitHub workflow with
+test-only pinned dependencies and ephemeral WAV/MIDI. The repository
+never adds PitchPlease to its production bundle, requests microphone
+permission, or changes any official MIDI-graded lesson. Only JSON
+reports and source audit (not WAV, MIDI or model binaries) are stored
+as short-lived Action artifacts.
+
 ## Safeguards and limitations
 
 MAESTRO is [CC BY-NC-SA 4.0](https://magenta.tensorflow.org/datasets/maestro).
