@@ -26,7 +26,7 @@ try {
         mimeType: 'application/vnd.recordare.musicxml+xml', buffer: Buffer.from(DEMO_XML) });
       const preview = page.getByTestId('repertoire-preview');
       await preview.waitFor({ state: 'visible', timeout: 35000 });
-      assert.match(await preview.innerText(), /Только просмотр · без зачёта/);
+      assert.match(await preview.innerText(), /Просмотр \/ MIDI-практика · без зачёта/);
       await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
       assert.match(await page.getByTestId('repertoire-timeline').innerText(), /Структура распознана: 2 такт/);
       const featureDetails = page.getByTestId('repertoire-capabilities');

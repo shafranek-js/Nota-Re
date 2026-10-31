@@ -1,6 +1,10 @@
-import React, { useEffect, useRef, useState } from 'react';
+import React, { useEffect, useMemo, useRef, useState } from 'react';
 import { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { audioEngine } from '../../core/audio/AudioEngine';
+import { midiManager } from '../../core/midi/MidiManager';
+import { useAppStore } from '../../store/useAppStore';
+import { initialPitchTrial, planRepertoirePitchTrial, recordPitchTrialNote, startPitchTrial,
+  type PitchTrialPlan } from '../../core/training/repertoirePitchTrial';
 import { buildScoreLoopAudio } from '../../core/notation/scoreLoopAudio';
 import { inspectRepertoireCapabilities } from '../../core/notation/repertoireCapabilities';
 import {
@@ -9,6 +13,7 @@ import {
   type EngravedRepertoireMeasure
 } from '../../core/notation/repertoireMeasureGeometry';
 import { clearRepertoireNoteOverlay, drawRepertoireNoteOverlay,
+  clearRepertoireTrialTarget, drawRepertoireTrialTarget,
   mapRepertoireNoteheads, type RepertoireNoteMapping
 } from '../../core/notation/repertoireNoteGeometry';
 import type { AppTheme } from '../../core/ui/themePreference';
@@ -37,6 +42,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const [selectionActive, setSelectionActive] = useState(false);
   const [loopPlaying, setLoopPlaying] = useState(false);
   const [loopError, setLoopError] = useState('');
+  const [pitchTrial, setPitchTrial] = useState(initialPitchTrial);
+  const midiInputsCount = useAppStore(state => state.midiInputsCount);
   const loopOwned = useRef(false);
   const stopLoop = () => {
     if (loopOwned.current) audioEngine.clearPreviewTimeouts();
@@ -54,6 +61,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   }, []);
   const playLoop = async () => {
     if (!timeline?.score || !selectionActive || geometryMessage) return;
+    setPitchTrial(initialPitchTrial());
     stopLoop();
     setLoopError('');
     try {
@@ -241,6 +249,83 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const supports = (key: typeof capabilities[number]['key']) =>
     capabilities.some(feature => feature.key === key && feature.available);
 
+  // Only an explicitly selected, rendered range with exact OSMD anchors can
+  // start this self-paced *pitch* exercise. No timing, no misses, no course data.
+  const pitchTrialPlan: PitchTrialPlan | null = useMemo(() => {
+    if (!timeline?.score) return null;
+    // Even before A–B selection, explain WHY unsupported polyphony cannot
+    // start. An eligible score still requires explicit measure selection.
+    const range = selectMeasureIndices(timeline.score,
+      selectionActive ? firstBar - 1 : 0,
+      selectionActive ? lastBar - 1 : timeline.score.measures.length - 1);
+    return range ? planRepertoirePitchTrial(timeline.score, range) : null;
+  }, [timeline, selectionActive, firstBar, lastBar]);
+  const canPitchTrial = selectionActive && !geometryMessage &&
+    supports('notehead-overlay') && !!pitchTrialPlan &&
+    !pitchTrialPlan.reason && pitchTrialPlan.steps.length > 0 && midiInputsCount > 0;
+
+  useEffect(() => {
+    // A new A–B range, reloaded file or changed theme invalidates the current
+    // rehearsal; nothing is resumed or saved as lesson/assessment evidence.
+    setPitchTrial(initialPitchTrial());
+  }, [firstBar, lastBar, selectionActive, info, theme]);
+
+  useEffect(() => {
+    const stopOnHidden = () => { if (document.hidden) setPitchTrial(initialPitchTrial()); };
+    const stopOnSettings = useAppStore.subscribe((current, previous) => {
+      if (current.isSettingsOpen && !previous.isSettingsOpen) setPitchTrial(initialPitchTrial());
+    });
+    document.addEventListener('visibilitychange', stopOnHidden);
+    return () => {
+      stopOnSettings();
+      document.removeEventListener('visibilitychange', stopOnHidden);
+    };
+  }, []);
+
+  useEffect(() => {
+    if (pitchTrial.phase !== 'playing' || !pitchTrialPlan) return;
+    return midiManager.onMidiEvent(event => {
+      // A disconnected controller must not leave a stale playing session.
+      if (event.type === 'panic' || event.type === 'all-notes-off') {
+        setPitchTrial(initialPitchTrial());
+        return;
+      }
+      if (event.type !== 'note-on' || document.hidden) return;
+      const app = useAppStore.getState();
+      if (app.isSettingsOpen || !app.isRepertoirePreviewOpen ||
+          app.currentWorkspace !== 'trainer') return;
+      setPitchTrial(previous => recordPitchTrialNote(previous, pitchTrialPlan, event.note));
+    });
+  }, [pitchTrial.phase, pitchTrialPlan]);
+
+  useEffect(() => {
+    const mount = mountRef.current;
+    if (!mount) return;
+    clearRepertoireTrialTarget(mount);
+    if (pitchTrial.phase !== 'playing' || !pitchTrialPlan ||
+        !noteMapping || noteMapping.reason) return;
+    const eventId = pitchTrialPlan.steps[pitchTrial.index]?.eventId;
+    if (!eventId || !drawRepertoireTrialTarget(mount, noteMapping, eventId, theme === 'light')) return;
+    // Follow the highlighted note only inside the score viewport, never
+    // scroll the page, toolbar, or virtual piano.
+    const viewport = mount.parentElement;
+    const ring = mount.querySelector('[data-repertoire-trial-target]');
+    if (viewport && ring) {
+      const frame = viewport.getBoundingClientRect();
+      const target = ring.getBoundingClientRect();
+      if (target.left < frame.left + 16) viewport.scrollLeft -= frame.left + 16 - target.left;
+      else if (target.right > frame.right - 16) viewport.scrollLeft += target.right - frame.right + 16;
+    }
+    return () => clearRepertoireTrialTarget(mount);
+  }, [pitchTrial, pitchTrialPlan, noteMapping, renderEpoch, theme]);
+
+  const startMidiTrial = () => {
+    if (!canPitchTrial || !pitchTrialPlan) return;
+    stopLoop();
+    setLoopError('');
+    setPitchTrial(startPitchTrial(pitchTrialPlan));
+  };
+
   return (
     <section data-testid="repertoire-preview" aria-label="Просмотр загруженной партитуры"
       className="flex-1 min-h-0 flex flex-col gap-2 overflow-hidden p-2">
@@ -248,7 +333,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         <div className="min-w-0">
           <div className="flex flex-wrap items-center gap-2">
             <strong className="text-sm text-slate-100 break-words">{info.title}</strong>
-            <span className="rounded border border-amber-600/50 bg-amber-950/30 px-2 py-0.5 text-xs text-amber-300">Только просмотр · без зачёта</span>
+            <span className="rounded border border-amber-600/50 bg-amber-950/30 px-2 py-0.5 text-xs text-amber-300">Просмотр / MIDI-практика · без зачёта</span>
           </div>
           <p className="text-xs text-slate-400 break-all">{info.file.name}
             {info.parts !== null ? ` · ${info.parts} партий` : ''}
@@ -267,7 +352,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
         </div>
       </div>
       <p className="shrink-0 text-xs text-slate-400">
-        Файл обрабатывается локально. MIDI-оценка и зачёт отключены.
+        Файл обрабатывается локально. Зачёт курса отключён; MIDI-практика проверяет только высоту нот, без оценки ритма.
         {state === 'ready' && timeline && (
           <span data-testid="repertoire-timeline" role="status"
             data-meters={timeline.score?.measures.map(m => m.meter.beats + '/' + m.meter.beatType).join(' ') ?? ''}
@@ -361,6 +446,28 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
           <span role="status" data-testid="repertoire-loop-status"
             className={loopPlaying ? 'text-emerald-300' : 'text-slate-400'}>
             {loopPlaying ? 'Повторяется · без зачёта' : 'Воспроизведение без оценки · темп по партитуре (иначе 80 BPM)'}
+          </span>
+          <button type="button" data-testid="repertoire-trial-toggle"
+            disabled={pitchTrial.phase === 'idle' && !canPitchTrial}
+            onClick={() => {
+              if (pitchTrial.phase === 'playing') setPitchTrial(initialPitchTrial());
+              else startMidiTrial();
+            }}
+            className="rounded border border-amber-500/60 bg-amber-950/20 px-2 py-1 font-medium text-amber-200 disabled:cursor-not-allowed disabled:opacity-50">
+            {pitchTrial.phase === 'playing' ? '■ Стоп игры' :
+              pitchTrial.phase === 'complete' ? '↻ Повторить по нотам' : '▶ Играть по нотам'}
+          </button>
+          <span role="status" data-testid="repertoire-trial-status"
+            className={pitchTrial.phase === 'complete' ? 'text-emerald-300' : 'text-amber-200'}>
+            {pitchTrial.phase === 'playing'
+              ? `Нота ${pitchTrial.index + 1}/${pitchTrialPlan?.steps.length ?? 0} · верно: ${pitchTrial.correct} · ошибок: ${pitchTrial.wrong}`
+              : pitchTrial.phase === 'complete'
+                ? `Все ${pitchTrial.correct} нот сыграны · ошибок: ${pitchTrial.wrong} · без зачёта`
+                : pitchTrialPlan?.reason ?? geometryMessage ?? noteMapping?.reason ??
+                  (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
+                    midiInputsCount === 0 ? 'Подключите MIDI-клавиатуру для практики.' :
+                      'Без метронома: играйте каждую выделенную ноту в своём темпе.')}
+            {pitchTrial.phase === 'playing' && pitchTrial.last === 'wrong' ? ' · Неверная нота, повторите.' : ''}
           </span>
           {loopError && <span role="alert" data-testid="repertoire-loop-error"
             className="text-rose-300">{loopError}</span>}
