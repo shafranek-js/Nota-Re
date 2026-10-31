@@ -21,6 +21,8 @@ class AudioEngine {
   private ctx: AudioContext | null = null;
   private isAudioEnabled: boolean = true;
   private previewQueue: AudioClockQueue | LoopAudioClockQueue | null = null;
+  /** Independent self-paced accompaniment batches. Each keeps its own sustain. */
+  private readonly companionQueues = new Set<AudioClockQueue>();
   private previewUsesSoundFont = false;
   private activeMetronomeStops = new Set<() => void>();
   private piano = new SoundFontPiano();
@@ -309,7 +311,14 @@ class AudioEngine {
   public clearPreviewTimeouts(): void {
     this.previewQueue?.stop();
     this.previewQueue = null;
+    this.clearRepertoireCompanion();
     this.previewUsesSoundFont = false;
+  }
+
+  /** Explicitly stop all companion notes, including already-scheduled tails. */
+  public clearRepertoireCompanion(): void {
+    for (const queue of this.companionQueues) queue.stop();
+    this.companionQueues.clear();
   }
 
   private scheduleFallbackPreview(
@@ -410,16 +419,51 @@ class AudioEngine {
   }
 
   /**
-   * Play the other staff after a successful human MIDI step. Uses the existing
-   * preview transport, never synthetic MIDI input or course grading.
-   * Do not silently switch timbre while the selected SoundFont is loading.
+   * Each MIDI-confirmed group creates its own audio-clock queue. Unlike the
+   * general preview timeline, adding the next group MUST NOT cancel a sustained
+   * note from the previous group (ties, half notes, overlapping voices).
+   * The queues never emit synthetic MIDI events or course assessment evidence.
    */
   public playRepertoireCompanion(events: readonly TimedTone[]): boolean {
-    if (!this.isAudioEnabled || events.length === 0) return false;
+    if (!this.isAudioEnabled || !events.length || events.length > 512 ||
+        events.some(t => !Number.isFinite(t.offsetSeconds) ||
+          !Number.isFinite(t.durationSeconds) || !Number.isFinite(t.frequencyHz) ||
+          t.offsetSeconds < 0 || t.durationSeconds <= 0 ||
+          t.frequencyHz <= 0)) return false;
     const status = this.piano.getStatus();
     if (status.output === 'soundfont' && status.phase !== 'ready') return false;
-    this.playTimeline(events);
-    return this.previewQueue?.isPlaying ?? false;
+    const context = this.ensureAudioContext();
+    if (!context || context.state !== 'running') return false;
+    // Release completed batches; cap outstanding work instead of evicting
+    // still-audible notes just to make room for a new chord.
+    for (const previous of this.companionQueues) {
+      if (!previous.isPlaying) this.companionQueues.delete(previous);
+    }
+    if (this.companionQueues.size >= 48) return false;
+    const channel16Held = [...this.liveVoices.keys()].some(key => key.startsWith('15:'));
+    const useSamples = status.output === 'soundfont' && status.phase === 'ready' &&
+      !channel16Held;
+    const queue = new AudioClockQueue(
+      () => context.currentTime,
+      (tone, time) => {
+        if (useSamples) {
+          const cancel = this.piano.schedulePreviewNote(
+            context, tone.frequencyHz, tone.durationSeconds, time
+          );
+          if (cancel) return cancel;
+        }
+        return this.scheduleFallbackPreview(context, tone, time);
+      }
+    );
+    this.companionQueues.add(queue);
+    try {
+      queue.start(events);
+      return queue.isPlaying;
+    } catch {
+      queue.stop();
+      this.companionQueues.delete(queue);
+      return false;
+    }
   }
 
   public playPianoTone(freq: number, duration: number = 0.55, isStaccato: boolean = false): void {

@@ -97,15 +97,9 @@ export function planPolyphonicRehearsal(
       e.pitch.midi < 21 || e.pitch.midi > 108)) {
     return empty(mode, 'Неподдерживаемая высота ноты вне диапазона фортепиано A0–C8.');
   }
-  const voicesByStaff = new Map<number, Set<string>>();
-  for (const event of score.events) {
-    const voices = voicesByStaff.get(event.staff) ?? new Set<string>();
-    voices.add(event.voice);
-    voicesByStaff.set(event.staff, voices);
-  }
-  if ([...voicesByStaff.values()].some(voices => voices.size !== 1)) {
-    return empty(mode, 'Несколько независимых голосов на одном стане пока не поддерживаются.');
-  }
+  // Voices are independent timelines, including two voices on one staff.
+  // A physical MIDI key identifies pitch, not MusicXML voice; overlaps of
+  // the *same* pitch therefore need a conservative ambiguity gate below.
   const byId = new Map(allNotes.map(e => [e.id, e]));
   const continuedIds = new Set(allNotes.flatMap(e => e.tieToId ? [e.tieToId] : []));
   if (continuedIds.size !== allNotes.filter(e => e.tieToId).length) {
@@ -159,12 +153,21 @@ export function planPolyphonicRehearsal(
     compareQuarter(a.event.onset, b.event.onset) ||
     a.event.staff - b.event.staff ||
     a.event.pitch!.midi - b.event.pitch!.midi);
-  for (let i = 1; i < ordered.length; i++) {
-    const prev = ordered[i - 1]!, curr = ordered[i]!;
-    if (compareQuarter(prev.event.onset, curr.event.onset) === 0 &&
-        prev.event.pitch!.midi === curr.event.pitch!.midi) {
-      return empty(mode, 'Одновременная одинаковая высота на двух станах неоднозначна для MIDI.');
+  // A key cannot provide independent evidence for two overlapping notes
+  // of the same MIDI pitch, whether in two voices or on different staves.
+  // Equally timed unisons and a later attack before physical key-off are
+  // both ambiguous. Non-overlapping repetitions still require fresh NoteOn.
+  const byPitch = new Map<number, Attack[]>();
+  for (const attack of ordered) {
+    const midi = attack.event.pitch!.midi;
+    const previous = byPitch.get(midi) ?? [];
+    if (previous.some(old =>
+        compareQuarter(old.event.onset, attack.end) < 0 &&
+        compareQuarter(attack.event.onset, old.end) < 0)) {
+      return empty(mode, 'Перекрывающиеся одинаковые высоты в разных голосах или станах нельзя независимо подтвердить одной MIDI-клавишей.');
     }
+    previous.push(attack);
+    byPitch.set(midi, previous);
   }
   const targetStaff = mode === 'right' ? 1 : mode === 'left' ? 2 : null;
   const targets = ordered.filter(a => targetStaff === null || a.event.staff === targetStaff);
@@ -182,16 +185,8 @@ export function planPolyphonicRehearsal(
       compareQuarter(companionAttacks[0]!.event.onset, groups[0]![0]!.event.onset) < 0) {
     return empty(mode, 'Сопровождение начинается раньше выбранной руки; начните с другого диапазона A–B.');
   }
-  // The current AudioEngine companion resets its preview queue at each
-  // successful group. A long tied accompaniment would otherwise be cut off
-  // midway through its sustain. Do not claim this texture works yet.
-  for (const attack of companionAttacks) {
-    if (attack.tied && groups.some(g =>
-      compareQuarter(g[0]!.event.onset, attack.event.onset) > 0 &&
-      compareQuarter(g[0]!.event.onset, attack.end) < 0)) {
-      return empty(mode, 'Связующая лига сопровождения перекрывает следующий шаг: требуется непрерывный аудиотранспорт.');
-    }
-  }
+  // Companion is scheduled in additive, independently cancellable AudioContext
+  // queues: a held note is never forcibly cut by the next MIDI step.
   const steps = groups.map((group, index): PolyphonicStep => {
     const from = group[0]!.event.onset;
     const next = groups[index + 1]?.[0]?.event.onset ?? range.end;
@@ -209,7 +204,10 @@ export function planPolyphonicRehearsal(
         staccato: a.event.articulation === 'staccato'
       };
     });
-    const requiredHeld = targets.filter(a => a.tied &&
+    // Every sustained voice, not just a tied note, must stay physically
+    // depressed when another independent attack begins. This is an onset
+    // checkpoint, NOT an absolute duration or release-time grade.
+    const requiredHeld = targets.filter(a =>
       compareQuarter(a.event.onset, from) < 0 &&
       compareQuarter(a.end, from) > 0).map(a => a.event.pitch!.midi);
     return {

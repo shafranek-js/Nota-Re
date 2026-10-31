@@ -103,7 +103,7 @@ test('unsupported score cases are rejected with explanatory reasons', () => {
     { score: fixture([note('x', 1, 0, 60, 1), note('y', 2, 0, 48, 1)], 2), mode: 'right',
       override: events => events.map(e => e.id === 'x' ? { ...e, tieToId: 'y' } : e) },
     { score: fixture([note('early', 2, 0, 48), note('later', 1, 1, 60)]), mode: 'right' },
-    { score: fixture([note('x', 1, 0, 60), { ...note('v2', 1, 1, 64), voice: '3' }]), mode: 'both' },
+    { score: fixture([note('x', 1, 0, 60), { ...note('v2', 1, 0, 60), voice: '3' }]), mode: 'both' },
   ];
   for (const example of examples) {
     const score = example.override ?

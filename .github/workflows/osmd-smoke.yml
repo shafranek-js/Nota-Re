@@ -96,6 +96,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/repertoire-polyphonic.smoke.mjs
+      - name: Verify independent same-staff MusicXML voices and additive held accompaniment
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/repertoire-independent-voices.smoke.mjs
       - name: Verify tie-chain MIDI A–B guard, no reattack and physical hold in Chrome
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
