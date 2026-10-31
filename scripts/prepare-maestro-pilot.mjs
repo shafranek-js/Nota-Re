@@ -40,8 +40,8 @@ async function main(path) {
   const root = resolve(path);
   const midiBytes = await readFile(join(root, 'source.mid'));
   const source = JSON.parse(await readFile(join(root, 'source.json'), 'utf8'));
-  if (source.dataset !== 'MAESTRO v3.0.0' || source.split !== 'test') {
-    throw new Error('Expected a MAESTRO v3 held-out test recording');
+  if (source.dataset !== 'MAESTRO v3.0.0' || source.split !== 'validation') {
+    throw new Error('Expected a MAESTRO v3 validation recording');
   }
   const originalWav = join(root, 'source.wav');
   const wavDurationSec = Number(checkedRun('ffprobe', [
@@ -63,7 +63,7 @@ async function main(path) {
     throw new Error('Converted WAV has wrong sample rate or timing');
   }
   const sample = {
-    id: 'maestro-v3-heldout-test-pilot',
+    id: 'maestro-v3-validation-pilot',
     category: 'maestro-acoustic-piano',
     wav: './piano-clip.wav',
     audioSha256: createHash('sha256').update(bytes).digest('hex'),
