@@ -1,0 +1,67 @@
+name: Microphone R0D — real AudioWorklet streaming replay
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/microphone-real-online-worklet.yml'
+      - 'scripts/streaming-pitchplease-browser.mjs'
+      - 'scripts/streaming-attack-tracker.mjs'
+      - 'tests/streamingAttackTracker.test.mjs'
+      - 'scripts/fetch-maestro-corpus.py'
+      - 'scripts/prepare-maestro-corpus.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-worklet-with-independent-wav:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validate incremental tracker and reference MIDI
+        run: node --experimental-strip-types --test tests/streamingAttackTracker.test.mjs tests/maestroMidiOnsets.test.mjs
+      - name: Install browser research-only packages (not shipped with Nota-Re)
+        run: npm install --no-save --package-lock=false playwright@1.64.1 @markusstrasser/pitchplease@3.1.0
+      - uses: browser-actions/setup-chrome@v2
+        id: chrome
+      - name: Install ffmpeg to convert runner-local MAESTRO WAV
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Fetch independent MAESTRO validation source recordings
+        run: python3 scripts/fetch-maestro-corpus.py .microphone-maestro-corpus
+      - name: Prepare SHA-256 verified 14s WAV clips and independent MIDI truth
+        run: node scripts/prepare-maestro-corpus.mjs .microphone-maestro-corpus
+      - name: Drive true streaming PitchPlease 3.1.0 AudioWorklet with WebAudio MediaStream
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node --experimental-strip-types scripts/streaming-pitchplease-browser.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/native-streaming.json
+      - name: Print and audit read-only streaming report
+        run: |
+          node --input-type=module -e '
+            import {readFileSync} from "node:fs";
+            const p = JSON.parse(readFileSync(".microphone-maestro-corpus/native-streaming.json", "utf8"));
+            if (p.experiment !== "R0D-real-worklet-loopback-v1" || p.model !== "pitchplease@3.1.0:piano" ||
+                p.results.length !== 3 || p.results.some(r => r.frameCount < 100 || r.referenceAttacks < 100)) {
+              throw new Error("Missing real worklet and independent three-take output");
+            }
+            for (const r of p.results) console.log(JSON.stringify(r));
+            console.log(p.caveat);
+          '
+      - name: Upload only JSON evidence — never copyrighted WAV/MIDI or weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: microphone-r0d-native-streaming-json
+          if-no-files-found: warn
+          path: |
+            .microphone-maestro-corpus/native-streaming.json
+            .microphone-maestro-corpus/corpus-source-audit.json
+          retention-days: 7
