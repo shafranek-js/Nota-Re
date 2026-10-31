@@ -59,7 +59,8 @@ try {
         for(const midi of [60,64,67])window.__moduleVMidi.send([0x80,midi,0]);
       });
     }
-    await page.getByTestId('module-v-midi-evidence').getByText(/зарегистрирована/).waitFor();
+    await page.waitForFunction(() => document.querySelector('[data-testid="module-v-midi-evidence"]')
+      ?.textContent?.includes('зарегистрирована'));
     assert.equal(await step.innerText(),'4');
     const after = await page.evaluate(()=>({
       old: Object.fromEntries(Object.entries(localStorage)
