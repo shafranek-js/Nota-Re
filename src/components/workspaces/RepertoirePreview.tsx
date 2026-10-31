@@ -5,6 +5,9 @@ import { midiManager } from '../../core/midi/MidiManager';
 import { useAppStore } from '../../store/useAppStore';
 import { initialPitchTrial, planRepertoirePitchTrial, recordPitchTrialNote, startPitchTrial,
   type PitchTrialPlan } from '../../core/training/repertoirePitchTrial';
+import { initialPolyphonicTrial, planPolyphonicRehearsal, recordPolyphonicKey,
+  startPolyphonicTrial, type PolyphonicHandMode, type PolyphonicPlan
+} from '../../core/training/repertoirePolyphonicTrial';
 import { buildScoreLoopAudio } from '../../core/notation/scoreLoopAudio';
 import { inspectRepertoireCapabilities } from '../../core/notation/repertoireCapabilities';
 import {
@@ -13,7 +16,7 @@ import {
   type EngravedRepertoireMeasure
 } from '../../core/notation/repertoireMeasureGeometry';
 import { clearRepertoireNoteOverlay, drawRepertoireNoteOverlay,
-  clearRepertoireTrialTarget, drawRepertoireTrialTarget,
+  clearRepertoireTrialTarget, drawRepertoireTrialTarget, drawRepertoireTrialTargets,
   mapRepertoireNoteheads, type RepertoireNoteMapping
 } from '../../core/notation/repertoireNoteGeometry';
 import type { AppTheme } from '../../core/ui/themePreference';
@@ -43,6 +46,13 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const [loopPlaying, setLoopPlaying] = useState(false);
   const [loopError, setLoopError] = useState('');
   const [pitchTrial, setPitchTrial] = useState(initialPitchTrial);
+  const [practiceMode, setPracticeMode] = useState<'melody' | PolyphonicHandMode>('melody');
+  const [polyTrial, setPolyTrial] = useState(initialPolyphonicTrial);
+  const [practiceError, setPracticeError] = useState('');
+  const [preparingCompanion, setPreparingCompanion] = useState(false);
+  const companionOwned = useRef(false);
+  const companionGeneration = useRef(0);
+  const lastCompanionStep = useRef(-1);
   const midiInputsCount = useAppStore(state => state.midiInputsCount);
   const loopOwned = useRef(false);
   const stopLoop = () => {
@@ -50,9 +60,18 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
     loopOwned.current = false;
     setLoopPlaying(false);
   };
+  const stopCompanion = () => {
+    companionGeneration.current++;
+    lastCompanionStep.current = -1;
+    if (companionOwned.current) audioEngine.clearPreviewTimeouts();
+    companionOwned.current = false;
+    setPreparingCompanion(false);
+  };
   useEffect(() => () => {
-    if (loopOwned.current) audioEngine.clearPreviewTimeouts();
+    if (loopOwned.current || companionOwned.current) audioEngine.clearPreviewTimeouts();
     loopOwned.current = false;
+    companionOwned.current = false;
+    companionGeneration.current++;
   }, []);
   useEffect(() => {
     const stopOnHidden = () => { if (document.hidden && loopOwned.current) stopLoop(); };
@@ -62,6 +81,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const playLoop = async () => {
     if (!timeline?.score || !selectionActive || geometryMessage) return;
     setPitchTrial(initialPitchTrial());
+    setPolyTrial(initialPolyphonicTrial());
+    stopCompanion();
     stopLoop();
     setLoopError('');
     try {
@@ -263,17 +284,43 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   const canPitchTrial = selectionActive && !geometryMessage &&
     supports('notehead-overlay') && !!pitchTrialPlan &&
     !pitchTrialPlan.reason && pitchTrialPlan.steps.length > 0 && midiInputsCount > 0;
+  const polyPlan: PolyphonicPlan | null = useMemo(() => {
+    if (!timeline?.score || practiceMode === 'melody') return null;
+    const range = selectMeasureIndices(timeline.score,
+      selectionActive ? firstBar - 1 : 0,
+      selectionActive ? lastBar - 1 : timeline.score.measures.length - 1);
+    return range ? planPolyphonicRehearsal(timeline.score, range, practiceMode) : null;
+  }, [timeline, practiceMode, selectionActive, firstBar, lastBar]);
+  // Polyphonic playing uses verified musical structure and measure coordinates.
+  // Individual SVG heads are only highlighted when independently mapped.
+  const canPolyTrial = selectionActive && !geometryMessage &&
+    supports('measure-selection') && !!polyPlan &&
+    !polyPlan.reason && polyPlan.steps.length > 0 && midiInputsCount > 0;
+  const activePlaying = practiceMode === 'melody' ?
+    pitchTrial.phase === 'playing' : polyTrial.phase === 'playing';
+  const activeComplete = practiceMode === 'melody' ?
+    pitchTrial.phase === 'complete' : polyTrial.phase === 'complete';
+  const activeIdle = practiceMode === 'melody' ?
+    pitchTrial.phase === 'idle' : polyTrial.phase === 'idle';
+  const canStartTrial = practiceMode === 'melody' ? canPitchTrial : canPolyTrial;
 
   useEffect(() => {
-    // A new A–B range, reloaded file or changed theme invalidates the current
-    // rehearsal; nothing is resumed or saved as lesson/assessment evidence.
+    // Changing file, mode, range or theme invalidates this ungraded rehearsal.
     setPitchTrial(initialPitchTrial());
-  }, [firstBar, lastBar, selectionActive, info, theme]);
+    setPolyTrial(initialPolyphonicTrial());
+    setPracticeError('');
+    stopCompanion();
+  }, [firstBar, lastBar, selectionActive, info, theme, practiceMode]);
 
   useEffect(() => {
-    const stopOnHidden = () => { if (document.hidden) setPitchTrial(initialPitchTrial()); };
+    const reset = () => {
+      setPitchTrial(initialPitchTrial());
+      setPolyTrial(initialPolyphonicTrial());
+      stopCompanion();
+    };
+    const stopOnHidden = () => { if (document.hidden) reset(); };
     const stopOnSettings = useAppStore.subscribe((current, previous) => {
-      if (current.isSettingsOpen && !previous.isSettingsOpen) setPitchTrial(initialPitchTrial());
+      if (current.isSettingsOpen && !previous.isSettingsOpen) reset();
     });
     document.addEventListener('visibilitychange', stopOnHidden);
     return () => {
@@ -283,31 +330,57 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   }, []);
 
   useEffect(() => {
-    if (pitchTrial.phase !== 'playing' || !pitchTrialPlan) return;
+    if (practiceMode === 'melody' ? pitchTrial.phase !== 'playing' || !pitchTrialPlan :
+        polyTrial.phase !== 'playing' || !polyPlan) return;
     return midiManager.onMidiEvent(event => {
-      // A disconnected controller must not leave a stale playing session.
       if (event.type === 'panic' || event.type === 'all-notes-off') {
         setPitchTrial(initialPitchTrial());
+        setPolyTrial(initialPolyphonicTrial());
+        stopCompanion();
         return;
       }
-      if (event.type !== 'note-on' || document.hidden) return;
+      if (document.hidden || (event.type !== 'note-on' && event.type !== 'note-off')) return;
       const app = useAppStore.getState();
       if (app.isSettingsOpen || !app.isRepertoirePreviewOpen ||
           app.currentWorkspace !== 'trainer') return;
-      setPitchTrial(previous => recordPitchTrialNote(previous, pitchTrialPlan, event.note));
+      if (practiceMode === 'melody' && pitchTrialPlan) {
+        if (event.type === 'note-on')
+          setPitchTrial(previous => recordPitchTrialNote(previous, pitchTrialPlan, event.note));
+      } else if (polyPlan) {
+        setPolyTrial(previous => recordPolyphonicKey(previous, polyPlan,
+          { type: event.type, note: event.note }));
+      }
     });
-  }, [pitchTrial.phase, pitchTrialPlan]);
+  }, [practiceMode, pitchTrial.phase, pitchTrialPlan, polyTrial.phase, polyPlan]);
+
+  // Only transitions confirmed by physical MIDI launch the other-hand audio.
+  // Accompaniment is scheduled independently and never enters assessment.
+  useEffect(() => {
+    if (practiceMode === 'melody' || !polyPlan) return;
+    const completed = polyTrial.completedStepIndex;
+    if (completed === null || completed <= lastCompanionStep.current) return;
+    lastCompanionStep.current = completed;
+    const tones = polyPlan.steps[completed]?.companion ?? [];
+    if (tones.length && audioEngine.playRepertoireCompanion(tones)) {
+      companionOwned.current = true;
+    }
+  }, [practiceMode, polyPlan, polyTrial.completedStepIndex]);
 
   useEffect(() => {
     const mount = mountRef.current;
     if (!mount) return;
     clearRepertoireTrialTarget(mount);
-    if (pitchTrial.phase !== 'playing' || !pitchTrialPlan ||
-        !noteMapping || noteMapping.reason) return;
-    const eventId = pitchTrialPlan.steps[pitchTrial.index]?.eventId;
-    if (!eventId || !drawRepertoireTrialTarget(mount, noteMapping, eventId, theme === 'light')) return;
-    // Follow the highlighted note only inside the score viewport, never
-    // scroll the page, toolbar, or virtual piano.
+    if (!noteMapping || noteMapping.reason || !activePlaying) return;
+    const light = theme === 'light';
+    let shown = false;
+    if (practiceMode === 'melody' && pitchTrialPlan) {
+      const eventId = pitchTrialPlan.steps[pitchTrial.index]?.eventId;
+      shown = !!eventId && drawRepertoireTrialTarget(mount, noteMapping, eventId, light);
+    } else if (polyPlan) {
+      const ids = polyPlan.steps[polyTrial.index]?.targets.map(note => note.eventId) ?? [];
+      shown = drawRepertoireTrialTargets(mount, noteMapping, ids, light);
+    }
+    if (!shown) return;
     const viewport = mount.parentElement;
     const ring = mount.querySelector('[data-repertoire-trial-target]');
     if (viewport && ring) {
@@ -317,13 +390,49 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
       else if (target.right > frame.right - 16) viewport.scrollLeft += target.right - frame.right + 16;
     }
     return () => clearRepertoireTrialTarget(mount);
-  }, [pitchTrial, pitchTrialPlan, noteMapping, renderEpoch, theme]);
+  }, [practiceMode, pitchTrial, pitchTrialPlan, polyTrial, polyPlan,
+      noteMapping, renderEpoch, theme, activePlaying]);
 
-  const startMidiTrial = () => {
-    if (!canPitchTrial || !pitchTrialPlan) return;
+  const startMidiTrial = async () => {
+    if (!canStartTrial || preparingCompanion) return;
     stopLoop();
+    stopCompanion();
+    setPracticeError('');
     setLoopError('');
-    setPitchTrial(startPitchTrial(pitchTrialPlan));
+    if (practiceMode === 'melody') {
+      if (pitchTrialPlan) setPitchTrial(startPitchTrial(pitchTrialPlan));
+      return;
+    }
+    if (!polyPlan) return;
+    const generation = companionGeneration.current;
+    if (practiceMode !== 'both') {
+      setPreparingCompanion(true);
+      try {
+        if (!audioEngine.getAudioEnabled()) throw new Error('Включите звук для сопровождения.');
+        const context = audioEngine.ensureAudioContext();
+        if (!context) throw new Error('Web Audio недоступен.');
+        await context.resume();
+        if (context.state !== 'running') throw new Error('Не удалось активировать звуковой выход.');
+        await audioEngine.prepareSoundFont();
+        if (companionGeneration.current !== generation) return;
+        const status = audioEngine.getSoundFontStatus();
+        if (status.output === 'soundfont' && status.phase !== 'ready')
+          throw new Error('SoundFont ещё не готов для сопровождения.');
+      } catch (error) {
+        if (companionGeneration.current === generation)
+          setPracticeError(error instanceof Error ? error.message : 'Ошибка звука.');
+        return;
+      } finally {
+        if (companionGeneration.current === generation) setPreparingCompanion(false);
+      }
+    }
+    if (companionGeneration.current === generation && !document.hidden)
+      setPolyTrial(startPolyphonicTrial(polyPlan));
+  };
+  const stopMidiTrial = () => {
+    setPitchTrial(initialPitchTrial());
+    setPolyTrial(initialPolyphonicTrial());
+    stopCompanion();
   };
 
   return (
@@ -447,28 +556,51 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
             className={loopPlaying ? 'text-emerald-300' : 'text-slate-400'}>
             {loopPlaying ? 'Повторяется · без зачёта' : 'Воспроизведение без оценки · темп по партитуре (иначе 80 BPM)'}
           </span>
+          <label className="inline-flex items-center gap-1" htmlFor="repertoire-practice-mode">
+            Режим MIDI
+            <select id="repertoire-practice-mode" data-testid="repertoire-practice-mode"
+              value={practiceMode} disabled={activePlaying || preparingCompanion}
+              onChange={event => setPracticeMode(event.target.value as 'melody' | PolyphonicHandMode)}
+              className="rounded border border-slate-600 bg-slate-800 px-2 py-1 text-slate-100">
+              <option value="melody">Мелодия · по нотам</option>
+              <option value="both">Аккорды / обе руки</option>
+              <option value="right">Играю правой · левая звучит</option>
+              <option value="left">Играю левой · правая звучит</option>
+            </select>
+          </label>
           <button type="button" data-testid="repertoire-trial-toggle"
-            disabled={pitchTrial.phase === 'idle' && !canPitchTrial}
-            onClick={() => {
-              if (pitchTrial.phase === 'playing') setPitchTrial(initialPitchTrial());
-              else startMidiTrial();
-            }}
+            disabled={preparingCompanion || (activeIdle && !canStartTrial)}
+            onClick={() => { if (activePlaying) stopMidiTrial(); else void startMidiTrial(); }}
             className="rounded border border-amber-500/60 bg-amber-950/20 px-2 py-1 font-medium text-amber-200 disabled:cursor-not-allowed disabled:opacity-50">
-            {pitchTrial.phase === 'playing' ? '■ Стоп игры' :
-              pitchTrial.phase === 'complete' ? '↻ Повторить по нотам' : '▶ Играть по нотам'}
+            {preparingCompanion ? 'Подготовка звука…' : activePlaying ? '■ Стоп игры' :
+              activeComplete ? '↻ Повторить по нотам' : '▶ Играть по нотам'}
           </button>
           <span role="status" data-testid="repertoire-trial-status"
-            className={pitchTrial.phase === 'complete' ? 'text-emerald-300' : 'text-amber-200'}>
-            {pitchTrial.phase === 'playing'
-              ? `Нота ${pitchTrial.index + 1}/${pitchTrialPlan?.steps.length ?? 0} · верно: ${pitchTrial.correct} · ошибок: ${pitchTrial.wrong}`
-              : pitchTrial.phase === 'complete'
-                ? `Все ${pitchTrial.correct} нот сыграны · ошибок: ${pitchTrial.wrong} · без зачёта`
-                : pitchTrialPlan?.reason ?? geometryMessage ?? noteMapping?.reason ??
-                  (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
-                    midiInputsCount === 0 ? 'Подключите MIDI-клавиатуру для практики.' :
-                      'Без метронома: играйте каждую выделенную ноту в своём темпе.')}
-            {pitchTrial.phase === 'playing' && pitchTrial.last === 'wrong' ? ' · Неверная нота, повторите.' : ''}
+            className={activeComplete ? 'text-emerald-300' : 'text-amber-200'}>
+            {practiceMode === 'melody'
+              ? (pitchTrial.phase === 'playing'
+                  ? `Нота ${pitchTrial.index + 1}/${pitchTrialPlan?.steps.length ?? 0} · верно: ${pitchTrial.correct} · ошибок: ${pitchTrial.wrong}`
+                  : pitchTrial.phase === 'complete'
+                    ? `Все ${pitchTrial.correct} нот сыграны · ошибок: ${pitchTrial.wrong} · без зачёта`
+                    : pitchTrialPlan?.reason ?? geometryMessage ?? noteMapping?.reason ??
+                      (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
+                        midiInputsCount === 0 ? 'Подключите MIDI-клавиатуру для практики.' :
+                          'Без метронома: играйте каждую выделенную ноту в своём темпе.'))
+              : (polyTrial.phase === 'playing'
+                  ? `Группа ${polyTrial.index + 1}/${polyPlan?.steps.length ?? 0} · верно: ${polyTrial.correct} · ошибок: ${polyTrial.wrong}`
+                  : polyTrial.phase === 'complete'
+                    ? `Пройдены ${polyTrial.correct} группы · ошибок: ${polyTrial.wrong} · без зачёта`
+                    : polyPlan?.reason ?? geometryMessage ??
+                      (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
+                        midiInputsCount === 0 ? 'Подключите MIDI-клавиатуру.' :
+                          'Удерживайте все ноты аккорда; сопровождение звучит после подтверждения группы.'))}
+            {activePlaying && (practiceMode === 'melody' ? pitchTrial.last : polyTrial.last) === 'wrong'
+              ? ' · Неверная клавиша.' : ''}
+            {practiceMode !== 'melody' && noteMapping?.reason
+              ? ' · Подсветка головок недоступна: смотрите на нотный стан.' : ''}
           </span>
+          {practiceError && <span role="alert" data-testid="repertoire-practice-error"
+            className="text-rose-300">{practiceError}</span>}
           {loopError && <span role="alert" data-testid="repertoire-loop-error"
             className="text-rose-300">{loopError}</span>}
           {geometryMessage && <span role="status" data-testid="repertoire-ab-unavailable"

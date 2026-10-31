@@ -92,6 +92,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/repertoire-pitch-trial.smoke.mjs
+      - name: Verify ungraded polyphonic score practice and accompanying hand
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/repertoire-polyphonic.smoke.mjs
       - name: Verify private adaptive Reflex without changing course grades
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
@@ -116,6 +120,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/accompanimentStudy.smoke.mjs
+      - name: Verify opt-in Module V complementary-hand practice with MIDI
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/module-v-companion.smoke.mjs
       - name: Verify harmonic-minor V-i in all four keys with OSMD and physical MIDI
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

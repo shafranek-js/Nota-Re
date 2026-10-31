@@ -409,6 +409,19 @@ class AudioEngine {
     return queue.isPlaying;
   }
 
+  /**
+   * Play the other staff after a successful human MIDI step. Uses the existing
+   * preview transport, never synthetic MIDI input or course grading.
+   * Do not silently switch timbre while the selected SoundFont is loading.
+   */
+  public playRepertoireCompanion(events: readonly TimedTone[]): boolean {
+    if (!this.isAudioEnabled || events.length === 0) return false;
+    const status = this.piano.getStatus();
+    if (status.output === 'soundfont' && status.phase !== 'ready') return false;
+    this.playTimeline(events);
+    return this.previewQueue?.isPlaying ?? false;
+  }
+
   public playPianoTone(freq: number, duration: number = 0.55, isStaccato: boolean = false): void {
     if (!this.isAudioEnabled) return;
     const ctx = this.ensureAudioContext();

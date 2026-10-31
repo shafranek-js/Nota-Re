@@ -226,6 +226,38 @@ export function clearRepertoireTrialTarget(mount: HTMLElement): void {
   mount.querySelectorAll('.' + trialTargetClass).forEach(element => element.remove());
 }
 
+/**
+ * Multiple simultaneous targets, but only when every source note has an
+ * independently verified OSMD notehead. No chord-head positioning guesses.
+ */
+export function drawRepertoireTrialTargets(
+  mount: HTMLElement, mapping: RepertoireNoteMapping,
+  eventIds: readonly string[], light: boolean
+): boolean {
+  clearRepertoireTrialTarget(mount);
+  if (mapping.reason || !eventIds.length) return false;
+  const anchors = eventIds.map(id => mapping.anchors.find(item => item.eventId === id));
+  if (anchors.some(anchor => !anchor || !mount.contains(anchor.root))) return false;
+  for (const anchor of anchors) {
+    if (!anchor) return false;
+    const group = document.createElementNS(NS, 'g');
+    group.setAttribute('class', trialTargetClass);
+    group.setAttribute('pointer-events', 'none');
+    group.setAttribute('aria-hidden', 'true');
+    const ring = document.createElementNS(NS, 'circle');
+    ring.setAttribute('data-repertoire-trial-target', anchor.eventId);
+    ring.setAttribute('cx', String(anchor.x));
+    ring.setAttribute('cy', String(anchor.y));
+    ring.setAttribute('r', String(anchor.radius + 4));
+    ring.setAttribute('fill', 'none');
+    ring.setAttribute('stroke', light ? '#b45309' : '#fbbf24');
+    ring.setAttribute('stroke-width', '3');
+    group.appendChild(ring);
+    anchor.root.appendChild(group);
+  }
+  return true;
+}
+
 export function drawRepertoireTrialTarget(
   mount: HTMLElement, mapping: RepertoireNoteMapping,
   eventId: string, light: boolean
