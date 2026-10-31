@@ -90,7 +90,7 @@ test('held RH note cannot be released early during an independent LH line', () =
 
 test('V4 journal is independent, bounded and fails closed on corrupted attempts', () => {
   assert.equal(MODULE_V_TWO_HANDS_ID,'module-v/v1/two-hands');
-  assert.equal(MODULE_V_STAGES.filter(s=>s.available).length,4);
+  assert.equal(MODULE_V_STAGES.filter(s=>s.available).length,5);
   assert.deepEqual(validateV4(null),{schemaVersion:4,attempts:[]});
   const legacy = new Map([
     ['notare_module_v_practice_v1','a'],
