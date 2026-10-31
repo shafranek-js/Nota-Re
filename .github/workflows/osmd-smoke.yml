@@ -100,6 +100,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/chordStudy.smoke.mjs
+      - name: Verify versioned Module V V1 guide, MIDI evidence and legacy isolation
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/moduleVGuided.smoke.mjs
       - name: Verify independent LH accompaniments in 4/4 and genuine 3/4
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
