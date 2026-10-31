@@ -51,7 +51,7 @@ test('rejects timestamp injection, invalid MIDI pitches and oversized diagnostic
 test('local server only resolves hardcoded app routes, never arbitrary paths',async()=>{
  assert.match(await resolveLabAsset('/'),/local-microphone-lab\.html$/);
  assert.match(await resolveLabAsset('/report.mjs'),/local-microphone-report\.mjs$/);
- assert.match(await resolveLabAsset('/local-microphone-lab.css'),/local-microphone-lab\\.css$/);
+ assert.match(await resolveLabAsset('/local-microphone-lab.css'),/local-microphone-lab\.css$/);
  for(const uri of ['/package.json','/src/main.tsx','/../../README.md',
   '/engine/../package.json','/models/%2e%2e','/unrelated','/engine/foo/bar',
   '/engine\\processor.js']){
