@@ -18,7 +18,7 @@ import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
 import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
-import { createChordStudy, type ChordQuality, type ChordInversion } from '../../../core/training/chordStudy';
+import { createChordStudy, type ChordQuality, type ChordInversion, type ChordStudy } from '../../../core/training/chordStudy';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 import { loadTwoHandShadowSeries, saveTwoHandShadowSeries, clearTwoHandShadowSeries } from '../../../core/storage/twoHandShadowStorage';
@@ -95,7 +95,7 @@ export const TwoHandPractice: React.FC = () => {
     [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount,
       pattern, isChordStudy, chordQuality, chordInversion]
   );
-  const chordStudy = isChordStudy && 'pitchNames' in exercise ? exercise : null;
+  const chordStudy: ChordStudy | null = isChordStudy ? exercise as ChordStudy : null;
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
   const trialRef = useRef(trial);
