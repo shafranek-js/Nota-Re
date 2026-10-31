@@ -73,6 +73,28 @@ for (const [key, quality, fifths, bass] of cases) {
   });
 }
 
+test('25-key LH octave transfer is explicit and never changes original two-hand bass',()=>{
+  for(const [key,quality] of cases) for(const texture of ['alberti','waltz','arpeggio']) {
+    const original=createAccompanimentStudy(key,quality,0,texture,'left');
+    const high=createAccompanimentStudy(key,quality,0,texture,'left',12);
+    const full=createAccompanimentStudy(key,quality,0,texture,'both');
+    const lh0=original.score.notes.filter(n=>n.staff===2);
+    const lh1=high.score.notes.filter(n=>n.staff===2);
+    assert.deepEqual(lh1.map(n=>n.midi),lh0.map(n=>n.midi+12));
+    assert.deepEqual(lh1.map(n=>[n.onsetTicks,n.durationTicks]),
+      lh0.map(n=>[n.onsetTicks,n.durationTicks]));
+    assert.ok(lh1.every(n=>n.midi>=48&&n.midi<=72),
+      'octave-up LH passage must fit a 25-key C3-C5 keyboard');
+    assert.deepEqual(full.score.notes.filter(n=>n.staff===2),lh0,
+      'two-hand score always uses original bass register');
+    assert.equal(high.bassOctaveShift,12);
+  }
+  assert.throws(()=>createAccompanimentStudy('C','major',0,'waltz','both',12),
+    /Unsupported accompaniment/);
+  assert.throws(()=>createAccompanimentStudy('C','major',0,'waltz','left',24),
+    /Unsupported accompaniment/);
+});
+
 test('metronome timestamps use true independent 3/4 onsets, reject missing RH attacks',()=>{
   const both=createAccompanimentStudy('C','major',0,'waltz','both');
   let state=initialTimedPractice();
