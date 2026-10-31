@@ -54,6 +54,11 @@ try {
     await page.getByTestId('accompaniment-hands').selectOption('both');
     assert.equal(await page.getByTestId('accompaniment-right-notes').innerText(),'E4 · G#4 · B4');
     assert.equal(await page.getByTestId('harmonic-resolution-right').innerText(),'A4 · C5 · E5');
+    await page.getByTestId('vertical-chord-reading').locator('summary').click();
+    const verticals = page.getByTestId('vertical-chord-guide-list').locator('li');
+    assert.equal(await verticals.count(), 2, 'V and i are distinct actual RH verticals');
+    assert.match(await verticals.nth(0).innerText(), /E мажор.*5\/3.*G♯/);
+    assert.match(await verticals.nth(1).innerText(), /A минор.*5\/3/);
     await page.evaluate(()=>window.__harmonicMidi.send([0x90,52,100]));
     assert.equal(await step.innerText(),'1','bass alone never satisfies simultaneous V');
     await page.evaluate(()=>{
