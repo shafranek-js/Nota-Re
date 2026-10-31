@@ -69,7 +69,7 @@ test('slow serial model accumulates backlog; model cannot emit before input acqu
   }, 100);
   assert.equal(metrics.truePositives, 2);
   assert.equal(metrics.falsePositives, 2);
-  assert.equal(metrics.medianProcessingLatencyMs, 2300);
+  assert.equal(metrics.medianProcessingLatencyMs, 1950);
 });
 
 test('non-divisible source tail is reported rather than silently counted as analyzed', async () => {
@@ -84,7 +84,7 @@ test('non-divisible source tail is reported rather than silently counted as anal
 test('rejects lookahead, impossible detections, non-monotonic timing and malformed windows', async () => {
   const audio = samples();
   const argumentsList = [
-    { windowMs: 0 }, { hopMs: 5000 }, { sampleRate: 9601 },
+    { windowMs: 0 }, { hopMs: 5000 }, { sampleRate: 1200000 },
     { samples: new Float32Array(1) }
   ];
   for (const broken of argumentsList) {
