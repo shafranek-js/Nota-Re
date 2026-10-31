@@ -24,7 +24,7 @@ test('V4 score: 24 deterministic 2-bar independent-staff 3/4 and 4/4 fixtures', 
     assert.equal(fixture.steps[0].onsetTicks, 0);
     assert.ok(fixture.steps.every((s,k) => k === 0 || s.onsetTicks > fixture.steps[k-1].onsetTicks));
     assert.ok(fixture.steps.some(s => s.expectedMidi.length > 1));
-    assert.ok(fixture.score.notes.some(n => n.staff === 1 && n.durationTicks > 2));
+    assert.ok(fixture.score.notes.some(n => n.staff === 1 && n.durationTicks === (fixture.pattern === 'staggered' ? 2 : fixture.pattern === 'held-harmony' ? 12 : 4)));
     assert.ok(fixture.score.notes.some(n => n.staff === 2 && n.onsetTicks > 0));
     assert.ok(fixture.score.notes.every(n => n.onsetTicks + n.durationTicks <= 2 * fixture.score.beats * 4));
     const xml = toMusicXml(fixture.score);
