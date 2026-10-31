@@ -20,6 +20,7 @@ import { assessPolyphonicPractice } from '../../../core/training/polyphonicAsses
 import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
 import { createChordStudy, type ChordQuality, type ChordInversion, type ChordStudy } from '../../../core/training/chordStudy';
 import { createAccompanimentStudy, type AccompanimentStudy, type AccompanimentTexture, type AccompanimentHands } from '../../../core/training/accompanimentStudy';
+import { parseSpelledPitch } from '../../../core/training/directedInterval';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 import { loadTwoHandShadowSeries, saveTwoHandShadowSeries, clearTwoHandShadowSeries } from '../../../core/storage/twoHandShadowStorage';
@@ -395,13 +396,24 @@ export const TwoHandPractice: React.FC = () => {
     catch (error) { console.warn('Two-hand cursor failed', error); }
   }, [cursorTick, loadStatus, renderEpoch]);
 
+  const accompanimentNames = useMemo(() => {
+    const names = new Map<number, string>();
+    if (accompaniment) {
+      for (const name of [...accompaniment.leftNotes, ...accompaniment.rightNotes]) {
+        const parsed = parseSpelledPitch(name);
+        if (parsed) names.set(parsed.midi, name);
+      }
+    }
+    return names;
+  }, [accompaniment]);
   const expected = currentStep?.expectedMidi
-    .map(midi => MIDI_NAMES.get(midi) ?? String(midi)).join(' + ') ?? 'Готово';
+    .map(midi => accompanimentNames.get(midi) ?? MIDI_NAMES.get(midi) ?? String(midi))
+    .join(' + ') ?? 'Готово';
   const assessment = useMemo(() =>
-    plan && timed.finished
+    plan && timed.finished && !(accompaniment && accompanimentHands === 'left')
       ? assessPolyphonicPractice(exercise.score, exercise.steps, timed)
       : null,
-    [plan, timed, exercise]
+    [plan, timed, exercise, accompaniment, accompanimentHands]
   );
   const releases = useMemo(() =>
     assessment && courseTrial ? assessLessonReleases(exercise.score, timed) : null,
@@ -742,6 +754,21 @@ export const TwoHandPractice: React.FC = () => {
       {!plan && !harmonicStudy && pattern !== 'steady' && <p className="text-xs text-slate-400">
         В свободной практике паузы отображаются в нотах. Контроль их длительности работает при игре с метрономом.
       </p>}
+      {accompaniment && accompanimentHands === 'left' && plan && timed.finished && (
+        <div data-testid="accompaniment-left-result"
+          className="rounded-lg border border-sky-700/50 bg-sky-950/30 p-3 text-xs text-slate-200">
+          <p className="font-semibold">Диагностика одной левой руки — без зачёта</p>
+          <p>Верные вступления: {timed.hits}/{exercise.steps.length};
+            {' '}пропущено: {timed.misses};
+            {' '}ошибочных нот: {timed.wrongPitches};
+            {' '}вне доли: {timed.offBeatNotes}.</p>
+          <p className="text-slate-400">
+            Это не результат исполнения двумя руками.
+            MIDI не подтверждает аппликатуру; удержания и отпускания
+            показываются в общей статистике выше. Курс не получает зачёт.
+          </p>
+        </div>
+      )}
       {assessment && (
         <div data-testid="two-hand-assessment" className="rounded-lg border border-slate-600 bg-slate-800/70 p-3 text-xs text-slate-100" role="region" aria-label="Диагностика двухручного исполнения">
           <p className="font-semibold text-sm">
