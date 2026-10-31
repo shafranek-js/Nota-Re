@@ -85,7 +85,7 @@ test('versioned storage isolates stats, recovers corruption, and never touches c
   assert.deepEqual(loadPracticeStats(store), emptyPracticeStats());
   store.setItem(PRACTICE_STATS_STORAGE_KEY, JSON.stringify({ version: 999, notes: { bad: {} } }));
   assert.deepEqual(loadPracticeStats(store), emptyPracticeStats());
-  assert.deepEqual(validatePracticeStats({ version: 1, notes: { [key]: { wrong: -1 } } }).notes, {});
+  assert.equal(Object.keys(validatePracticeStats({ version: 1, notes: { [key]: { wrong: -1 } } }).notes).length, 0);
   assert.equal(clearPracticeStats(store), true);
   assert.equal(store.getItem('notare_course_completed_v3'), '[1,2,3]');
   const blocked = { getItem: () => { throw Error('disabled'); },
