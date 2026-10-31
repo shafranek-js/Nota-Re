@@ -45,6 +45,13 @@ try {
     assert.equal(await page.getByTestId('chord-notes').innerText(), 'C4 · E4 · G4');
     await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
       .first().waitFor({ state: 'visible', timeout: 45000 });
+    const readingGuide = page.getByTestId('vertical-chord-reading');
+    assert.equal(await page.getByTestId('vertical-chord-guide-list').isVisible(), false,
+      'pedagogical answers start collapsed');
+    await readingGuide.locator('summary').click();
+    assert.match(await page.getByTestId('vertical-chord-guide-list').innerText(), /C мажор.*5\/3/);
+    assert.equal(await page.getByTestId('vertical-chord-guide-list').locator('li').count(), 1,
+      'four repeated chords share one concise explanation');
     const step = page.getByTestId('two-hand-step-index');
     assert.equal(await step.innerText(), '1');
 
