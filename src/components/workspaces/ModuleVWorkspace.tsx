@@ -37,7 +37,8 @@ export const ModuleVWorkspace: React.FC = () => {
           <p className="px-2 py-1 text-xs text-slate-400">Маршрут от чтения трезвучия до каденции</p>
           {MODULE_V_STAGES.map((stage, index) =>
             <div key={stage.id} data-testid={`module-v-stage-${index + 1}`}
-              aria-current={stage.available ? 'step' : undefined}
+              aria-current={(stage.id === MODULE_V_TRIADS_ID && stageView === 'v1') ||
+                (stage.id === MODULE_V_INVERSIONS_ID && stageView === 'v2') ? 'step' : undefined}
               className={`rounded-lg border px-3 py-2 text-xs ${stage.available
                 ? 'border-sky-600/50 bg-sky-900/15'
                 : 'border-slate-800 bg-slate-950/60'}`}>
@@ -50,7 +51,6 @@ export const ModuleVWorkspace: React.FC = () => {
               <p className="text-slate-400 mt-1 leading-relaxed">{stage.summary}</p>
               {stage.id === MODULE_V_INVERSIONS_ID && (
                 <button type="button" data-testid="module-v-open-v2"
-                  aria-current={stageView === 'v2' ? 'step' : undefined}
                   className="mt-2 rounded-md border border-sky-600/60 px-2.5 py-1.5 text-sky-200 hover:bg-sky-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
                   onClick={() => setStageView('v2')}>Открыть V2 · обращения</button>
               )}
