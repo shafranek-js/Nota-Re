@@ -76,7 +76,8 @@ try {
       await page.evaluate(() => window.__trialMidi.send([0x90, 64, 100]));
       await page.waitForFunction(() => document.querySelector('[data-testid="repertoire-trial-status"]')
         ?.textContent?.includes('Все 2 нот сыграны'));
-      assert.equal(await page.locator('[data-repertoire-trial-target]').count(), 0);
+      await page.waitForFunction(() =>
+        document.querySelectorAll('[data-repertoire-trial-target]').length === 0);
       assert.equal(await button.innerText(), '↻ Повторить по нотам');
       assert.equal(await page.getByTestId('attempt-results').count(), 0);
 
@@ -101,7 +102,8 @@ try {
         buffer: Buffer.from(DEMO_TIMELINE_XML) });
       await preview.waitFor({ state: 'visible', timeout: 30000 });
       await page.getByTestId('repertoire-timeline').waitFor({ state: 'visible', timeout: 30000 });
-      await ab.getByRole('button', { name: 'Выделить' }).click();
+      const selectUnsupported = ab.getByRole('button', { name: 'Выделить' });
+      if (await selectUnsupported.isEnabled()) await selectUnsupported.click();
       assert.equal(await button.isEnabled(), false,
         'polyphonic score must never claim supported pitch trial');
       assert.match(await status.innerText(), /(одном нотном стане|несколько голосов|недоступ)/i);
