@@ -85,7 +85,7 @@ for (const k of keys) {
 }
 
 test('MusicXML accidentals reset per measure, not on every repeat within a bar',()=>{
-  const n=(midi,spelling,onsetTicks)=>({midi,spelling,onsetTicks,durationTicks:4});
+  const n=(midi,spelling,onsetTicks)=>({midi,spelling,staff:1,onsetTicks,durationTicks:4});
   const gSharp={step:'G',alter:1,octave:4};
   const gNatural={step:'G',alter:0,octave:4};
   const score=createScoreFromTimedHands([
