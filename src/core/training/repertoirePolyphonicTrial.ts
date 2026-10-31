@@ -212,6 +212,7 @@ export function planGeneratedHandRehearsal(
   score: ExerciseScore, bpm: number, mode: 'right' | 'left'
 ): PolyphonicPlan {
   const fail = (reason: string): PolyphonicPlan => empty(mode, reason);
+  if (mode !== 'right' && mode !== 'left') return fail('Неизвестная выбранная рука.');
   if (!Number.isFinite(bpm) || bpm < 20 || bpm > 240) return fail('Недопустимый темп практики.');
   if (!score.notes.length || score.notes.length > 512) return fail('Выберите упражнение до 512 нот.');
   if (score.notes.some(n => !Number.isSafeInteger(n.midi) || n.midi < 21 || n.midi > 108 ||
