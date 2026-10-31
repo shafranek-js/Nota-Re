@@ -3,7 +3,7 @@ import { readFile, writeFile } from 'node:fs/promises';
 import { createHash } from 'node:crypto';
 import { spawnSync } from 'node:child_process';
 import { join, resolve } from 'node:path';
-import { parseMidiOnsets } from './maestro-midi-onsets.mjs';
+import { parseMidiReference } from './maestro-midi-onsets.mjs';
 import { chooseReferenceClip } from './prepare-maestro-pilot.mjs';
 import { readPianoWav } from './read-piano-wav.mjs';
 
@@ -66,7 +66,8 @@ async function main(dir) {
       '-v', 'error', '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1', wav
     ])) * 1000;
-    const clip = chooseReferenceClip(parseMidiOnsets(sourceMidi), durationMs);
+    const midiReference = parseMidiReference(sourceMidi);
+    const clip = chooseReferenceClip(midiReference.attacks, durationMs);
     const clipped = join(folder, 'piano-clip.wav');
     exec('ffmpeg', [
       '-hide_banner', '-loglevel', 'error', '-y',
@@ -91,6 +92,10 @@ async function main(dir) {
       derived_clip: {
         startMs: clip.startMs, durationMs: durationSeconds * 1000,
         audioSha256: convertedSha256, referenceNoteAttacks: clip.expected.length,
+        pedalCc64EventsInSource: midiReference.pedalChanges.length,
+        pedalAnnotatedAttacks: clip.expected.filter(x => x.pedalDownAtOnset !== null).length,
+        pedalDownAtAttackCount: clip.expected.filter(x => x.pedalDownAtOnset === true).length,
+        pedalUnknownAtAttackCount: clip.expected.filter(x => x.pedalDownAtOnset === null).length,
         targetSampleRate: 22050, mono: true, pcm: 'signed PCM16',
         method: 'ffmpeg accurate seek; MIDI PPQ tempo map; first-attack anchored'
       }
