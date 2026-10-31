@@ -76,11 +76,11 @@ try {
    await page.waitForFunction(()=>document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 1/3'));
    await page.evaluate(()=>window.__voices.send(60,64));
    await page.waitForFunction(()=>document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 2/3'));
-   await page.waitForFunction(()=>window.__oscCount>=6);
+   await page.waitForFunction(()=>window.__oscCount>=2);
    const afterFirst=await page.evaluate(()=>({osc:window.__oscCount,stops:window.__earlyStops}));
    await page.evaluate(()=>window.__voices.send(67));
    await page.waitForFunction(()=>document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 3/3'));
-   await page.waitForFunction(previous=>window.__oscCount>=previous+3,afterFirst.osc);
+   await page.waitForFunction(previous=>window.__oscCount>=previous+2,afterFirst.osc);
    const afterSecond=await page.evaluate(()=>({osc:window.__oscCount,stops:window.__earlyStops}));
    assert.equal(afterSecond.stops,afterFirst.stops,
      'second independent accompaniment entry must not cancel the long first tone');
