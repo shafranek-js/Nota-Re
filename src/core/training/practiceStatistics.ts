@@ -139,7 +139,11 @@ export function addSelfPacedReflexAttempt(
         event.outcome === 'assisted') continue;
     next = addPracticeObservation(next, {
       source: event.source, mode: 'reflex', noteName: note.noteName, clef: note.clef,
-      outcome: event.outcome, reactionMs: event.outcome === 'correct' ? event.reactionMs : null,
+      // Physical MIDI device latency is uncalibrated; do not weight reaction
+      // speed across keyboards. Pitch outcomes still contribute errors.
+      outcome: event.outcome,
+      reactionMs: event.outcome === 'correct' && event.source === 'pc'
+        ? event.reactionMs : null,
       at: nowMs,
       ...(prev ? { previousNoteName: prev.noteName, previousClef: prev.clef } : {})
     });
