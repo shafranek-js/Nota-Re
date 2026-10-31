@@ -88,6 +88,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/repertoire.smoke.mjs
+      - name: Verify gated MIDI pitch-by-pitch practice without certification
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/repertoire-pitch-trial.smoke.mjs
       - name: Verify Zen score space, audio, MIDI and photo safety in Chrome
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
