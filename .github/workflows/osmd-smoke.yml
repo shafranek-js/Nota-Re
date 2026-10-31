@@ -120,6 +120,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/moduleVCoordination.smoke.mjs
+      - name: Verify Module V V5 harmonic-minor cadence reading and independent MIDI two-hand practice
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/moduleVCadences.smoke.mjs
       - name: Verify independent LH accompaniments in 4/4 and genuine 3/4
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

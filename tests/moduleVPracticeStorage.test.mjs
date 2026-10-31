@@ -1,6 +1,6 @@
 import { test } from 'node:test';
 import assert from 'node:assert/strict';
-import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID } from '../src/data/moduleVCurriculum.ts';
+import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID, MODULE_V_CADENCES_ID } from '../src/data/moduleVCurriculum.ts';
 import {
   loadModuleVPractice, recordModuleVTriadPractice, validateModuleVPractice
 } from '../src/core/storage/moduleVPracticeStorage.ts';
@@ -10,7 +10,7 @@ test('Module V stable IDs remain isolated from the 12 numeric certified lessons'
   assert.equal(MODULE_V_STAGES.length, 5);
   assert.equal(new Set(MODULE_V_STAGES.map(stage => stage.id)).size, 5);
   assert.deepEqual(MODULE_V_STAGES.filter(stage => stage.available).map(stage => stage.id),
-    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID], 'only implemented stages are available');
+    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID, MODULE_V_CADENCES_ID], 'only implemented stages are available');
 });
 
 test('Module V stored evidence is versioned, small and fail-closed on corruption', () => {
