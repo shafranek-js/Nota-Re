@@ -297,6 +297,7 @@ export const ModuleVCoordinationPractice: React.FC<{ stage?: 'v4' | 'v5' }> = ({
           <span>Неверные звуки: {progress.errors.wrongPitches}</span>
           <span>Вне ритма: {progress.errors.offBeatNotes}</span>
           <span>Раннее отпускание: {progress.errors.earlyReleases}</span>
+          <span data-testid={prefix + '-releases'}>Подтверждённые отпускания: {progress.releaseEvidence.matched}/{progress.releaseEvidence.expected}</span>
           <span>Передержка: {progress.errors.overheldNotes}</span>
         </div>
         {assessment && <p data-testid={prefix + '-result'} className="text-sky-200">
