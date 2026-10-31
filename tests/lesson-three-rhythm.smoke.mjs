@@ -20,13 +20,16 @@ try {
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   const countIn = page.getByTestId('trainer-count-in');
   await countIn.waitFor({ state: 'visible' });
+  // Current score-first overlay deliberately displays a compact, readable
+  // "Приготовьтесь" + large 1..4 beats + BPM, not the removed HUD sentence.
+  // The first numbered beat is triggered only when the real OSMD score is
+  // ready; watch that actual beat rather than a stale/brief text cue.
+  assert.match(await countIn.innerText(), /Приготовьтесь/);
+  await page.waitForFunction(() =>
+    /^[1-4]$/.test(document.querySelector('[data-testid="count-in-beat"]')
+      ?.textContent?.trim() || ''), null, { timeout: 15000 });
   await page.getByTestId('osmd-score').locator('svg').first().waitFor({ state: 'visible' });
-  // On a cold OSMD load the HUD correctly says "Готовим нотный стан"
-  // until a real painted score starts beat one. Do not assert the subsequent
-  // downbeat cue prematurely (or mistake loading for an active count-in).
-  await page.getByText(/После «4» играйте первую ноту на следующую сильную долю/)
-    .waitFor({ state: 'visible', timeout: 15000 });
-  assert.match(await countIn.innerText(), /После «4» играйте первую ноту на следующую сильную долю/);
+  assert.match(await countIn.innerText(), /BPM/);
   await countIn.waitFor({ state: 'hidden', timeout: 20000 });
 
   const feedback = page.getByTestId('lesson-three-rhythm-feedback');
