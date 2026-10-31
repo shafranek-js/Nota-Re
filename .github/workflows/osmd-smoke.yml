@@ -104,6 +104,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/moduleVGuided.smoke.mjs
+      - name: Verify Module V V2 OSMD inversion reading, answer privacy and persistence
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/moduleVInversions.smoke.mjs
       - name: Verify independent LH accompaniments in 4/4 and genuine 3/4
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

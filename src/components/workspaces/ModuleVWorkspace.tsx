@@ -1,8 +1,9 @@
-import React from 'react';
-import { MODULE_V_STAGES, MODULE_V_TRIADS_ID } from '../../data/moduleVCurriculum';
+import React, { useState } from 'react';
+import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID } from '../../data/moduleVCurriculum';
 import { loadModuleVPractice } from '../../core/storage/moduleVPracticeStorage';
 import { useAppStore } from '../../store/useAppStore';
 import { ArrowLeft, BookOpen, Play } from 'lucide-react';
+import { ModuleVInversionPractice } from './ModuleVInversionPractice.tsx';
 
 /**
  * Own ungraded route, not a 13th CourseLesson. The remaining stages are
@@ -10,6 +11,7 @@ import { ArrowLeft, BookOpen, Play } from 'lucide-react';
  */
 export const ModuleVWorkspace: React.FC = () => {
   const { setModuleVRouteOpen, startModuleVLesson } = useAppStore();
+  const [stageView, setStageView] = useState<'v1' | 'v2'>('v1');
   // The workspace remounts on return from Studio; read only this isolated key.
   const practice = loadModuleVPractice();
   const played = practice.completedFixtures.includes('C-major-5-3');
@@ -35,7 +37,8 @@ export const ModuleVWorkspace: React.FC = () => {
           <p className="px-2 py-1 text-xs text-slate-400">Маршрут от чтения трезвучия до каденции</p>
           {MODULE_V_STAGES.map((stage, index) =>
             <div key={stage.id} data-testid={`module-v-stage-${index + 1}`}
-              aria-current={stage.available ? 'step' : undefined}
+              aria-current={(stage.id === MODULE_V_TRIADS_ID && stageView === 'v1') ||
+                (stage.id === MODULE_V_INVERSIONS_ID && stageView === 'v2') ? 'step' : undefined}
               className={`rounded-lg border px-3 py-2 text-xs ${stage.available
                 ? 'border-sky-600/50 bg-sky-900/15'
                 : 'border-slate-800 bg-slate-950/60'}`}>
@@ -46,11 +49,25 @@ export const ModuleVWorkspace: React.FC = () => {
                 </span>
               </div>
               <p className="text-slate-400 mt-1 leading-relaxed">{stage.summary}</p>
+              {stage.id === MODULE_V_INVERSIONS_ID && (
+                <button type="button" data-testid="module-v-open-v2"
+                  className="mt-2 rounded-md border border-sky-600/60 px-2.5 py-1.5 text-sky-200 hover:bg-sky-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
+                  onClick={() => setStageView('v2')}>Открыть V2 · обращения</button>
+              )}
             </div>
           )}
         </nav>
 
         <div className="lg:col-span-7 min-w-0 rounded-xl border border-slate-800 bg-slate-900/90 p-3 flex flex-col gap-3">
+          {stageView === 'v2' ? (
+            <>
+              <button type="button" data-testid="module-v-return-v1"
+                className="self-start text-xs text-sky-300 underline underline-offset-2 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-300"
+                onClick={() => setStageView('v1')}>Вернуться к V1</button>
+              <ModuleVInversionPractice />
+            </>
+          ) : (
+            <>
           <div>
             <p className="text-[11px] font-mono text-sky-300">V1 · {MODULE_V_TRIADS_ID}</p>
             <h2 className="text-base font-semibold text-slate-100 mt-1">
@@ -88,6 +105,8 @@ export const ModuleVWorkspace: React.FC = () => {
               {played ? 'Повторить V1 в Студии' : 'Открыть V1 в Студии'}
             </button>
           </div>
+            </>
+          )}
         </div>
       </div>
     </section>
