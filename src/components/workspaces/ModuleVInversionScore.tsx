@@ -3,14 +3,18 @@ import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import type { ExerciseScore } from '../../core/notation/musicXml.ts';
 import { toMusicXml } from '../../core/notation/musicXml.ts';
 
-interface Props { readonly score: ExerciseScore }
+interface Props {
+  readonly score: ExerciseScore;
+  readonly testId?: string;
+  readonly ariaLabel?: string;
+}
 
 /**
  * Deliberately isolated OSMD instance: no trainer overlays, note targets,
  * preset labels, keyboard highlights or MIDI hints can reveal the solution.
  * Score title is generic in both the DOM and the MusicXML payload.
  */
-export const ModuleVInversionScore: React.FC<Props> = ({ score }) => {
+export const ModuleVInversionScore: React.FC<Props> = ({ score, testId = 'module-v-v2-score', ariaLabel = 'Нотная вертикаль на стане. Определите обращение трезвучия по расположению нот.' }) => {
   const mountRef = useRef<HTMLDivElement>(null);
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const xml = useMemo(() => toMusicXml(score, {
@@ -86,8 +90,8 @@ export const ModuleVInversionScore: React.FC<Props> = ({ score }) => {
 
   return (
     <div className="rounded-xl border border-slate-700 bg-slate-950 p-2 sm:p-3">
-      <div data-testid="module-v-v2-score"
-        role="img" aria-label="Нотная вертикаль на стане. Определите обращение трезвучия по расположению нот."
+      <div data-testid={testId}
+        role="img" aria-label={ariaLabel}
         className="min-w-0 w-full overflow-x-auto">
         <div ref={mountRef} className="w-full min-h-[165px]" aria-hidden="true"/>
       </div>
