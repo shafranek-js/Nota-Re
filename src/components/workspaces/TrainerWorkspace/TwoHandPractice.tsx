@@ -53,7 +53,7 @@ const timedFeedbackText: Record<TimedPracticeState['feedback'], string> = {
 
 const feedbackText: Record<ChordPracticeState['feedback'], string> = {
   ready: 'Нажмите показанные ноты на MIDI-клавиатуре.',
-  partial: 'Часть нот нажата — удерживайте их и добавьте остальные.',
+  partial: 'Одна нота нажата — удерживайте её и добавьте остальные.',
   correct: 'Верно. Следующий момент партитуры.',
   wrong: 'Другая нота. Отпустите лишние клавиши и повторите.',
   slow: 'Ноты прозвучали не вместе. Отпустите и повторите аккорд.',
