@@ -8,7 +8,7 @@ import {
 import {
   loadModuleVInversions, recordModuleVInversion, validateModuleVInversions
 } from '../src/core/storage/moduleVInversionStorage.ts';
-import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID } from '../src/data/moduleVCurriculum.ts';
+import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID } from '../src/data/moduleVCurriculum.ts';
 
 test('24 score-derived written examples: all 4 keys, both qualities and three inversions', () => {
   const combinations = new Set();
@@ -66,7 +66,7 @@ test('V2 is independently available; no numeric course lesson or V1 ID is replac
   assert.equal(MODULE_V_TRIADS_ID, 'module-v/v1/triads-5-3');
   assert.equal(MODULE_V_INVERSIONS_ID, 'module-v/v1/inversions');
   assert.deepEqual(MODULE_V_STAGES.filter(stage => stage.available).map(stage => stage.id),
-    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID]);
+    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID]);
 });
 
 test('V2 journal tolerates corrupted data, preserves V1 records and never writes grades', () => {
