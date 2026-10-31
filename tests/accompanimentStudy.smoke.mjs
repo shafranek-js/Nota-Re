@@ -67,6 +67,7 @@ try {
       window.__accompanimentMidi.send([0x90,55,100]);
     });
     await page.waitForFunction(()=>document.querySelector('[data-testid="two-hand-step-index"]')?.textContent==='3');
+    assert.equal(await page.getByTestId('two-hand-measure-beat').innerText(),'Такт 1 · Доля 3');
     await page.getByTestId('accompaniment-hands').selectOption('both');
     assert.equal(await step.innerText(),'1');
     assert.equal(await page.getByTestId('accompaniment-right-notes').innerText(),'C4 · E4 · G4');
