@@ -171,6 +171,44 @@ asset downloading; offline runtime excludes WAV downloading and
 conversion. No latency/certification gate can be passed with these
 numbers alone.
 
+## Causal-window feasibility gate (experimental replay, not a streaming model)
+
+The next research slice adds `scripts/causal-window-replay.mjs` and
+`scripts/replay-pitchplease-windows.mjs`. Unlike whole-clip transcription,
+the same pinned PitchPlease piano recognizer is run on **only the samples
+already acquired**: 2,000 ms analysis context, 1,000 ms new-audio hop.
+The first window evaluates 0–2 s; later overlapping windows own only the
+newly acquired second. They never inspect future samples, and never
+reassign false positives to ground truth. Window-local onset timestamps
+are rebased to the absolute recording clock. The *old context* of a
+window cannot emit duplicate attacks, but genuine later same-pitch
+retriggers may be emitted again.
+
+Each completed analysis is timed with a monotonic clock. A **virtual,
+sequential single-worker queue** starts no earlier than acquisition of
+its full window, and finishes after the measured computation time.
+The reported `emittedAtMs` is that virtual finish, **not** a measured
+hardware timestamp. The ordinary optimal MIDI pitch/onset matcher
+supplies per-take TP/FP/FN and conditional timing errors;
+`medianProcessingLatencyMs` and `p95ProcessingLatencyMs` here refer
+to *synthetic offline replay emission lag*, not live latency. Every
+window also records acquisition boundary, compute time, accepted
+attacks and CPU backlog. A non-divisible tail is reported as
+unprocessed rather than quietly scored as seen. The current MAESTRO
+14-second clips are exactly divisible.
+
+This is a *causal-window feasibility experiment*, **NOT a true
+stateful Online AMT model**. Every 2 s slice is re-inferred independently;
+the recognizer has no preserved acoustic recurrent state or tested
+real-time capture path. We initially test PitchPlease only to establish
+whether short-window inference and adapter behavior are meaningful;
+Basic Pitch streaming, multiple window configurations and actual
+device/browser measurements remain follow-ups. The result must not be
+compared as if it were the same algorithm or operating point as
+full-clip evaluation. No microphone permissions, certificates,
+lesson scoring, front-end model bundles, or captured recordings are
+introduced. The workflow uploads JSON-only causal diagnostics.
+
 ## Safeguards and limitations
 
 MAESTRO is [CC BY-NC-SA 4.0](https://magenta.tensorflow.org/datasets/maestro).
