@@ -932,12 +932,14 @@ export const useAppStore = create<AppState>((set, get) => ({
   },
 
   setAppMode: (mode) => {
-    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false, twoHandTrialLessonId: null });
+    set({ currentAppMode: mode, activeLessonId: null, isTwoHandPracticeOpen: false, twoHandTrialLessonId: null,
+      ...(mode !== 'reflex' ? { adaptiveReflexEnabled: false, adaptiveTrace: null } : {}) });
     get().regenerateExercise();
   },
 
   setClefFilter: (filter) => {
-    set({ currentFilter: filter, activeLessonId: null });
+    set({ currentFilter: filter, activeLessonId: null,
+      ...(filter === 'both' ? { adaptiveReflexEnabled: false, adaptiveTrace: null } : {}) });
     get().regenerateExercise();
   },
 
@@ -981,6 +983,7 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       isContinuousFlow: enabled,
       activeLessonId: null,
+      ...(enabled ? { adaptiveReflexEnabled: false, adaptiveTrace: null } : {}),
       noteShownTimestamp: performance.now()
     });
     if (enabled) armFlowClock(get);
@@ -1280,6 +1283,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       activeExerciseNotes: notes,
       activeNoteIndex: 0,
       adaptiveTrace: adaptive?.trace ?? null,
+      adaptiveReflexEnabled: adaptiveActive,
       noteShownTimestamp: performance.now(),
       isPhotoMasked: gradedFlowCountIn && exerciseMode === 'photo',
       isExerciseAssisted: false,
