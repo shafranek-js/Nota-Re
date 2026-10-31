@@ -600,7 +600,7 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               ? ' · Подсветка головок недоступна: смотрите на нотный стан.' : ''}
           </span>
           {practiceError && <span role="alert" data-testid="repertoire-practice-error"
-            className="text-rose-300">{practiceError}</span>
+            className="text-rose-300">{practiceError}</span>}
           {loopError && <span role="alert" data-testid="repertoire-loop-error"
             className="text-rose-300">{loopError}</span>}
           {geometryMessage && <span role="status" data-testid="repertoire-ab-unavailable"
