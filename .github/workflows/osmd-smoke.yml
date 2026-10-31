@@ -52,6 +52,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/lesson-two-rolling.smoke.mjs
+      - name: Verify course-window reset, persistence and lifetime credit safety
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/course-window-reset-uat.smoke.mjs
       - name: Verify result card, exact retry, assisted exclusion and lifecycle
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
