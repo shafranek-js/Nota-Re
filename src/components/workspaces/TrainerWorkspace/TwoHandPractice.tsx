@@ -4,7 +4,7 @@ import { midiManager } from '../../../core/midi/MidiManager';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MetronomeToggle } from './MetronomeToggle';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
-import { toMusicXml } from '../../../core/notation/musicXml';
+import { toMusicXml, type SupportedKey } from '../../../core/notation/musicXml';
 import {
   createTwoHandPractice,
   initialChordPractice,
@@ -83,6 +83,7 @@ export const TwoHandPractice: React.FC = () => {
   const [studyFamily, setStudyFamily] = useState<'hands' | 'chords'>(() =>
     courseTrial ? 'hands' : twoHandPracticeFocus
   );
+  const [chordKey, setChordKey] = useState<SupportedKey>(currentTonality);
   const [chordQuality, setChordQuality] = useState<ChordQuality>('major');
   const [chordInversion, setChordInversion] = useState<ChordInversion>(0);
   const isChordStudy = !courseTrial && studyFamily === 'chords';
@@ -90,10 +91,10 @@ export const TwoHandPractice: React.FC = () => {
     () => courseTrial
       ? createLessonTwoHandScore(courseTrial.lessonId, practiceTonality, studyIndex)
       : isChordStudy
-        ? createChordStudy(practiceTonality, chordQuality, chordInversion)
+        ? createChordStudy(chordKey, chordQuality, chordInversion)
         : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
     [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount,
-      pattern, isChordStudy, chordQuality, chordInversion]
+      pattern, isChordStudy, chordKey, chordQuality, chordInversion]
   );
   const chordStudy: ChordStudy | null = isChordStudy ? exercise as ChordStudy : null;
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
@@ -505,6 +506,18 @@ export const TwoHandPractice: React.FC = () => {
           )}
           {chordStudy && (
             <>
+              <label htmlFor="chord-key" className="text-xs text-slate-300">Тональность</label>
+              <select id="chord-key" data-testid="chord-key" value={chordKey}
+                onChange={event => {
+                  resetTrial();
+                  setChordKey(event.target.value as SupportedKey);
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value="C">C-dur / a-moll (0 знаков)</option>
+                <option value="G">G-dur / e-moll (1♯)</option>
+                <option value="F">F-dur / d-moll (1♭)</option>
+                <option value="D">D-dur / h-moll (2♯)</option>
+              </select>
               <label htmlFor="chord-quality" className="text-xs text-slate-300">Лад</label>
               <select id="chord-quality" data-testid="chord-quality" value={chordQuality}
                 onChange={event => {
