@@ -129,6 +129,48 @@ should add note-off/release-aware sustain windows, more diverse passages,
 noise conditions, and an actual phone/laptop microphone with calibrated
 reference timing.
 
+## Reproducible offline computation timing (R0C next slice)
+
+The research-only exporter scripts now attach an `offlineRuntime` object to
+each model's JSON dataset. The optional three-performance workflow performs
+**one first invocation plus one immediate warm repeat on the exact same
+14-second source WAV** for each pinned detector. The first invocation's
+actual output is the only one scored; the repeat is never injected into
+the TP/FP/FN evaluation. Timing uses monotonic Node.js
+`performance.now()`, and includes per-model:
+
+- `modelInitializationMs`: in-process setup. For PitchPlease this covers
+  importing/checking the pinned package; its piano weights may only load
+  upon first inference. For Basic Pitch it includes reading and loading
+  the locally bundled TensorFlow.js graph and weights. These two setup
+  timings **are not directly equivalent**.
+- Per-clip `wavReadDecodeMs`, `inferenceAndAdapterMs`, and
+  `realtimeFactor` (processing milliseconds / WAV duration
+  milliseconds); the first clip is marked `coldModelInvocation: true`.
+- `firstClipWarmRepeat`: same source WAV and SHA-256, a second inference
+  and postprocessing measurement, plus an exact-output-equality audit.
+  Identical output is **checked and reported**, never assumed.
+- Runner identity: Node version, OS/CPU architecture, logical CPU count,
+  first CPU model, CI and GitHub Actions run ID.
+
+`conditions.json` includes `offlineRuntimeProfiles`. Missing profiles
+remain explicit `null`. The older single-number `modelRuntimeMs` and
+`modelColdStartMs` stay `null`: no meaningful single value spans
+different model initialization conventions and multiple case durations.
+Runtime reports are validated against exact case IDs, WAV SHA-256 and
+clip durations to prevent accidental cross-WAV comparisons.
+
+**Scope:** Wall-clock *offline throughput* on a GitHub-hosted Ubuntu
+runner. Results can change with noisy neighboring jobs, load and CPU
+capacity; different exporters run in separate Node processes. They
+do **not** measure live microphone capture latency, end-to-end
+browser initialization, interactive MIDI feedback, onset-emission
+delay, streaming performance or mobile-device throughput. Model
+setup excludes `npm install`, workflow bootstrapping and remote
+asset downloading; offline runtime excludes WAV downloading and
+conversion. No latency/certification gate can be passed with these
+numbers alone.
+
 ## Safeguards and limitations
 
 MAESTRO is [CC BY-NC-SA 4.0](https://magenta.tensorflow.org/datasets/maestro).
