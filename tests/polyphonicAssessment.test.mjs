@@ -7,22 +7,27 @@ import { assessPolyphonicPractice } from '../src/core/training/polyphonicAssessm
 const exercise = createTwoHandPractice('C', 8, 'staggered');
 const { score, steps } = exercise;
 
-const completed = (overrides = {}) => ({
-  ...initialTimedPractice(),
-  stepIndex: steps.length,
-  finished: true,
-  hits: steps.length,
-  hitOnsets: steps.map(step => step.onsetTicks),
-  acceptedAttacks: score.notes.map(n => ({
+const completed = (overrides = {}) => {
+  const acceptedAttacks = overrides.acceptedAttacks ?? score.notes.map(n => ({
     onsetTicks: n.onsetTicks, midi: n.midi, atMs: 10000 + n.onsetTicks * 250
-  })),
-  releasedNotes: score.notes.map(n => ({
-    onsetTicks: n.onsetTicks, midi: n.midi,
-    atMs: 10000 + (n.onsetTicks + n.durationTicks) * 250
-  })),
-  onsetDeviationsMs: steps.map(() => 45),
-  ...overrides
-});
+  }));
+  const releasedNotes = score.notes
+    .filter(n => acceptedAttacks.some(a => a.onsetTicks === n.onsetTicks && a.midi === n.midi))
+    .map(n => ({
+      onsetTicks: n.onsetTicks, midi: n.midi,
+      atMs: 10000 + (n.onsetTicks + n.durationTicks) * 250
+    }));
+  return {
+    ...initialTimedPractice(),
+    stepIndex: steps.length,
+    finished: true,
+    hits: steps.length,
+    hitOnsets: steps.map(step => step.onsetTicks),
+    acceptedAttacks, releasedNotes,
+    onsetDeviationsMs: steps.map(() => 45),
+    ...overrides
+  };
+};
 
 test('clean two-hand performance reports separate hands and trial readiness, never course credit', () => {
   const result = assessPolyphonicPractice(score, steps, completed());
