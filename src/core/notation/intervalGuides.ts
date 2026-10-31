@@ -36,8 +36,7 @@ export function getIntervalGuides(notes: readonly IntervalGuideNote[]): Interval
 }
 
 
-import type { ScoreEvent, WrittenPitch } from './musicXml.ts';
-import { spellLegacyMidi } from './legacyScoreAdapter.ts';
+
 
 /**
  * Written three-note verticals only. A shared onset on different staves is
@@ -64,7 +63,12 @@ const DIATONIC_STEPS: Readonly<Record<WrittenPitch['step'], number>> =
 const NATURAL_SEMITONES: Readonly<Record<WrittenPitch['step'], number>> =
   { C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11 };
 
-type WrittenNote = WrittenPitch & { readonly midi: number };
+type WrittenNote = {
+  readonly step: WrittenPitch['step'];
+  readonly alter: -2 | -1 | 0 | 1 | 2;
+  readonly octave: number;
+  readonly midi: number;
+};
 
 function writtenName(pitch: WrittenNote): string {
   return pitch.step + (pitch.alter === 1 ? '♯' : pitch.alter === -1 ? '♭' :
