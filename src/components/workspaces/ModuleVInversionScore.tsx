@@ -7,6 +7,7 @@ interface Props {
   readonly score: ExerciseScore;
   readonly testId?: string;
   readonly ariaLabel?: string;
+  readonly onReady?: () => void;
 }
 
 /**
@@ -14,8 +15,10 @@ interface Props {
  * preset labels, keyboard highlights or MIDI hints can reveal the solution.
  * Score title is generic in both the DOM and the MusicXML payload.
  */
-export const ModuleVInversionScore: React.FC<Props> = ({ score, testId = 'module-v-v2-score', ariaLabel = 'Нотная вертикаль на стане. Определите обращение трезвучия по расположению нот.' }) => {
+export const ModuleVInversionScore: React.FC<Props> = ({ score, testId = 'module-v-v2-score', ariaLabel = 'Нотная вертикаль на стане. Определите обращение трезвучия по расположению нот.', onReady }) => {
   const mountRef = useRef<HTMLDivElement>(null);
+  const readyCallback = useRef(onReady);
+  readyCallback.current = onReady;
   const [state, setState] = useState<'loading' | 'ready' | 'error'>('loading');
   const xml = useMemo(() => toMusicXml(score, {
     hideInactiveStaffRests: true,
@@ -41,7 +44,7 @@ export const ModuleVInversionScore: React.FC<Props> = ({ score, testId = 'module
       try {
         renderer.zoom = Math.max(0.8, Math.min(1.18, mount.clientWidth / 620));
         await renderer.render();
-        if (!cancelled) setState('ready');
+        if (!cancelled) { setState('ready'); readyCallback.current?.(); }
       } catch {
         if (!cancelled) setState('error');
       } finally {
