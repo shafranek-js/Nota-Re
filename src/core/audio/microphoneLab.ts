@@ -91,7 +91,7 @@ export function createMicrophoneReport(input:{
 }){
   const {startedAtIso,durationMs,frameCount,observed,midiReference,usesSameInstrumentMidi,
     pedalEventCount,modelKernel,modelCpuLoad}=input;
-  if(!/^\\d{4}-\\d\\d-\\d\\dT/.test(startedAtIso)||!isFinitePositive(durationMs)||
+  if(!/^\d{4}-\d\d-\d\dT/.test(startedAtIso)||!isFinitePositive(durationMs)||
     durationMs>130000||!Number.isSafeInteger(frameCount)||frameCount<0||
     !Number.isSafeInteger(pedalEventCount)||pedalEventCount<0||
     !Array.isArray(observed)||observed.length>MAX_EVENTS||
