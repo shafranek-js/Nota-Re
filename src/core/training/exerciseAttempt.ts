@@ -10,6 +10,8 @@ export interface AttemptEvent {
   readonly noteIndex: number;
   readonly expectedNote: string;
   readonly playedNote: string | null;
+  /** Proven input path for new observations; historic events have no known source. */
+  readonly source?: 'midi' | 'pc';
   readonly outcome: AttemptOutcome;
   readonly reactionMs: number | null;
 }
