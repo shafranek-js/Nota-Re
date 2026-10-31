@@ -19,7 +19,7 @@ import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
 import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
 import { createChordStudy, type ChordQuality, type ChordInversion, type ChordStudy } from '../../../core/training/chordStudy';
-import { createAccompanimentStudy, type AccompanimentStudy, type AccompanimentTexture, type AccompanimentHands } from '../../../core/training/accompanimentStudy';
+import { createAccompanimentStudy, type AccompanimentStudy, type AccompanimentTexture, type AccompanimentHands, type MinorForm } from '../../../core/training/accompanimentStudy';
 import { parseSpelledPitch } from '../../../core/training/directedInterval';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
@@ -89,6 +89,7 @@ export const TwoHandPractice: React.FC = () => {
   const [chordQuality, setChordQuality] = useState<ChordQuality>('major');
   const [chordInversion, setChordInversion] = useState<ChordInversion>(0);
   const [texture, setTexture] = useState<AccompanimentTexture>('alberti');
+  const [minorForm, setMinorForm] = useState<MinorForm>('natural');
   const [accompanimentHands, setAccompanimentHands] = useState<AccompanimentHands>('left');
   const [bassOctaveShift, setBassOctaveShift] = useState<0 | 12>(0);
   const isChordStudy = !courseTrial && studyFamily === 'chords';
@@ -101,11 +102,12 @@ export const TwoHandPractice: React.FC = () => {
         ? createChordStudy(chordKey, chordQuality, chordInversion)
         : isAccompaniment
           ? createAccompanimentStudy(chordKey, chordQuality, chordInversion,
-            texture, accompanimentHands, accompanimentHands === 'left' ? bassOctaveShift : 0)
+            texture, accompanimentHands, accompanimentHands === 'left' ? bassOctaveShift : 0,
+            chordQuality === 'minor' ? minorForm : 'natural')
           : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
     [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount,
       pattern, isChordStudy, isAccompaniment, chordKey, chordQuality, chordInversion,
-      texture, accompanimentHands, bassOctaveShift]
+      texture, accompanimentHands, bassOctaveShift, minorForm]
   );
   const chordStudy: ChordStudy | null = isChordStudy ? exercise as ChordStudy : null;
   const accompaniment: AccompanimentStudy | null =
@@ -399,7 +401,9 @@ export const TwoHandPractice: React.FC = () => {
   const accompanimentNames = useMemo(() => {
     const names = new Map<number, string>();
     if (accompaniment) {
-      for (const name of [...accompaniment.leftNotes, ...accompaniment.rightNotes]) {
+      for (const name of [...accompaniment.leftNotes, ...accompaniment.rightNotes,
+        ...(accompaniment.resolutionLeftNotes ?? []),
+        ...(accompaniment.resolutionRightNotes ?? [])]) {
         const parsed = parseSpelledPitch(name);
         if (parsed) names.set(parsed.midi, name);
       }
@@ -558,6 +562,7 @@ export const TwoHandPractice: React.FC = () => {
                 onChange={event => {
                   resetTrial();
                   setChordQuality(event.target.value as ChordQuality);
+                  setMinorForm('natural');
                 }}
                 className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
                 <option value="major">Мажор (тональное трезвучие)</option>
@@ -578,6 +583,20 @@ export const TwoHandPractice: React.FC = () => {
           )}
           {accompaniment && (
             <>
+              {chordQuality === 'minor' && (
+                <>
+                  <label htmlFor="accompaniment-minor-form" className="text-xs text-slate-300">
+                    Вид минора
+                  </label>
+                  <select id="accompaniment-minor-form" data-testid="accompaniment-minor-form"
+                    value={minorForm} disabled={!!plan && !timed.finished}
+                    onChange={event => { resetTrial(); setMinorForm(event.target.value as MinorForm); }}
+                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                    <option value="natural">Натуральный: i – i (без изменения)</option>
+                    <option value="harmonic">Гармонический: V – i (повышенная VII)</option>
+                  </select>
+                </>
+              )}
               <label htmlFor="accompaniment-texture" className="text-xs text-slate-300">Фактура</label>
               <select id="accompaniment-texture" data-testid="accompaniment-texture" value={texture}
                 disabled={!!plan && !timed.finished}
@@ -650,7 +669,8 @@ export const TwoHandPractice: React.FC = () => {
           <strong>{accompaniment.tonicName}{chordQuality === 'major' ? '-dur' : '-moll'}</strong>
           {' '}· {accompaniment.beats}/4 · {accompaniment.description}
           <span className="block mt-1">
-            Бас: <strong data-testid="accompaniment-left-notes">
+            {accompaniment.minorForm === 'harmonic' ? 'Такт 1 · V: ' : 'Бас: '}
+            <strong data-testid="accompaniment-left-notes">
               {accompaniment.leftNotes.join(' · ')}
             </strong>. {accompanimentHands === 'both'
               ? <>Правая рука: <strong data-testid="accompaniment-right-notes">
@@ -658,6 +678,23 @@ export const TwoHandPractice: React.FC = () => {
               </strong> (обращение {chordInversion + 1}/3).</>
               : 'Правая рука отключена — ноты для неё не оцениваются.'}
           </span>
+          {accompaniment.minorForm === 'harmonic' && (
+            <span data-testid="harmonic-cadence-details" className="block mt-1 text-amber-200">
+              Повышенная VII ступень: <strong>{accompaniment.leadingTone}</strong>
+              {' '}· такт 1: мажорная доминанта V
+              {' '}· такт 2: минорная тоника i.
+              {' '}Бас разрешения: <strong data-testid="harmonic-resolution-left">
+                {accompaniment.resolutionLeftNotes?.join(' · ')}
+              </strong>.
+              {accompanimentHands === 'both' && (
+                <> Правая рука разрешения: <strong data-testid="harmonic-resolution-right">
+                  {accompaniment.resolutionRightNotes?.join(' · ')}
+                </strong>.</>
+              )}
+              {' '}Ключевые знаки остаются от параллельного мажора;
+              случайный диез относится к отдельной ноте.
+            </span>
+          )}
           <span className="block text-slate-400 mt-1">
             Нижний регистр начинается ниже C3 для некоторых тональностей;
             Для 25-клавишного контроллера используйте «Только левая» и при необходимости
