@@ -20,16 +20,19 @@ try {
   await page.getByRole('button', { name: /Запустить этот урок в тренажёре/ }).click();
   const countIn = page.getByTestId('trainer-count-in');
   await countIn.waitFor({ state: 'visible' });
-  // Current score-first overlay deliberately displays a compact, readable
-  // "Приготовьтесь" + large 1..4 beats + BPM, not the removed HUD sentence.
-  // The first numbered beat is triggered only when the real OSMD score is
-  // ready; watch that actual beat rather than a stale/brief text cue.
-  assert.match(await countIn.innerText(), /Приготовьтесь/);
-  await page.waitForFunction(() =>
-    /^[1-4]$/.test(document.querySelector('[data-testid="count-in-beat"]')
-      ?.textContent?.trim() || ''), null, { timeout: 15000 });
   await page.getByTestId('osmd-score').locator('svg').first().waitFor({ state: 'visible' });
-  assert.match(await countIn.innerText(), /BPM/);
+  // The compact score-first HUD intentionally removed redundant verbal
+  // instructions. The cue is a visible numerical beat once OSMD is painted;
+  // never start counting while the first score is still loading.
+  await page.waitForFunction(() => Number(document.querySelector(
+    '[data-testid="osmd-score"]')?.getAttribute('data-osmd-render-epoch')) > 0,
+    null, { timeout: 15000 });
+  await page.waitForFunction(() => /^[1-4]$/.test(document.querySelector(
+    '[data-testid="count-in-beat"]')?.textContent?.trim() ?? ''),
+    null, { timeout: 15000 });
+  assert.match(await countIn.innerText(), /Приготовьтесь/);
+  assert.equal(await countIn.getByText(/После «4» играйте первую ноту на следующую сильную долю/).count(), 0,
+    'no duplicate instructions inside the compact count-in HUD');
   await countIn.waitFor({ state: 'hidden', timeout: 20000 });
 
   const feedback = page.getByTestId('lesson-three-rhythm-feedback');
