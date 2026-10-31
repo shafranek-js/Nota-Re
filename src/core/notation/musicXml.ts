@@ -32,6 +32,8 @@ export interface ScoreEvent {
 export interface ExerciseScore {
   readonly title: string;
   readonly fifths: number;
+  /** Music mode is independent of key signature; legacy scores omit it. */
+  readonly mode?: 'major' | 'minor';
   readonly beats: 4;
   readonly beatType: 4;
   readonly divisions: 4;
@@ -319,7 +321,8 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
     xml += '<measure number="' + (bar + 1) + '">';
     if (bar === 0) {
       xml += '<attributes><divisions>' + score.divisions + '</divisions>' +
-        '<key><fifths>' + score.fifths + '</fifths></key>' +
+        '<key><fifths>' + score.fifths + '</fifths>' +
+        (score.mode ? '<mode>' + score.mode + '</mode>' : '') + '</key>' +
         '<time><beats>' + score.beats + '</beats><beat-type>' + score.beatType + '</beat-type></time>' +
         '<staves>2</staves><clef number="1"><sign>G</sign><line>2</line></clef>' +
         '<clef number="2"><sign>F</sign><line>4</line></clef></attributes>';

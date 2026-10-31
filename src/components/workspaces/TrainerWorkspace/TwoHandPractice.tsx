@@ -4,7 +4,7 @@ import { midiManager } from '../../../core/midi/MidiManager';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MetronomeToggle } from './MetronomeToggle';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
-import { toMusicXml } from '../../../core/notation/musicXml';
+import { toMusicXml, type SupportedKey } from '../../../core/notation/musicXml';
 import {
   createTwoHandPractice,
   initialChordPractice,
@@ -18,6 +18,7 @@ import { currentScoreTick, initialTimedPractice, reduceTimedPractice,
   type TempoPlan, type TimedPracticeState } from '../../../core/training/tempoTwoHand';
 import { assessPolyphonicPractice } from '../../../core/training/polyphonicAssessment';
 import { createLessonTwoHandScore, lessonTwoHandStudyCount } from '../../../core/training/lessonTwoHandScore';
+import { createChordStudy, type ChordQuality, type ChordInversion, type ChordStudy } from '../../../core/training/chordStudy';
 import { assessLessonReleases } from '../../../core/training/lessonReleaseEvidence';
 import { getTwoHandCourseTrialPreset } from '../../../core/training/twoHandCourseTrial';
 import { loadTwoHandShadowSeries, saveTwoHandShadowSeries, clearTwoHandShadowSeries } from '../../../core/storage/twoHandShadowStorage';
@@ -52,7 +53,7 @@ const timedFeedbackText: Record<TimedPracticeState['feedback'], string> = {
 
 const feedbackText: Record<ChordPracticeState['feedback'], string> = {
   ready: 'Нажмите показанные ноты на MIDI-клавиатуре.',
-  partial: 'Одна нота нажата — удерживайте её и добавьте вторую.',
+  partial: 'Одна нота нажата — удерживайте её и добавьте остальные.',
   correct: 'Верно. Следующий момент партитуры.',
   wrong: 'Другая нота. Отпустите лишние клавиши и повторите.',
   slow: 'Ноты прозвучали не вместе. Отпустите и повторите аккорд.',
@@ -65,7 +66,7 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  */
 export const TwoHandPractice: React.FC = () => {
   const { currentTonality, scoreNoteCount, midiInputsCount, bpm,
-    twoHandTrialLessonId, switchWorkspace, metronomeEnabled, audioEnabled } = useAppStore();
+    twoHandTrialLessonId, twoHandPracticeFocus, switchWorkspace, metronomeEnabled, audioEnabled } = useAppStore();
   const courseTrial = getTwoHandCourseTrialPreset(twoHandTrialLessonId);
   // A course trial uses the actual lesson's BPM without altering persistent
   // trainer preferences or the official per-lesson grade.
@@ -79,12 +80,23 @@ export const TwoHandPractice: React.FC = () => {
   const [pattern, setPattern] = useState<TwoHandPattern>(
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
+  const [studyFamily, setStudyFamily] = useState<'hands' | 'chords'>(() =>
+    courseTrial ? 'hands' : twoHandPracticeFocus
+  );
+  const [chordKey, setChordKey] = useState<SupportedKey>(currentTonality);
+  const [chordQuality, setChordQuality] = useState<ChordQuality>('major');
+  const [chordInversion, setChordInversion] = useState<ChordInversion>(0);
+  const isChordStudy = !courseTrial && studyFamily === 'chords';
   const exercise = useMemo(
     () => courseTrial
       ? createLessonTwoHandScore(courseTrial.lessonId, practiceTonality, studyIndex)
-      : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
-    [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount, pattern]
+      : isChordStudy
+        ? createChordStudy(chordKey, chordQuality, chordInversion)
+        : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
+    [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount,
+      pattern, isChordStudy, chordKey, chordQuality, chordInversion]
   );
+  const chordStudy: ChordStudy | null = isChordStudy ? exercise as ChordStudy : null;
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
   const trialRef = useRef(trial);
@@ -151,6 +163,9 @@ export const TwoHandPractice: React.FC = () => {
   };
 
   const startTempo = async () => {
+    // Closed-position triad introduction is deliberately an ungraded,
+    // self-paced overlap check, not a timed/graded two-hand study.
+    if (isChordStudy) return;
     stopTempo();
     const context = audioEngine.ensureAudioContext();
     if (!context) {
@@ -248,7 +263,7 @@ export const TwoHandPractice: React.FC = () => {
         setTimed(timedRef.current);
         if (timedRef.current.finished) recordAttempt(timedRef.current, currentPlan);
       } else {
-        trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant);
+        trialRef.current = reduceChordPractice(trialRef.current, exercise.steps, relevant, 180, isChordStudy);
         setTrial(trialRef.current);
       }
     });
@@ -392,7 +407,7 @@ export const TwoHandPractice: React.FC = () => {
     const url = URL.createObjectURL(new Blob([xml], { type: 'application/vnd.recordare.musicxml+xml' }));
     const link = document.createElement('a');
     link.href = url;
-    link.download = 'notare-two-hands.musicxml';
+    link.download = isChordStudy ? 'notare-triad-inversions.musicxml' : 'notare-two-hands.musicxml';
     link.click();
     window.setTimeout(() => URL.revokeObjectURL(url), 1000);
   };
@@ -401,7 +416,9 @@ export const TwoHandPractice: React.FC = () => {
     <section data-testid="two-hand-practice" data-timed-start-ms={plan?.startMs ?? ""} className="flex-1 min-h-[380px] w-full flex flex-col gap-2 rounded-xl bg-slate-900 border border-slate-700 p-3">
       <div className="flex flex-wrap justify-between items-center gap-3">
         <div>
-          <h2 className="text-base font-semibold text-slate-100">{courseTrial?.title ?? 'Две руки — одновременная игра (MIDI)'}</h2>
+          <h2 className="text-base font-semibold text-slate-100">
+            {courseTrial?.title ?? (isChordStudy ? 'Трезвучия и обращения · MIDI' : 'Две руки — одновременная игра (MIDI)')}
+          </h2>
           {courseTrial && (
             <div data-testid="two-hand-trial-context" className="text-xs text-sky-200">
               Урок {courseTrial.lessonId} · Тональность <strong data-testid="two-hand-active-tonality">{practiceTonality}</strong> · Темп <strong data-testid="two-hand-active-bpm">{practiceBpm}</strong> BPM.
@@ -419,10 +436,19 @@ export const TwoHandPractice: React.FC = () => {
               </strong>
             </p>
           )}
-          <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
+          {chordStudy ? (
+            <p className="text-xs text-amber-300" data-testid="chord-study-description">
+              Первое знакомство: одна правая рука, четыре отдельных трёхзвучных аккорда.
+              Нажмите все три клавиши в пределах 180 мс, удерживая их одновременно;
+              отпустите клавиши перед повторением. Аппликатура и длительность здесь не оцениваются.
+              Без метронома и без зачёта курса.
+            </p>
+          ) : (
+            <p className="text-xs text-amber-300">Без зачёта курса. Свободный режим проверяет одновременные нажатия; ритмический — ещё и попадание в метроном, удержание баса и пропуски долей.</p>
+          )}
         </div>
         <div className="flex flex-wrap gap-2 items-center">
-          <MetronomeToggle />
+          {!isChordStudy && <MetronomeToggle />}
           {courseTrial && (
             <button type="button" data-testid="two-hand-next-study"
               disabled={(!!plan && !timed.finished) || suggestedStudy === null}
@@ -464,6 +490,59 @@ export const TwoHandPractice: React.FC = () => {
               </select>
             </>
           )}
+          {!courseTrial && (
+            <>
+              <label htmlFor="two-hand-family" className="text-xs text-slate-300">Вид упражнения</label>
+              <select id="two-hand-family" data-testid="two-hand-family" value={studyFamily}
+                onChange={event => {
+                  resetTrial();
+                  setStudyFamily(event.target.value as 'hands' | 'chords');
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value="hands">Независимые партии двух рук</option>
+                <option value="chords">Трезвучия · одна рука</option>
+              </select>
+            </>
+          )}
+          {chordStudy && (
+            <>
+              <label htmlFor="chord-key" className="text-xs text-slate-300">Тональность</label>
+              <select id="chord-key" data-testid="chord-key" value={chordKey}
+                onChange={event => {
+                  resetTrial();
+                  setChordKey(event.target.value as SupportedKey);
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value="C">C-dur / a-moll (0 знаков)</option>
+                <option value="G">G-dur / e-moll (1♯)</option>
+                <option value="F">F-dur / d-moll (1♭)</option>
+                <option value="D">D-dur / h-moll (2♯)</option>
+              </select>
+              <label htmlFor="chord-quality" className="text-xs text-slate-300">Лад</label>
+              <select id="chord-quality" data-testid="chord-quality" value={chordQuality}
+                onChange={event => {
+                  resetTrial();
+                  setChordQuality(event.target.value as ChordQuality);
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value="major">Мажор (тональное трезвучие)</option>
+                <option value="minor">Параллельный минор (натуральное трезвучие)</option>
+              </select>
+              <label htmlFor="chord-inversion" className="text-xs text-slate-300">Расположение</label>
+              <select id="chord-inversion" data-testid="chord-inversion" value={chordInversion}
+                onChange={event => {
+                  resetTrial();
+                  setChordInversion(Number(event.target.value) as ChordInversion);
+                }}
+                className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                <option value={0}>Основной вид (5/3)</option>
+                <option value={1}>Первое обращение (6)</option>
+                <option value={2}>Второе обращение (6/4)</option>
+              </select>
+            </>
+          )}
+          {!isChordStudy && (
+            <>
           <label htmlFor="two-hand-pattern" className="text-xs text-slate-300">Ритмический рисунок</label>
           <select id="two-hand-pattern" data-testid="two-hand-pattern"
             aria-label="Ритмический рисунок двух рук"
@@ -478,15 +557,37 @@ export const TwoHandPractice: React.FC = () => {
             <option value="eighth-rests">Восьмые и паузы</option>
             <option value="staggered">Смещённые вступления и пунктир</option>
           </select>
+            </>
+          )}
           <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново / Стоп</button>
-          <button type="button" data-testid="two-hand-start-tempo" disabled={!!plan && !timed.finished}
-            onClick={() => { void startTempo(); }}
-            className="rounded bg-sky-700 disabled:opacity-40 px-3 py-1.5 text-xs text-white">
-            {plan ? 'Повторить с метрономом' : 'Играть по метроному · 4 доли'}
-          </button>
+          {!isChordStudy && (
+            <button type="button" data-testid="two-hand-start-tempo" disabled={!!plan && !timed.finished}
+              onClick={() => { void startTempo(); }}
+              className="rounded bg-sky-700 disabled:opacity-40 px-3 py-1.5 text-xs text-white">
+              {plan ? 'Повторить с метрономом' : 'Играть по метроному · 4 доли'}
+            </button>
+          )}
           <button type="button" onClick={exportXml} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">MusicXML</button>
         </div>
       </div>
+      {chordStudy && (
+        <div data-testid="chord-study-details" className="rounded-lg border border-sky-700/50 bg-sky-950/30 px-3 py-2 text-xs text-slate-200">
+          <strong>{chordStudy.tonicName}{chordQuality === 'major' ? '-dur' : '-moll'}</strong>
+          {' '}· {chordStudy.inversionName} ·
+          {' '}ноты <strong data-testid="chord-notes">{chordStudy.pitchNames.join(' · ')}</strong>.
+          <span className="block mt-1 text-slate-400">
+            {chordQuality === 'minor'
+              ? 'Параллельный натуральный минор: ключевые знаки сохраняются от выбранной мажорной тональности.'
+              : 'Трезвучие в выбранной мажорной тональности.'}
+            {' '}Первые три звука одновременно; нет требований к номеру пальца.
+          </span>
+          {midiInputsCount === 0 && (
+            <span role="status" data-testid="chord-midi-required" className="block mt-1 text-amber-300">
+              Для практики подключите физическую MIDI-клавиатуру; чтение нот и экспорт MusicXML доступны без неё.
+            </span>
+          )}
+        </div>
+      )}
       <div className="flex flex-wrap gap-3 items-center text-sm">
         <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(activeStepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
         <span data-testid="two-hand-mode">{plan ? (timed.finished ? 'Ритм завершён' : 'Ритм · метроном') : 'Свободная практика'}</span>
