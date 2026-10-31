@@ -1,6 +1,7 @@
 import { create } from 'zustand';
 import { AppMode, ExerciseNote, FilterType, HanonType, SpeechType, TonalityKey } from '../types/music';
 import { COURSE_CURRICULUM } from '../data/curriculum';
+import { MODULE_V_TRIADS_ID, type ModuleVLessonId } from '../data/moduleVCurriculum';
 import { audioEngine } from '../core/audio/AudioEngine';
 import { MIDI_NOTE_MAP } from '../data/notes';
 import {
@@ -85,6 +86,10 @@ export interface AppState {
   isTwoHandPracticeOpen: boolean;
   /** Session-only entry choice for ungraded MIDI practice. */
   twoHandPracticeFocus: 'hands' | 'chords' | 'accompaniment';
+  /** Independent module V route, preserved on returning from Studio. */
+  moduleVRouteOpen: boolean;
+  /** Active ungraded Module V guided score (never a numeric grade ID). */
+  moduleVLessonId: ModuleVLessonId | null;
   /** Session-only: imported score is visible; never grade it as generated exercise. */
   isRepertoirePreviewOpen: boolean;
   /** Explicit session-only opt-in; never enabled inside certified lessons. */
@@ -176,6 +181,8 @@ export interface AppState {
   clearAdaptiveStats: () => void;
   toggleTwoHandPractice: () => void;
   openChordPractice: () => void;
+  setModuleVRouteOpen: (open: boolean) => void;
+  startModuleVLesson: (id: ModuleVLessonId) => void;
   openAccompanimentPractice: () => void;
   setRepertoirePreviewOpen: (open: boolean) => void;
   toggleBassLandmarks: () => void;
@@ -529,6 +536,8 @@ export const useAppStore = create<AppState>((set, get) => ({
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
   twoHandPracticeFocus: 'hands',
+  moduleVRouteOpen: false,
+  moduleVLessonId: null,
   isRepertoirePreviewOpen: false,
   adaptiveReflexEnabled: false,
   adaptiveStats: loadPracticeStats(),
@@ -659,6 +668,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       studioSection: tab === 'trainer' ? 'practice' : state.studioSection,
       isTwoHandPracticeOpen: tab === 'trainer' ? state.isTwoHandPracticeOpen : false,
       twoHandTrialLessonId: tab === 'trainer' ? state.twoHandTrialLessonId : null,
+      moduleVLessonId: tab === 'trainer' ? state.moduleVLessonId : null,
       isContinuousFlow: tab === 'trainer' ? state.isContinuousFlow : false,
       activeLessonId: tab === 'trainer' ? state.activeLessonId : null,
       trainerPhase: tab === 'trainer' ? state.trainerPhase : state.trainerPhase === 'countIn' ? 'setup' : state.trainerPhase,
@@ -912,6 +922,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       selectedLessonId: lessonId,
       isTwoHandPracticeOpen: true,
       twoHandTrialLessonId: lessonId,
+      moduleVLessonId: null,
       activeLessonId: null,
       speedChallengeTargetMs: null,
       isContinuousFlow: false,
@@ -1083,10 +1094,41 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTwoHandPracticeOpen: opening,
       twoHandPracticeFocus: 'hands',
       twoHandTrialLessonId: null,
+      moduleVLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
       completedExercisesCount: 0,
       isExerciseFlawless: false
+    });
+  },
+
+  setModuleVRouteOpen: (open) => set({ moduleVRouteOpen: open }),
+
+  startModuleVLesson: (id) => {
+    if (id !== MODULE_V_TRIADS_ID || !confirmAssessmentExit(get)) return;
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
+    stopFlowClock();
+    stopCountIn();
+    set({
+      moduleVRouteOpen: true,
+      moduleVLessonId: id,
+      currentWorkspace: 'trainer',
+      studioSection: 'practice',
+      isTwoHandPracticeOpen: true,
+      twoHandPracticeFocus: 'chords',
+      twoHandTrialLessonId: null,
+      speedChallengeTargetMs: null,
+      activeLessonId: null,
+      isContinuousFlow: false,
+      isTabletopMode: false,
+      trainerPhase: 'playing',
+      zenSessionStarted: false,
+      zenDismissedForSession: false,
+      countInBeat: 0,
+      completedExercisesCount: 0,
+      isExerciseFlawless: false,
+      adaptiveReflexEnabled: false,
+      adaptiveTrace: null
     });
   },
 
@@ -1098,6 +1140,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTwoHandPracticeOpen: true,
       twoHandPracticeFocus: 'chords',
       twoHandTrialLessonId: null,
+      moduleVLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
       completedExercisesCount: 0,
@@ -1115,6 +1158,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       isTwoHandPracticeOpen: true,
       twoHandPracticeFocus: 'accompaniment',
       twoHandTrialLessonId: null,
+      moduleVLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
       completedExercisesCount: 0,
