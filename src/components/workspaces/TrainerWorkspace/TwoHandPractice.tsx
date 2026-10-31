@@ -692,7 +692,9 @@ export const TwoHandPractice: React.FC = () => {
       <div className="flex flex-wrap gap-3 items-center text-sm">
         <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(activeStepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
         <span data-testid="two-hand-mode">{plan ? (timed.finished ? 'Ритм завершён' : 'Ритм · метроном') : 'Свободная практика'}</span>
-        <span>Момент: <strong>{currentStep ? currentStep.onsetTicks / 4 + 1 : '—'}</strong> доля</span>
+        <span>Момент: <strong data-testid="two-hand-measure-beat">{currentStep
+          ? `Такт ${Math.floor(currentStep.onsetTicks / (exercise.score.beats * 4)) + 1} · Доля ${(currentStep.onsetTicks % (exercise.score.beats * 4)) / 4 + 1}`
+          : '—'}</strong></span>
         <span>Следующее вступление: <strong data-testid="two-hand-expected" className="text-sky-300">{expected}</strong></span>
         <span className="text-slate-400">MIDI: {midiInputsCount > 0 ? 'подключено' : 'нет устройства'}</span>
       </div>
