@@ -12,6 +12,10 @@ on:
       - 'src/core/audio/microphoneConditionAnalysis.ts'
       - 'tests/maestroCorpusCondition.test.mjs'
       - 'tests/maestroMidiOnsets.test.mjs'
+      - 'scripts/export-pitchplease-onsets.mjs'
+      - 'scripts/export-basic-pitch-onsets.mjs'
+      - 'scripts/offline-model-timing.mjs'
+      - 'tests/offlineModelTiming.test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -29,7 +33,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate corpus and independent-condition test fixtures
-        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs tests/maestroMidiOnsets.test.mjs
+        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs tests/maestroMidiOnsets.test.mjs tests/offlineModelTiming.test.mjs
       - name: Install ffmpeg for temporary WAV conversion
         run: |
           sudo apt-get update -qq
@@ -92,6 +96,29 @@ jobs:
             }));
             console.log(JSON.stringify({exploratoryPairedMacroF1: report.pairedMacroF1,
               caveat: "small biased sample, NOT a general model winner"}));
+            for (const row of report.offlineRuntimeProfiles) {
+              if (!row.runtime || row.runtime.cases.length !== 3 || !row.runtime.firstClipWarmRepeat) {
+                throw new Error("Expected full 3-clip cold/warm offline timing profile: " + row.engine);
+              }
+              console.log(JSON.stringify({
+                offlineEngine: row.engine,
+                ciNode: row.runtime.runner.node,
+                ciCpu: row.runtime.runner.firstCpuModel,
+                logicalCpus: row.runtime.runner.logicalCpuCount,
+                gitHubRunId: row.runtime.runner.githubRunId,
+                modelInitializationMs: row.runtime.modelInitializationMs,
+                firstClipColdInferenceMs: row.runtime.cases[0].inferenceAndAdapterMs,
+                firstClipWarmInferenceMs: row.runtime.firstClipWarmRepeat.inferenceAndAdapterMs,
+                warmIdenticalPredictions: row.runtime.firstClipWarmRepeat.identicalDetectedEvents,
+                clips: row.runtime.cases.map(x => ({
+                  id: x.id, durationMs: x.durationMs,
+                  inferenceMs: x.inferenceAndAdapterMs,
+                  realtimeFactor: x.realtimeFactor,
+                  wavReadDecodeMs: x.wavReadDecodeMs
+                })),
+                caveat: "Separate Node processes; CI CPU performance not transferable to microphones, real-time browser or portable devices"
+              }));
+            }
           '
       - name: Upload JSON reports only; NEVER WAV, MIDI or model weights
         if: always()
