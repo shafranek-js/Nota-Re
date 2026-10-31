@@ -117,7 +117,7 @@ function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is V
           typeof envelope.ambiguousRelease !== 'boolean' ||
           (released === null && (end !== null || held !== null)) ||
           (held === false && end !== released) ||
-          (held === true && end !== null && end < released)) {
+          (held === true && end !== null && typeof released === 'number' && end < released)) {
         throw new Error('Invalid independent release/CC64 reference envelope in ' +
           engine + '/' + data.id);
       }
