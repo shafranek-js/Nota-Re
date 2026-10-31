@@ -54,7 +54,6 @@ export interface XmlOptions {
 }
 
 const FIFTHS: Record<SupportedKey, number> = { C: 0, G: 1, F: -1, D: 2 };
-const TICKS_PER_BAR = 16;
 
 export function createScoreFromExercise(
   exercise: readonly ExercisePitch[],
