@@ -1,6 +1,7 @@
 import { addQuarter, compareQuarter, type QuarterTime, type ScoreDocument, type ScoreEvent,
   type ScoreMeasureRange } from '../notation/scoreDocument.ts';
 import type { TimedTone } from '../audio/audioTimeline.ts';
+import type { ExerciseScore } from '../notation/musicXml.ts';
 
 /**
  * Free, self-paced polyphonic MIDI rehearsal. Never returns AttemptSnapshot,
@@ -198,4 +199,70 @@ export function recordPolyphonicKey(
     correct: state.correct + 1, last: 'correct',
     completedStepIndex: state.index,
     phase: next >= plan.steps.length ? 'complete' : 'playing' };
+}
+
+
+/**
+ * Generated Module V exercises use sixteenth-note ticks rather than imported
+ * MusicXML's rational quarter-time. Convert them to the same ephemeral
+ * companion practice contract without modifying the actual exercise score or
+ * its existing meter-based assessment.
+ */
+export function planGeneratedHandRehearsal(
+  score: ExerciseScore, bpm: number, mode: 'right' | 'left'
+): PolyphonicPlan {
+  const fail = (reason: string): PolyphonicPlan => empty(mode, reason);
+  if (!Number.isFinite(bpm) || bpm < 20 || bpm > 240) return fail('Недопустимый темп практики.');
+  if (!score.notes.length || score.notes.length > 512) return fail('Выберите упражнение до 512 нот.');
+  if (score.notes.some(n => !Number.isSafeInteger(n.midi) || n.midi < 21 || n.midi > 108 ||
+    ![1, 2].includes(n.staff) || !Number.isSafeInteger(n.onsetTicks) || n.onsetTicks < 0 ||
+    !Number.isSafeInteger(n.durationTicks) || n.durationTicks <= 0)) {
+    return fail('Недопустимые ноты, длительности или номера станов.');
+  }
+  if (![1, 2].every(staff => score.notes.some(n => n.staff === staff)))
+    return fail('Для сопровождения требуется настоящая двухстанная фактура.');
+  const expectedStaff = mode === 'right' ? 1 : 2;
+  const sorted = score.notes.map((note, index) => ({ note, index }))
+    .sort((a, b) => a.note.onsetTicks - b.note.onsetTicks ||
+      a.note.staff - b.note.staff || a.note.midi - b.note.midi);
+  for (let i = 1; i < sorted.length; i++) {
+    if (sorted[i - 1]!.note.onsetTicks === sorted[i]!.note.onsetTicks &&
+      sorted[i - 1]!.note.midi === sorted[i]!.note.midi)
+      return fail('Одновременные унисоны нельзя достоверно разделить по MIDI.');
+  }
+  const target = sorted.filter(e => e.note.staff === expectedStaff);
+  const other = sorted.filter(e => e.note.staff !== expectedStaff);
+  if (other[0]!.note.onsetTicks < target[0]!.note.onsetTicks)
+    return fail('Сопровождение начинается до первой ноты выбранной руки.');
+  const groups: typeof target[] = [];
+  for (const item of target) {
+    const last = groups[groups.length - 1];
+    if (last && last[0]!.note.onsetTicks === item.note.onsetTicks) last.push(item);
+    else groups.push([item]);
+  }
+  if (groups.length > 128) return fail('Упражнение содержит более 128 учебных шагов.');
+  const tickSeconds = 60 / bpm / 4;
+  const steps: PolyphonicStep[] = groups.map((items, i) => {
+    const onset = items[0]!.note.onsetTicks;
+    const next = groups[i + 1]?.[0]?.note.onsetTicks ?? Infinity;
+    const companion = other
+      .filter(({ note }) => note.onsetTicks >= onset && note.onsetTicks < next)
+      .map(({ note }): TimedTone => ({
+        offsetSeconds: (note.onsetTicks - onset) * tickSeconds,
+        durationSeconds: (note.articulation === 'staccato' ?
+          Math.min(0.12, note.durationTicks * tickSeconds * 0.55) :
+          note.durationTicks * tickSeconds * 0.96),
+        frequencyHz: 440 * Math.pow(2, (note.midi - 69) / 12),
+        staccato: note.articulation === 'staccato'
+      }));
+    return {
+      onset: { numerator: onset, denominator: 4 },
+      measureId: 'generated-' + String(Math.floor(onset / (score.beats * 4)) + 1),
+      targets: items.map(({ note, index }) => ({
+        eventId: 'generated-' + index, midi: note.midi, staff: note.staff
+      })),
+      companion
+    };
+  });
+  return { mode, reason: null, steps };
 }
