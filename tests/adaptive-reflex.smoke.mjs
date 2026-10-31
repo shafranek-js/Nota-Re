@@ -35,7 +35,9 @@ try {
     stats: JSON.parse(localStorage.getItem('notare_adaptive_practice_stats_v1'))
   }));
   assert.equal(state.grades, '[1]', 'opt-in adaptation must not change course credits');
-  assert.equal(state.stats.version, 1);
+  assert.equal(state.stats.version, 2);
+  assert.equal(Object.values(state.stats.intervals).reduce((s, item) => s + item.observations, 0), 7,
+    'one clean directed interval for each consecutive independently correct note');
   assert.equal(Object.values(state.stats.notes).reduce((s, item) => s + item.observations, 0), 8);
   assert.ok(Object.keys(state.stats.notes).every(key => key.startsWith('pc:reflex:')));
   assert.equal(await page.getByTestId('course-credit-mode').count(), 0);
