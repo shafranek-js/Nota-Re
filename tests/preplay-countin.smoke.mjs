@@ -79,6 +79,9 @@ try {
         return {
           centerOffset: Math.abs((beatRect.left + beatRect.right - scoreRect.left - scoreRect.right) / 2),
           aboveStaff: notation.length > 0 && hudRect.bottom <= Math.min(...notation.map(rect => rect.top)) - 4,
+          hudBottom: hudRect.bottom,
+          notationTop: Math.min(...notation.map(rect => rect.top)),
+          viewportHeight: innerHeight,
           beatHeight: beatRect.height,
           scoreTop: scoreRect.top,
           staffTop: Math.min(...notation.map(rect => rect.top))
@@ -86,7 +89,7 @@ try {
       });
       assert.ok(geometry.centerOffset < 3,
         'the large countdown must be horizontally centred above the score');
-      assert.ok(geometry.aboveStaff, 'count-in must stay above engraved notes and clefs');
+      assert.ok(geometry.aboveStaff, 'count-in must stay above engraved notes and clefs: ' + JSON.stringify({width, ...geometry}));
       assert.ok(geometry.beatHeight >= 70, 'count-in numeral must be clearly legible');
       assert.equal(await countIn.getByText('Приготовьтесь').count(), 1);
       assert.equal(await countIn.getByText(/Ноты уже видны|игра начнётся|после 4-й доли/).count(), 0,
