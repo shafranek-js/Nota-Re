@@ -89,6 +89,7 @@ export const TwoHandPractice: React.FC = () => {
   const [chordInversion, setChordInversion] = useState<ChordInversion>(0);
   const [texture, setTexture] = useState<AccompanimentTexture>('alberti');
   const [accompanimentHands, setAccompanimentHands] = useState<AccompanimentHands>('left');
+  const [bassOctaveShift, setBassOctaveShift] = useState<0 | 12>(0);
   const isChordStudy = !courseTrial && studyFamily === 'chords';
   const isAccompaniment = !courseTrial && studyFamily === 'accompaniment';
   const harmonicStudy = isChordStudy || isAccompaniment;
@@ -99,11 +100,11 @@ export const TwoHandPractice: React.FC = () => {
         ? createChordStudy(chordKey, chordQuality, chordInversion)
         : isAccompaniment
           ? createAccompanimentStudy(chordKey, chordQuality, chordInversion,
-            texture, accompanimentHands)
+            texture, accompanimentHands, accompanimentHands === 'left' ? bassOctaveShift : 0)
           : createTwoHandPractice(practiceTonality, scoreNoteCount === 8 ? 8 : 16, pattern),
     [courseTrial?.lessonId, practiceTonality, studyIndex, scoreNoteCount,
       pattern, isChordStudy, isAccompaniment, chordKey, chordQuality, chordInversion,
-      texture, accompanimentHands]
+      texture, accompanimentHands, bassOctaveShift]
   );
   const chordStudy: ChordStudy | null = isChordStudy ? exercise as ChordStudy : null;
   const accompaniment: AccompanimentStudy | null =
@@ -581,9 +582,25 @@ export const TwoHandPractice: React.FC = () => {
                   resetTrial(); setAccompanimentHands(event.target.value as AccompanimentHands);
                 }}
                 className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
-                <option value="left">Только левая — короткая MIDI-клавиатура</option>
+                <option value="left">Только левая</option>
                 <option value="both">Обе руки — полный регистр</option>
               </select>
+              {accompanimentHands === 'left' && (
+                <>
+                  <label htmlFor="accompaniment-octave" className="text-xs text-slate-300">
+                    Регистр левой
+                  </label>
+                  <select id="accompaniment-octave" data-testid="accompaniment-octave"
+                    value={bassOctaveShift} disabled={!!plan && !timed.finished}
+                    onChange={event => {
+                      resetTrial(); setBassOctaveShift(Number(event.target.value) as 0 | 12);
+                    }}
+                    className="rounded border border-slate-600 bg-slate-800 px-2 py-1.5 text-xs text-white">
+                    <option value={0}>Исходный басовый</option>
+                    <option value={12}>На октаву выше · 25 клавиш</option>
+                  </select>
+                </>
+              )}
             </>
           )}
           {!harmonicStudy && (
@@ -631,7 +648,8 @@ export const TwoHandPractice: React.FC = () => {
           </span>
           <span className="block text-slate-400 mt-1">
             Нижний регистр начинается ниже C3 для некоторых тональностей;
-            25-клавишный контроллер обычно годится только для разучивания одной руки.
+            Для 25-клавишного контроллера используйте «Только левая» и при необходимости
+            «На октаву выше». Полный двухручный вариант остаётся в исходном регистре.
             Аппликатура не подтверждается MIDI.
           </span>
           {midiInputsCount === 0 && (
