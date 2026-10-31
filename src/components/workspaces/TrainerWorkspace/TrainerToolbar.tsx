@@ -53,7 +53,7 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
     photoExposureMs, setPhotoExposure, isBlindfolded, toggleBlindfoldKeys,
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
-    keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice, openChordPractice,
+    keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice, openChordPractice, openAccompanimentPractice,
     startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, zenSessionStarted, zenDismissedForSession, setAutoZenEnabled,
     adaptiveReflexEnabled, adaptiveStats, adaptiveTrace, toggleAdaptiveReflex, clearAdaptiveStats
   } = useAppStore();
@@ -335,6 +335,11 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
                 ))}
                 <button type="button" className={controlClass} onClick={() => audioEngine.playArticulationDemo(bpm)}>
                   Штрихи: стаккато / легато
+                </button>
+                <button type="button" data-testid="open-accompaniment-study" className={controlClass}
+                  title="Бас Альберти, вальс 3/4 и арпеджио. Одна или обе руки, настоящие MIDI-вступления, без зачёта."
+                  onClick={() => { setPanel(null); openAccompanimentPractice(); }}>
+                  Фактуры левой руки · MIDI
                 </button>
                 <button type="button" data-testid="open-chord-study" className={controlClass}
                   title="Мажорные и минорные трезвучия, три обращения и настоящая проверка трёх MIDI-клавиш. Без зачёта."
