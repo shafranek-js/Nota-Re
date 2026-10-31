@@ -44,6 +44,24 @@ test('24 score-derived written examples: all 4 keys, both qualities and three in
   assert.throws(() => evaluateModuleVInversion(createModuleVInversionFixture(0), '7'), /Invalid/);
 });
 
+test('explicit enharmonic spelling decides inversion, not piano-key equivalence', () => {
+  const fixture = createModuleVInversionFixture(0);
+  const notes = [
+    { ...fixture.score.notes[0], midi: 65, spelling: { step: 'F', alter: 0, octave: 4 } },
+    { ...fixture.score.notes[1], midi: 68, spelling: { step: 'A', alter: -1, octave: 4 } },
+    { ...fixture.score.notes[2], midi: 73, spelling: { step: 'D', alter: -1, octave: 5 } }
+  ];
+  const guides = getVerticalChordGuides(notes, 0, 'reading');
+  assert.equal(guides.length, 1);
+  assert.equal(guides[0].figure, '6');
+  assert.equal(guides[0].tonic, 'D♭');
+  assert.equal(guides[0].bass, 'F');
+  assert.equal(guides[0].quality, 'major');
+  assert.equal(getVerticalChordGuides([
+    { ...notes[0], spelling: { step: 'E', alter: 1, octave: 4 } }, ...notes.slice(1)
+  ], 0, 'reading').length, 0, 'E-sharp cannot be silently treated as written F');
+});
+
 test('V2 is independently available; no numeric course lesson or V1 ID is replaced', () => {
   assert.equal(MODULE_V_TRIADS_ID, 'module-v/v1/triads-5-3');
   assert.equal(MODULE_V_INVERSIONS_ID, 'module-v/v1/inversions');
