@@ -20,6 +20,8 @@ export interface PolyphonicStep {
   readonly targets: readonly PolyphonicNote[];
   /** Relative to this step's onset; the other hand may strike between targets. */
   readonly companion: readonly TimedTone[];
+  /** Tied attacks that must remain physically held at this next musical entry. */
+  readonly requiredHeld?: readonly number[];
 }
 export interface PolyphonicPlan {
   readonly mode: PolyphonicHandMode;
@@ -69,9 +71,12 @@ function elapsedSeconds(score: ScoreDocument, from: QuarterTime, to: QuarterTime
 }
 
 /**
- * Limited to a single piano part, one voice per staff and at most two staves.
- * Explicitly reject ties and duplicate same-pitch simultaneous attacks until
- * they can be reconciled to distinct physical note-on evidence.
+ * A tie continuation is NOT an attack. We resolve complete source chains
+ * before grouping MIDI steps. A–B cannot silently clip a connected note:
+ * restarting or truncating a note would teach the wrong physical gesture.
+ *
+ * Free practice checks physical sustain only at the next independent attack,
+ * NOT the absolute note-off time. Timed hold grading belongs to a later stage.
  */
 export function planPolyphonicRehearsal(
   score: ScoreDocument, range: ScoreMeasureRange, mode: PolyphonicHandMode
@@ -83,14 +88,12 @@ export function planPolyphonicRehearsal(
   if (mode !== 'both' && score.parts[0]!.staves !== 2) {
     return empty(mode, 'Раздельные руки доступны только для партии с двумя станами.');
   }
-  if (score.events.some(e => e.tieToId)) {
-    return empty(mode, 'Связующие лиги пока не поддерживаются в полифонической практике.');
-  }
   const measureIds = new Set(range.measureIds);
-  const events = score.events.filter(e => e.kind === 'note' && measureIds.has(e.measureId));
-  if (!events.length) return empty(mode, 'В выбранных тактах нет нот.');
-  if (events.length > 512) return empty(mode, 'Выберите не более 512 нот.');
-  if (events.some(e => !e.pitch || !Number.isSafeInteger(e.pitch.midi) ||
+  const allNotes = score.events.filter(e => e.kind === 'note');
+  const selectedNotes = allNotes.filter(e => measureIds.has(e.measureId));
+  if (!selectedNotes.length) return empty(mode, 'В выбранных тактах нет нот.');
+  if (selectedNotes.length > 512) return empty(mode, 'Выберите не более 512 нот.');
+  if (selectedNotes.some(e => !e.pitch || !Number.isSafeInteger(e.pitch.midi) ||
       e.pitch.midi < 21 || e.pitch.midi > 108)) {
     return empty(mode, 'Неподдерживаемая высота ноты вне диапазона фортепиано A0–C8.');
   }
@@ -103,57 +106,120 @@ export function planPolyphonicRehearsal(
   if ([...voicesByStaff.values()].some(voices => voices.size !== 1)) {
     return empty(mode, 'Несколько независимых голосов на одном стане пока не поддерживаются.');
   }
-  // A prior sounding note must not be silently converted to a new attack at A.
-  if (score.events.some(e => e.kind === 'note' && compareQuarter(e.onset, range.start) < 0 &&
+  const byId = new Map(allNotes.map(e => [e.id, e]));
+  const continuedIds = new Set(allNotes.flatMap(e => e.tieToId ? [e.tieToId] : []));
+  if (continuedIds.size !== allNotes.filter(e => e.tieToId).length) {
+    return empty(mode, 'Неоднозначное продолжение связующей лиги.');
+  }
+  type Attack = { event: ScoreEvent; end: QuarterTime; tied: boolean };
+  const attacks: Attack[] = [];
+  const visited = new Set<string>();
+  for (const head of allNotes) {
+    if (continuedIds.has(head.id)) continue;
+    let tail = head;
+    const chain = [head];
+    const local = new Set<string>([head.id]);
+    while (tail.tieToId) {
+      const next = byId.get(tail.tieToId);
+      if (!next || !next.pitch || !tail.pitch ||
+          next.partId !== tail.partId || next.staff !== tail.staff ||
+          next.voice !== tail.voice || next.pitch.midi !== tail.pitch.midi ||
+          next.pitch.step !== tail.pitch.step ||
+          next.pitch.alter !== tail.pitch.alter ||
+          next.pitch.octave !== tail.pitch.octave ||
+          compareQuarter(endOf(tail), next.onset) !== 0 ||
+          local.has(next.id) || chain.length > allNotes.length) {
+        return empty(mode, 'Некорректная цепочка связующей лиги.');
+      }
+      local.add(next.id);
+      chain.push(next);
+      tail = next;
+    }
+    for (const segment of chain) {
+      if (visited.has(segment.id)) return empty(mode, 'Неоднозначная цепочка связующей лиги.');
+      visited.add(segment.id);
+    }
+    const selected = chain.filter(segment => measureIds.has(segment.measureId));
+    if (!selected.length) continue;
+    if (selected.length !== chain.length) {
+      return empty(mode, 'Диапазон A–B разрывает связующую лигу: выберите все связанные такты.');
+    }
+    attacks.push({ event: head, end: endOf(tail), tied: chain.length > 1 });
+  }
+  if (visited.size !== allNotes.length) {
+    return empty(mode, 'Найдена незавершённая или циклическая связующая лига.');
+  }
+  // A prior non-tied sound also cannot be misrepresented as a fresh attack
+  // at A. This is deliberately conservative for rest or pickup boundaries.
+  if (allNotes.some(e => compareQuarter(e.onset, range.start) < 0 &&
       compareQuarter(endOf(e), range.start) > 0)) {
     return empty(mode, 'Через границу A удерживается нота из предыдущего такта.');
   }
-  const ordered = [...events].sort((a, b) =>
-    compareQuarter(a.onset, b.onset) || a.staff - b.staff ||
-    a.pitch!.midi - b.pitch!.midi);
-  // Duplicate pitches at an onset across hands cannot be proved independently
-  // by one physical key. Do not flatten them into a single correct attack.
+  const ordered = attacks.sort((a, b) =>
+    compareQuarter(a.event.onset, b.event.onset) ||
+    a.event.staff - b.event.staff ||
+    a.event.pitch!.midi - b.event.pitch!.midi);
   for (let i = 1; i < ordered.length; i++) {
     const prev = ordered[i - 1]!, curr = ordered[i]!;
-    if (compareQuarter(prev.onset, curr.onset) === 0 && prev.pitch!.midi === curr.pitch!.midi) {
+    if (compareQuarter(prev.event.onset, curr.event.onset) === 0 &&
+        prev.event.pitch!.midi === curr.event.pitch!.midi) {
       return empty(mode, 'Одновременная одинаковая высота на двух станах неоднозначна для MIDI.');
     }
   }
   const targetStaff = mode === 'right' ? 1 : mode === 'left' ? 2 : null;
-  const targets = ordered.filter(e => targetStaff === null || e.staff === targetStaff);
+  const targets = ordered.filter(a => targetStaff === null || a.event.staff === targetStaff);
   if (!targets.length) return empty(mode, 'Для выбранной руки в диапазоне нет нот.');
-  const groups: ScoreEvent[][] = [];
-  for (const event of targets) {
+  const groups: Attack[][] = [];
+  for (const attack of targets) {
     const last = groups[groups.length - 1];
-    if (last && compareQuarter(last[0]!.onset, event.onset) === 0) last.push(event);
-    else groups.push([event]);
+    if (last && compareQuarter(last[0]!.event.onset, attack.event.onset) === 0) last.push(attack);
+    else groups.push([attack]);
   }
   if (groups.length > 128) return empty(mode, 'Выберите не более 128 шагов.');
-  const companionEvents = ordered.filter(e => targetStaff !== null && e.staff !== targetStaff);
-  if (companionEvents.length &&
-      compareQuarter(companionEvents[0]!.onset, groups[0]![0]!.onset) < 0) {
+  const companionAttacks = ordered.filter(a =>
+    targetStaff !== null && a.event.staff !== targetStaff);
+  if (companionAttacks.length &&
+      compareQuarter(companionAttacks[0]!.event.onset, groups[0]![0]!.event.onset) < 0) {
     return empty(mode, 'Сопровождение начинается раньше выбранной руки; начните с другого диапазона A–B.');
   }
+  // The current AudioEngine companion resets its preview queue at each
+  // successful group. A long tied accompaniment would otherwise be cut off
+  // midway through its sustain. Do not claim this texture works yet.
+  for (const attack of companionAttacks) {
+    if (attack.tied && groups.some(g =>
+      compareQuarter(g[0]!.event.onset, attack.event.onset) > 0 &&
+      compareQuarter(g[0]!.event.onset, attack.end) < 0)) {
+      return empty(mode, 'Связующая лига сопровождения перекрывает следующий шаг: требуется непрерывный аудиотранспорт.');
+    }
+  }
   const steps = groups.map((group, index): PolyphonicStep => {
-    const from = group[0]!.onset;
-    const next = groups[index + 1]?.[0]?.onset ?? range.end;
-    const accompaniment = companionEvents.filter(e =>
-      compareQuarter(e.onset, from) >= 0 && compareQuarter(e.onset, next) < 0);
-    const companion: TimedTone[] = accompaniment.map(e => {
-      const limit = compareQuarter(endOf(e), range.end) > 0 ? range.end : endOf(e);
-      const duration = elapsedSeconds(score, e.onset, limit);
+    const from = group[0]!.event.onset;
+    const next = groups[index + 1]?.[0]?.event.onset ?? range.end;
+    const companion = companionAttacks
+      .filter(a => compareQuarter(a.event.onset, from) >= 0 &&
+        compareQuarter(a.event.onset, next) < 0)
+
+      ;
+    const tones: TimedTone[] = companion.map(a => {
+      const limit = compareQuarter(a.end, range.end) > 0 ? range.end : a.end;
+      const duration = elapsedSeconds(score, a.event.onset, limit);
       return {
-        offsetSeconds: elapsedSeconds(score, from, e.onset),
-        durationSeconds: e.articulation === 'staccato' ?
+        offsetSeconds: elapsedSeconds(score, from, a.event.onset),
+        durationSeconds: a.event.articulation === 'staccato' ?
           Math.min(0.12, duration * 0.55) : duration * 0.96,
-        frequencyHz: 440 * Math.pow(2, (e.pitch!.midi - 69) / 12),
-        staccato: e.articulation === 'staccato'
+        frequencyHz: 440 * Math.pow(2, (a.event.pitch!.midi - 69) / 12),
+        staccato: a.event.articulation === 'staccato'
       };
     });
+    const requiredHeld = targets.filter(a => a.tied &&
+      compareQuarter(a.event.onset, from) < 0 &&
+      compareQuarter(a.end, from) > 0).map(a => a.event.pitch!.midi);
     return {
-      onset: from, measureId: group[0]!.measureId,
-      targets: group.map(e => ({ eventId: e.id, midi: e.pitch!.midi, staff: e.staff })),
-      companion
+      onset: from, measureId: group[0]!.event.measureId,
+      targets: group.map(a => ({ eventId: a.event.id,
+        midi: a.event.pitch!.midi, staff: a.event.staff })),
+      companion: tones,
+      ...(requiredHeld.length ? { requiredHeld } : {})
     };
   });
   return { mode, steps, reason: null };
@@ -204,9 +270,15 @@ export function recordPolyphonicKey(
     return { ...state, held, matched, last: null };
   }
   const next = state.index + 1;
+  // A tied pitch must still be held when the next independent attack is
+  // made. If not, record a wrong step (no fake correct credit or accompaniment)
+  // and let the user continue to the next group or retry the passage.
+  const sustainOk = (step.requiredHeld ?? []).every(midi => held.includes(midi));
   return { ...state, held, matched: [], index: next,
-    correct: state.correct + 1, last: 'correct',
-    completedStepIndex: state.index,
+    correct: state.correct + (sustainOk ? 1 : 0),
+    wrong: state.wrong + (sustainOk ? 0 : 1),
+    last: sustainOk ? 'correct' : 'wrong',
+    completedStepIndex: sustainOk ? state.index : null,
     phase: next >= plan.steps.length ? 'complete' : 'playing' };
 }
 
