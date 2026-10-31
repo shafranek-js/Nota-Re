@@ -32,7 +32,7 @@ try {
     await page.getByRole('button', { name: /^Студия$/ }).click();
     const attemptCount = async () => {
       const value = await page.getByTitle('Точность попаданий в текущей сессии').innerText();
-      return Number(/\\((\\d+)\\)/.exec(value)?.[1]);
+      return Number(/\((\d+)\)/.exec(value)?.[1]);
     };
     assert.equal(await attemptCount(), 0);
     await page.getByTestId('toolbar-trigger-rhythm').click();
