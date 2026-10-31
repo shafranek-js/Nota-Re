@@ -36,13 +36,13 @@ export const MicrophoneResearchPanel: React.FC = () => {
   const detectorRef = useRef<Detector | null>(null);
   const streamRef = useRef<MediaStream | null>(null);
   const sessionRef = useRef<Session | null>(null);
-  const midiAccessRef = useRef<WebMidi.MIDIAccess | null>(null);
-  const midiPortRef = useRef<WebMidi.MIDIInput | null>(null);
+  const midiAccessRef = useRef<MIDIAccess | null>(null);
+  const midiPortRef = useRef<MIDIInput | null>(null);
   const generation = useRef(0);
   const stopTimeout = useRef<ReturnType<typeof setTimeout> | null>(null);
   const mounted = useRef(true);
 
-  const receiveMidi = useCallback((event: WebMidi.MIDIMessageEvent) => {
+  const receiveMidi = useCallback((event: MIDIMessageEvent) => {
     const session = sessionRef.current;
     if (!session || !session.sameInstrumentMidi || !event.data) return;
     const statusByte = event.data[0], pitch = event.data[1], velocity = event.data[2];
