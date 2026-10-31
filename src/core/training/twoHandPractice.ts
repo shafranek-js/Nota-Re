@@ -142,7 +142,9 @@ export function reduceChordPractice(
   state: ChordPracticeState,
   steps: readonly TwoHandStep[],
   event: PracticeMidiEvent,
-  windowMs = 180
+  windowMs = 180,
+  /** One-hand chord introduction may require every held key to belong to this chord. */
+  strictHeldSet = false
 ): ChordPracticeState {
   if (event.type === 'panic') return { ...state, held: [], captured: [], feedback: 'ready' };
   if (event.type === 'note-off') {
@@ -160,6 +162,12 @@ export function reduceChordPractice(
   const held = [...state.held, { channel: event.channel, note: event.note }];
   const step = steps[state.stepIndex];
   if (!step) return { ...state, held, feedback: 'complete' };
+  // In the one-hand chord drill, an extra sustained key invalidates the
+  // attempt. Two-hand studies intentionally permit held LH bass across RH
+  // onsets, so their existing reducer policy is unchanged.
+  if (strictHeldSet && held.some(key => !step.expectedMidi.includes(key.note))) {
+    return { ...state, held, captured: [], feedback: 'wrong' };
+  }
   if (!step.expectedMidi.includes(event.note)) {
     return { ...state, held, captured: [], feedback: 'wrong' };
   }
