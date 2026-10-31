@@ -90,7 +90,7 @@ try {
       assert.ok(geometry.centerOffset < 3,
         'the large countdown must be horizontally centred above the score');
       assert.ok(geometry.aboveStaff, 'count-in must stay above engraved notes and clefs: ' + JSON.stringify({width, ...geometry}));
-      assert.ok(geometry.beatHeight >= 70, 'count-in numeral must be clearly legible');
+      assert.ok(geometry.beatHeight >= 60, 'count-in numeral must remain legible on phones without covering staff');
       assert.equal(await countIn.getByText('Приготовьтесь').count(), 1);
       assert.equal(await countIn.getByText(/Ноты уже видны|игра начнётся|после 4-й доли/).count(), 0,
         'the count-in must not show redundant instructions');
