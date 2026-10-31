@@ -71,7 +71,7 @@ function normalizedGroundTruth(data: VerifiedPianoCase): string {
   return JSON.stringify(data.expected.map(x => {
     const truth = x as typeof x & { pedalDownAtOnset?: boolean | null };
     return [x.midi, x.onsetMs,
-      Object.hasOwn(truth, 'pedalDownAtOnset') ? truth.pedalDownAtOnset : 'unavailable'];
+      Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') ? truth.pedalDownAtOnset : 'unavailable'];
   }).sort((a, b) => Number(a[1]) - Number(b[1]) || Number(a[0]) - Number(b[0])));
 }
 function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is VerifiedPianoCase {
@@ -89,7 +89,7 @@ function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is V
   for (const truth of data.expected as readonly (typeof data.expected[number] & {
     pedalDownAtOnset?: unknown
   })[]) {
-    if (Object.hasOwn(truth, 'pedalDownAtOnset') &&
+    if (Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') &&
         truth.pedalDownAtOnset !== null &&
         typeof truth.pedalDownAtOnset !== 'boolean') {
       throw new Error('Invalid independent CC64 attack label in ' + engine + '/' + data.id);
