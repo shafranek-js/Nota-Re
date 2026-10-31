@@ -1,0 +1,59 @@
+<!doctype html>
+<html lang="ru">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Nota-Re · Acoustic Microphone Research Lab (R0E)</title>
+<style>
+:root{font-family:system-ui,Segoe UI,Arial,sans-serif;color-scheme:dark;background:#101923;color:#e7edf4}
+body{max-width:980px;margin:0 auto;padding:24px;line-height:1.55}
+h1{font-size:1.55rem;margin:0 0 4px}h2{font-size:1.13rem;margin:0 0 8px}
+p{margin:8px 0 14px}.muted{color:#b3c6d5}.warning{border-left:3px solid #f5ae55;padding:10px 15px;background:#2c251b}
+section{padding:20px;margin:16px 0;border-radius:12px;border:1px solid #40566b;background:#182533}
+button,select{font:inherit;padding:10px 14px;color:#f5f9fc;background:#25394c;border-radius:8px;border:1px solid #6787a0;max-width:100%}
+button{cursor:pointer}button:disabled{opacity:.45;cursor:default}
+button:focus-visible,select:focus-visible{outline:3px solid #8bdded;outline-offset:2px}
+.controls{display:flex;flex-wrap:wrap;gap:10px;align-items:center}
+.two{display:grid;grid-template-columns:repeat(auto-fit,minmax(210px,1fr));gap:12px}
+.stat{padding:12px;background:#111d2a;border-radius:8px}.stat strong{font-size:1.4rem;display:block}
+#notes{max-height:180px;overflow:auto;font-family:monospace;white-space:pre-wrap}
+[role=status]{font-weight:600}small{font-size:.86rem}
+</style>
+</head>
+<body>
+<header><h1>Nota-Re · Исследование микрофонного распознавания</h1>
+<p class="muted">R0E · автономная лаборатория · не часть тренажёра и не официальный зачёт</p></header>
+<div class="warning"><strong>Приватность и ограничения.</strong> Микрофон включается только по нажатию «Начать». Звук обрабатывается локально, не записывается и никуда не отправляется. Отчёт создаётся исключительно по кнопке и не содержит аудио, MIDI-мелодии, идентификаторов устройств или списка сыгранных нот. Без независимого MIDI-эталона измерить точность и задержку звукового распознавания нельзя.</div>
+<section>
+<h2>1. Подготовка</h2>
+<p>Откройте эту страницу на компьютере с подключённым микрофоном, на HTTPS или локальном <code>127.0.0.1</code>. Разместите микрофон в удобном месте у акустического пианино, отключите посторонний звук и не используйте автоматические фильтры шума. Выберите спокойную тестовую последовательность с одиночными нотами, аккордами и повторными атаками.</p>
+<div class="controls">
+<button id="midi-enable">Подключить MIDI-эталон (необязательно)</button>
+<label for="midi-input">MIDI-вход:</label><select id="midi-input" disabled><option value="">Нет независимого MIDI-эталона</option></select>
+</div>
+<p class="muted"><small>Используйте MIDI только тогда, когда он соответствует <em>тому же звучащему инструменту</em>. Другой MIDI-контроллер или нажатие вручную не являются точным эталоном для акустического пианино. MIDI-сообщения и микрофонные кадры должны поступать в одну браузерную сессию.</small></p>
+</section>
+<section>
+<h2>2. Прослушивание</h2>
+<div class="controls">
+<button id="start">Начать с микрофоном</button>
+<button id="stop" disabled>Остановить и отключить</button>
+<button id="export" disabled>Экспортировать агрегированный JSON</button>
+</div>
+<p id="status" role="status" aria-live="polite">Не запущено. Доступ к микрофону не запрашивался.</p>
+<div class="two">
+<div class="stat">Кадров обработано<strong id="frames">0</strong></div>
+<div class="stat">Распознано атак<strong id="detected">0</strong></div>
+<div class="stat">MIDI-атак в эталоне<strong id="midi-count">—</strong></div>
+<div class="stat">Время сессии<strong id="elapsed">0 с</strong></div>
+</div>
+<h2 style="margin-top:18px">Последние распознанные ноты (только на экране)</h2>
+<div id="notes" aria-live="off" class="muted">—</div>
+</section>
+<section>
+<h2>3. Интерпретация</h2>
+<p>Только если MIDI действительно соответствует звучащему инструменту, отчёт дополнительно содержит совпадения нот и распределение времени <strong>от MIDI-сообщения до callback в браузере</strong>. Это не независимая калибровка момента удара молоточка и не время прохождения звука через микрофон. Без MIDI отчёт ограничивается количеством кадров, атак и общей длительностью.</p>
+<p class="muted"><small>Сессия автоматически останавливается через 120 секунд, при скрытии вкладки, закрытии страницы или ошибке. После остановки микрофонные дорожки освобождаются. Повторный запуск сбрасывает статистику. Данные остаются только в памяти этой вкладки; экспорт — исключительно явное действие пользователя.</small></p>
+</section>
+<script type="module" src="/local-microphone-lab.mjs"></script>
+</body></html>
