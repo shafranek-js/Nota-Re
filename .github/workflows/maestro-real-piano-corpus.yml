@@ -1,0 +1,91 @@
+name: Microphone R0C — multi-performance MAESTRO validation
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/maestro-real-piano-corpus.yml'
+      - 'scripts/fetch-maestro-corpus.py'
+      - 'scripts/prepare-maestro-corpus.mjs'
+      - 'scripts/summarize-piano-corpus.mjs'
+      - 'src/core/audio/microphoneConditionAnalysis.ts'
+      - 'tests/maestroCorpusCondition.test.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  multi-performance-validation:
+    runs-on: ubuntu-latest
+    timeout-minutes: 50
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - run: npm ci
+      - name: Validate corpus and independent-condition test fixtures
+        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs
+      - name: Install ffmpeg for temporary WAV conversion
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+      - name: Install optional, pinned research-only recognizers
+        run: npm install --no-save --package-lock=false @spotify/basic-pitch@1.0.1 @tensorflow/tfjs@3.21.0 @markusstrasser/pitchplease@3.1.0
+      - name: Download three independent validation performances (no test split)
+        run: python3 scripts/fetch-maestro-corpus.py .microphone-maestro-corpus
+      - name: Build three identical paired audio/MIDI reference clips
+        run: node scripts/prepare-maestro-corpus.mjs .microphone-maestro-corpus
+      - name: Run PitchPlease on all three clips
+        run: node --experimental-strip-types scripts/export-pitchplease-onsets.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/pitchplease.json
+      - name: Run Spotify Basic Pitch on the exact same WAV bytes
+        run: node --experimental-strip-types scripts/export-basic-pitch-onsets.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/basicpitch.json
+      - name: Independently score both models and describe acoustic coincidences
+        run: |
+          node --experimental-strip-types scripts/compare-piano-detectors.mjs .microphone-maestro-corpus/pitchplease.json .microphone-maestro-corpus/basicpitch.json > .microphone-maestro-corpus/comparison.json
+          node --experimental-strip-types scripts/diagnose-piano-errors.mjs .microphone-maestro-corpus/pitchplease.json .microphone-maestro-corpus/basicpitch.json > .microphone-maestro-corpus/diagnosis.json
+      - name: Compare independent conditions and record uncertainty
+        run: node --experimental-strip-types scripts/summarize-piano-corpus.mjs .microphone-maestro-corpus/pitchplease.json .microphone-maestro-corpus/basicpitch.json > .microphone-maestro-corpus/conditions.json
+      - name: Print observed results without extrapolating to course certification
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const base = ".microphone-maestro-corpus/";
+            const audit = JSON.parse(readFileSync(base + "corpus-source-audit.json", "utf8"));
+            const report = JSON.parse(readFileSync(base + "conditions.json", "utf8"));
+            if (audit.split !== "validation" || audit.cases.length !== 3 || report.comparison.caseCount !== 3) {
+              throw new Error("Corpus independence/split invariant failed");
+            }
+            console.log("MAESTRO validation: 3 distinct composers, 3 recordings; exploratory only");
+            for (const source of audit.cases) console.log(JSON.stringify({
+              id: source.id, composer: source.composer, title: source.title,
+              sourceSha256: source.source_audio.sha256,
+              referenceAttacks: source.derived_clip.referenceNoteAttacks
+            }));
+            for (const model of report.models) for (const take of model.takes) console.log(JSON.stringify({
+              engine: model.engine, take: take.id, TP: take.truePositives,
+              FP: take.falsePositives, FN: take.falseNegatives,
+              F1: take.f1, p95OnsetMs: take.onsetP95Ms,
+              falsePositiveOctaveCoincidences: take.coincidences.unmatchedOctave12,
+              liveMicrophoneLatencyMs: null
+            }));
+            console.log(JSON.stringify({exploratoryPairedMacroF1: report.pairedMacroF1,
+              caveat: "small biased sample, NOT a general model winner"}));
+          '
+      - name: Upload JSON reports only; NEVER WAV, MIDI or model weights
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-validation-multi-performance-json
+          if-no-files-found: warn
+          path: |
+            .microphone-maestro-corpus/download-audit.json
+            .microphone-maestro-corpus/corpus-source-audit.json
+            .microphone-maestro-corpus/manifest.json
+            .microphone-maestro-corpus/pitchplease.json
+            .microphone-maestro-corpus/basicpitch.json
+            .microphone-maestro-corpus/comparison.json
+            .microphone-maestro-corpus/diagnosis.json
+            .microphone-maestro-corpus/conditions.json
+          retention-days: 7
