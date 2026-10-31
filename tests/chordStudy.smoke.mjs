@@ -86,6 +86,11 @@ try {
     assert.equal(await step.innerText(), '1');
     assert.equal(await page.getByTestId('chord-notes').innerText(), 'C4 · E4 · A4');
     assert.match(await page.getByTestId('chord-study-details').innerText(), /A-moll/);
+    await page.getByTestId('chord-key').selectOption('D');
+    assert.equal(await page.getByTestId('chord-notes').innerText(), 'D4 · F#4 · B4');
+    assert.match(await page.getByTestId('chord-study-details').innerText(), /B-moll/);
+    assert.equal(await step.innerText(), '1',
+      'changing key signature must reset chord progress, not award course credit');
     await page.locator('[aria-label="Независимые партии двух рук OpenSheetMusicDisplay"] svg')
       .first().waitFor({ state: 'visible', timeout: 45000 });
     assert.equal(await attemptCount(), 0);
