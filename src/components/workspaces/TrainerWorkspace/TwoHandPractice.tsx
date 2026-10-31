@@ -6,6 +6,8 @@ import { MetronomeToggle } from './MetronomeToggle';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
 import { toMusicXml, type SupportedKey } from '../../../core/notation/musicXml';
 import { getVerticalChordGuides } from '../../../core/notation/intervalGuides';
+import { MODULE_V_TRIADS_ID } from '../../../data/moduleVCurriculum';
+import { loadModuleVPractice, recordModuleVTriadPractice } from '../../../core/storage/moduleVPracticeStorage';
 import {
   createTwoHandPractice,
   initialChordPractice,
@@ -69,8 +71,9 @@ const feedbackText: Record<ChordPracticeState['feedback'], string> = {
  */
 export const TwoHandPractice: React.FC = () => {
   const { currentTonality, scoreNoteCount, midiInputsCount, bpm,
-    twoHandTrialLessonId, twoHandPracticeFocus, switchWorkspace, metronomeEnabled, audioEnabled } = useAppStore();
+    twoHandTrialLessonId, twoHandPracticeFocus, moduleVLessonId, switchWorkspace, metronomeEnabled, audioEnabled } = useAppStore();
   const courseTrial = getTwoHandCourseTrialPreset(twoHandTrialLessonId);
+  const guidedModuleV = !courseTrial && moduleVLessonId === MODULE_V_TRIADS_ID;
   // A course trial uses the actual lesson's BPM without altering persistent
   // trainer preferences or the official per-lesson grade.
   const practiceBpm = courseTrial?.bpm ?? bpm;
@@ -84,9 +87,9 @@ export const TwoHandPractice: React.FC = () => {
     () => getTwoHandCourseTrialPreset(twoHandTrialLessonId)?.pattern ?? 'steady'
   );
   const [studyFamily, setStudyFamily] = useState<'hands' | 'chords' | 'accompaniment'>(() =>
-    courseTrial ? 'hands' : twoHandPracticeFocus
+    courseTrial ? 'hands' : guidedModuleV ? 'chords' : twoHandPracticeFocus
   );
-  const [chordKey, setChordKey] = useState<SupportedKey>(currentTonality);
+  const [chordKey, setChordKey] = useState<SupportedKey>(guidedModuleV ? 'C' : currentTonality);
   const [chordQuality, setChordQuality] = useState<ChordQuality>('major');
   const [chordInversion, setChordInversion] = useState<ChordInversion>(0);
   const [texture, setTexture] = useState<AccompanimentTexture>('alberti');
@@ -179,6 +182,16 @@ export const TwoHandPractice: React.FC = () => {
   const rendererRef = useRef<OpenSheetMusicDisplay | null>(null);
   const [loadStatus, setLoadStatus] = useState<'loading' | 'ready' | 'error'>('loading');
   const [loadError, setLoadError] = useState('');
+  const scoreReadyRef = useRef(false);
+  const [moduleVCompleted, setModuleVCompleted] = useState(() =>
+    loadModuleVPractice().completedFixtures.includes('C-major-5-3'));
+
+  useEffect(() => {
+    if (!guidedModuleV || !scoreReadyRef.current ||
+        trial.stepIndex !== exercise.steps.length || moduleVCompleted) return;
+    recordModuleVTriadPractice(MODULE_V_TRIADS_ID);
+    setModuleVCompleted(true);
+  }, [guidedModuleV, trial.stepIndex, exercise.steps.length, moduleVCompleted]);
   const [renderEpoch, setRenderEpoch] = useState(0);
 
   const resetTrial = () => {
@@ -284,6 +297,8 @@ export const TwoHandPractice: React.FC = () => {
         event.type === 'note-on' || event.type === 'note-off' ? event :
         event.type === 'panic' || event.type === 'all-notes-off' ? { type: 'panic' } : null;
       if (!relevant) return;
+      // The fixed V1 score must be visible before any physical MIDI attempt.
+      if (guidedModuleV && !scoreReadyRef.current) return;
       const currentPlan = planRef.current;
       if (currentPlan) {
         if (timedRef.current.finished) return;
@@ -314,7 +329,7 @@ export const TwoHandPractice: React.FC = () => {
       clickStops.current = [];
       planRef.current = null;
     };
-  }, [exercise]);
+  }, [exercise, guidedModuleV]);
 
   useEffect(() => {
     const host = mountRef.current;
@@ -325,6 +340,7 @@ export const TwoHandPractice: React.FC = () => {
     let busy = false;
     let rerender = false;
     let width = host.clientWidth;
+    scoreReadyRef.current = false;
     setLoadStatus('loading');
     setLoadError('');
 
@@ -336,6 +352,7 @@ export const TwoHandPractice: React.FC = () => {
         await renderer.render();
         if (!cancelled) {
           rendererRef.current = renderer;
+          scoreReadyRef.current = true;
           setLoadStatus('ready');
           setRenderEpoch(n => n + 1);
         }
@@ -388,6 +405,7 @@ export const TwoHandPractice: React.FC = () => {
     void initialize();
     return () => {
       cancelled = true;
+      scoreReadyRef.current = false;
       observer?.disconnect();
       rendererRef.current = null;
       try { renderer?.cursor?.Dispose(); } catch { /* not ready */ }
@@ -471,6 +489,14 @@ export const TwoHandPractice: React.FC = () => {
               {pattern !== courseTrial.pattern && ' Выбран другой ритмический рисунок для дополнительной практики.'}
             </div>
           )}
+          {guidedModuleV && (
+            <p data-testid="module-v-guided-intro" className="text-xs text-sky-200">
+              Модуль V · V1 · основной вид 5/3. Дождитесь появления партитуры,
+              затем найдите три нотных знака по вертикали.
+              Сначала разберите ноты, потом сыграйте четыре отдельных аккорда на MIDI.
+              Никакого зачёта курса.
+            </p>
+          )}
           {courseTrial && (
             <p data-testid="two-hand-lesson-score" className="text-xs text-sky-300">
               {courseTrial.lessonId === 11
@@ -501,6 +527,13 @@ export const TwoHandPractice: React.FC = () => {
         </div>
         <div className="flex flex-wrap gap-2 items-center">
           {!isChordStudy && <MetronomeToggle />}
+          {guidedModuleV && (
+            <button type="button" data-testid="module-v-return"
+              onClick={() => switchWorkspace('course')}
+              className="rounded border border-sky-600/70 px-3 py-1.5 text-xs text-sky-200">
+              К модулю V
+            </button>
+          )}
           {courseTrial && (
             <button type="button" data-testid="two-hand-next-study"
               disabled={(!!plan && !timed.finished) || suggestedStudy === null}
@@ -542,7 +575,7 @@ export const TwoHandPractice: React.FC = () => {
               </select>
             </>
           )}
-          {!courseTrial && (
+          {!courseTrial && !guidedModuleV && (
             <>
               <label htmlFor="two-hand-family" className="text-xs text-slate-300">Вид упражнения</label>
               <select id="two-hand-family" data-testid="two-hand-family" value={studyFamily}
@@ -557,7 +590,7 @@ export const TwoHandPractice: React.FC = () => {
               </select>
             </>
           )}
-          {harmonicStudy && (
+          {harmonicStudy && !guidedModuleV && (
             <>
               <label htmlFor="chord-key" className="text-xs text-slate-300">Тональность</label>
               <select id="chord-key" data-testid="chord-key" value={chordKey}
@@ -739,6 +772,14 @@ export const TwoHandPractice: React.FC = () => {
             </span>
           )}
         </div>
+      )}
+      {guidedModuleV && (
+        <p role="status" data-testid="module-v-midi-evidence" className={moduleVCompleted
+          ? 'text-xs text-emerald-300' : 'text-xs text-amber-200'}>
+          {moduleVCompleted
+            ? 'Практика V1 зарегистрирована: четыре корректных MIDI-аккорда. Это не официальный зачёт.'
+            : 'Практика V1: ожидаются четыре отдельных трёхзвучных MIDI-нажатия после загрузки нот.'}
+        </p>
       )}
       <div className="flex flex-wrap gap-3 items-center text-sm">
         <span>Шаг <strong data-testid="two-hand-step-index">{Math.min(activeStepIndex + 1, exercise.steps.length)}</strong> / {exercise.steps.length}</span>
