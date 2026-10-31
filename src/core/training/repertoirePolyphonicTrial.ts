@@ -197,9 +197,7 @@ export function planPolyphonicRehearsal(
     const next = groups[index + 1]?.[0]?.event.onset ?? range.end;
     const companion = companionAttacks
       .filter(a => compareQuarter(a.event.onset, from) >= 0 &&
-        compareQuarter(a.event.onset, next) < 0)
-
-      ;
+        compareQuarter(a.event.onset, next) < 0);
     const tones: TimedTone[] = companion.map(a => {
       const limit = compareQuarter(a.end, range.end) > 0 ? range.end : a.end;
       const duration = elapsedSeconds(score, a.event.onset, limit);
