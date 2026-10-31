@@ -233,7 +233,7 @@ export function validatePracticeStats(value: unknown): PracticeStats {
     /^(pc|midi):reflex:(treble|bass):[A-G](?:#|b)?[0-8]$/.test(key)));
   const intervals = obj.version === 2
     ? Object.fromEntries(Object.entries(read(obj.intervals)).filter(([key]) => {
-      const match = /^(pc|midi):reflex:(treble|bass):([A-G](?:#|b)?[0-8]):to:(treble|bass):([A-G](?:#|b)?[0-8]):d([+-]?\\d+):c([+-]?\\d+)$/.exec(key);
+      const match = /^(pc|midi):reflex:(treble|bass):([A-G](?:#|b)?[0-8]):to:(treble|bass):([A-G](?:#|b)?[0-8]):d([+-]?\d+):c([+-]?\d+)$/.exec(key);
       if (!match) return false;
       const actual = directedInterval({ clef: match[2] as ClefType, noteName: match[3] },
         { clef: match[4] as ClefType, noteName: match[5] });
