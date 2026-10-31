@@ -4,12 +4,19 @@ import { parseSpelledPitch } from './directedInterval.ts';
 import { createChordStudy, type ChordInversion, type ChordQuality } from './chordStudy.ts';
 import { createTwoHandSteps } from './lessonTwoHandScore.ts';
 import type { TwoHandPracticeScore } from './twoHandPractice.ts';
+import { harmonicMinorDominant, writtenPitchFromName } from './harmonicMinor.ts';
 
 export type AccompanimentTexture = 'alberti' | 'waltz' | 'arpeggio';
 export type AccompanimentHands = 'left' | 'both';
+export type MinorForm = 'natural' | 'harmonic';
 
 export interface AccompanimentStudy extends TwoHandPracticeScore {
   readonly texture: AccompanimentTexture;
+  readonly minorForm: MinorForm;
+  /** In harmonic minor the first bar is the major dominant V, then tonic i. */
+  readonly leadingTone?: string;
+  readonly resolutionLeftNotes?: readonly [string, string, string];
+  readonly resolutionRightNotes?: readonly [string, string, string];
   readonly hands: AccompanimentHands;
   readonly bassOctaveShift: 0 | 12;
   readonly beats: 3 | 4;
@@ -37,12 +44,13 @@ export const ACCOMPANIMENT_DESCRIPTIONS: Readonly<Record<AccompanimentTexture, s
 };
 
 function note(name: string, onsetTicks: number, durationTicks: number,
-  articulation: 'legato' | 'staccato' = 'legato'): TimedHandPitch {
+  articulation: 'legato' | 'staccato' = 'legato', written = false): TimedHandPitch {
   const parsed = parseSpelledPitch(name);
   if (!parsed || parsed.midi < 36 || parsed.midi > 84) {
     throw new Error('Unsupported accompaniment pitch ' + name);
   }
-  return { midi: parsed.midi, onsetTicks, durationTicks, articulation };
+  return { midi: parsed.midi, onsetTicks, durationTicks, articulation,
+    ...(written ? { spelling: writtenPitchFromName(name).spelling } : {}) };
 }
 
 /**
@@ -60,64 +68,82 @@ export function createAccompanimentStudy(
   inversion: ChordInversion,
   texture: AccompanimentTexture,
   hands: AccompanimentHands = 'both',
-  bassOctaveShift: 0 | 12 = 0
+  bassOctaveShift: 0 | 12 = 0,
+  minorForm: MinorForm = 'natural'
 ): AccompanimentStudy {
   if (!['alberti', 'waltz', 'arpeggio'].includes(texture) ||
       !['left', 'both'].includes(hands) || ![0, 12].includes(bassOctaveShift) ||
-      (hands === 'both' && bassOctaveShift !== 0)) {
+      (hands === 'both' && bassOctaveShift !== 0) ||
+      !['natural', 'harmonic'].includes(minorForm) ||
+      (minorForm === 'harmonic' && quality !== 'minor')) {
     throw new Error('Unsupported accompaniment texture/hands/transposition.');
   }
   const harmony = createChordStudy(key, quality, inversion);
   const original = LEFT_TRIADS[key]?.[quality];
   if (!original) throw new Error('Unsupported accompaniment key.');
-  const leftNotes = original.map(name => {
-    if (bassOctaveShift === 0) return name;
-    return name.replace(/[0-8]$/, octave => String(Number(octave) + 1));
-  }) as unknown as [string, string, string];
-  const rightNotes = harmony.pitchNames;
+  const dominant = minorForm === 'harmonic'
+    ? harmonicMinorDominant(key, inversion) : null;
+  const transposed = (notes: readonly [string, string, string]): [string, string, string] =>
+    notes.map(name => bassOctaveShift === 0 ? name
+      : name.replace(/[0-8]$/, octave => String(Number(octave) + 1))
+    ) as [string, string, string];
+  // First bar is V in harmonic minor; second bar resolves to tonic i.
+  // For natural minor / major, the two bars remain precisely unchanged.
+  const leftNotes = transposed(dominant?.left ?? original);
+  const rightNotes = dominant?.right ?? harmony.pitchNames;
+  const resolutionLeftNotes = dominant ? transposed(original) : undefined;
+  const resolutionRightNotes = dominant ? harmony.pitchNames : undefined;
   const beats: 3 | 4 = texture === 'waltz' ? 3 : 4;
   const measureTicks = beats * 4;
   const left: TimedHandPitch[] = [];
   const right: TimedHandPitch[] = [];
   for (let bar = 0; bar < 2; bar++) {
     const origin = bar * measureTicks;
+    const barLeft = bar === 0 ? leftNotes : (resolutionLeftNotes ?? leftNotes);
+    const barRight = bar === 0 ? rightNotes : (resolutionRightNotes ?? rightNotes);
     if (hands === 'both') {
       // RH plays a complete inverted triad on the downbeat, holding it for
       // the entire bar. It has an independent musical clock from the bass.
-      for (const name of rightNotes) {
+      for (const name of barRight) {
         const expected = MIDI_NOTE_MAP[name];
         if (!expected || expected.clef !== 'treble') throw new Error('Invalid RH chord pitch.');
-        right.push(note(name, origin, measureTicks));
+        right.push(note(name, origin, measureTicks, 'legato', !!dominant));
       }
     }
     if (texture === 'waltz') {
-      left.push(note(leftNotes[0], origin, 4, 'legato'));
+      left.push(note(barLeft[0], origin, 4, 'legato', !!dominant));
       for (const offset of [4, 8]) {
         // Bass + TWO upper chord tones is a standard light 3/4 accompaniment.
         // The bass does not sustain through beats 2 and 3.
-        left.push(note(leftNotes[1], origin + offset, 4, 'staccato'));
-        left.push(note(leftNotes[2], origin + offset, 4, 'staccato'));
+        left.push(note(barLeft[1], origin + offset, 4, 'staccato', !!dominant));
+        left.push(note(barLeft[2], origin + offset, 4, 'staccato', !!dominant));
       }
     } else {
       const indexes = texture === 'alberti'
         ? [0, 2, 1, 2, 0, 2, 1, 2]
         : [0, 1, 2, 1, 0, 1, 2, 1];
       for (let i = 0; i < indexes.length; i++) {
-        left.push(note(leftNotes[indexes[i]], origin + i * 2, 2));
+        left.push(note(barLeft[indexes[i]], origin + i * 2, 2, 'legato', !!dominant));
       }
     }
   }
   const score = {
     ...createScoreFromTimedHands(
       right, left, key,
-      `Nota-Re — ${harmony.tonicName} ${quality}, ${texture}, ${hands}`, beats
+      `Nota-Re — ${harmony.tonicName} ${minorForm === 'harmonic' ? 'harmonic minor V–i' : quality}, ${texture}, ${hands}`, beats
     ),
     mode: quality
   };
   return {
-    texture, hands, bassOctaveShift, beats, score, steps: createTwoHandSteps(score),
+    texture, hands, bassOctaveShift, minorForm, beats,
+    ...(dominant ? { leadingTone: dominant.leadingTone,
+      resolutionLeftNotes, resolutionRightNotes } : {}),
+    score, steps: createTwoHandSteps(score),
     tonicName: harmony.tonicName, quality, inversion,
     rightNotes, leftNotes,
-    description: ACCOMPANIMENT_DESCRIPTIONS[texture]
+    description: dominant
+      ? ACCOMPANIMENT_DESCRIPTIONS[texture] +
+        ' Каденция V–i: мажорная доминанта с повышенной VII ступенью в первом такте, тоника во втором.'
+      : ACCOMPANIMENT_DESCRIPTIONS[texture]
   };
 }
