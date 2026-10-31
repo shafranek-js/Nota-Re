@@ -339,6 +339,18 @@ function renderEvent(
 /** Exports exact-meter two-staff MusicXML scores with independent voices. */
 export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): string {
   if (!score.notes.length) throw new Error('Cannot export an empty score.');
+  for (const event of score.notes) {
+    if ((event.staff !== 1 && event.staff !== 2) ||
+        !Number.isSafeInteger(event.midi) || event.midi < 0 || event.midi > 127 ||
+        !Number.isSafeInteger(event.onsetTicks) || event.onsetTicks < 0 ||
+        !Number.isSafeInteger(event.durationTicks) || event.durationTicks <= 0 ||
+        !Number.isSafeInteger(event.onsetTicks + event.durationTicks)) {
+      throw new Error('Invalid generated score event.');
+    }
+    // Reject semantically contradictory accidentals even when they belong
+    // to a staff that the engraver may otherwise skip.
+    if (event.spelling) midiPitch(event.midi, score.fifths, event.spelling);
+  }
   if (score.beats !== 3 && score.beats !== 4 || score.beatType !== 4 || score.divisions !== 4) {
     throw new Error('Unsupported generated meter or MusicXML divisions.');
   }
