@@ -54,7 +54,8 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
     isTabletopMode, toggleTabletopMode, showScaleHighlight, toggleScaleHighlight,
     showBassLandmarks, toggleBassLandmarks, showVirtualKeyboard, toggleVirtualKeyboard,
     keyboardLabelMode, setKeyboardLabelMode, midiInputsCount, toggleTwoHandPractice,
-    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, zenSessionStarted, zenDismissedForSession, setAutoZenEnabled
+    startTrainerExercise, stopTrainerExercise, openTrainerPrecheck, activeLessonId, zenModeEnabled, zenSessionStarted, zenDismissedForSession, setAutoZenEnabled,
+    adaptiveReflexEnabled, adaptiveStats, adaptiveTrace, toggleAdaptiveReflex, clearAdaptiveStats
   } = useAppStore();
 
   useLayoutEffect(() => {
@@ -218,6 +219,54 @@ export const TrainerToolbar: React.FC<{ renderer: ScoreRenderer; onSelectRendere
               <div className="flex flex-wrap gap-2">
                 {FILTERS.map(filter => optionButton(filter.name, currentFilter === filter.id,
                   () => setClefFilter(filter.id)))}
+              </div>
+              <div className="mt-2 rounded-lg border border-sky-700/35 bg-slate-950 p-2 text-xs text-slate-300"
+                data-testid="adaptive-reflex-controls">
+                <div className="flex flex-wrap items-center gap-2">
+                  <button type="button" data-testid="adaptive-reflex-toggle"
+                    aria-pressed={adaptiveReflexEnabled}
+                    disabled={activeLessonId !== null || isContinuousFlow ||
+                      currentAppMode !== 'reflex' || currentFilter === 'both' ||
+                      trainerPhase === 'countIn' ||
+                      (trainerPhase === 'playing' && useAppStore.getState().attemptEvents.length > 0)}
+                    onClick={toggleAdaptiveReflex}
+                    title="Только свободная, пошаговая практика Рефлекс, без зачёта и без изменения других режимов"
+                    className={adaptiveReflexEnabled ? activeClass : inactiveClass}>
+                    Адаптивный Рефлекс: {adaptiveReflexEnabled ? 'ВКЛ' : 'ВЫКЛ'}
+                  </button>
+                  <span data-testid="adaptive-evidence-count">
+                    Записей: {Object.values(adaptiveStats.notes).reduce((sum, stat) => sum + stat.observations, 0)}
+                  </span>
+                  <button type="button" className={controlClass} onClick={() => {
+                    const json = JSON.stringify(adaptiveStats, null, 2);
+                    const url = URL.createObjectURL(new Blob([json], { type: 'application/json' }));
+                    const link = document.createElement('a');
+                    link.href = url;
+                    link.download = 'notare-adaptive-statistics.json';
+                    link.click();
+                    window.setTimeout(() => URL.revokeObjectURL(url), 1000);
+                  }}>Экспорт данных</button>
+                  <button type="button" className={controlClass}
+                    onClick={() => {
+                      if (window.confirm('Удалить локальную статистику адаптивных упражнений? Сертификаты и история курса не изменятся.')) clearAdaptiveStats();
+                    }}>Сбросить статистику</button>
+                </div>
+                <p className="mt-1 text-slate-400">
+                  Только режим «Рефлекс», один нотный стан, без потока и зачёта.
+                  Считаются подтверждённые самостоятельные ответы ПК/MIDI раздельно.
+                  Пять чистых быстрых попаданий по одной ноте снимают её штраф ошибок.
+                </p>
+                {adaptiveTrace && adaptiveReflexEnabled && activeLessonId === null && (
+                  <p className="mt-1" data-testid="adaptive-trace">
+                    Seed: {adaptiveTrace.seed} · {adaptiveTrace.source === 'midi' ? 'MIDI' : 'ПК'} ·
+                    {' '}вес ошибок +0,1, медленной реакции +0,5;
+                    {' '}следующая выборка: {adaptiveTrace.chosen.slice(0, 8).join(' ')}.
+                    <span className="sr-only"> Вес и число наблюдений по нотам:
+                      {adaptiveTrace.candidates.map(item =>
+                        ` ${item.noteName}: ${item.weight.toFixed(2)} при ${item.sampleCount} наблюдениях.`).join('')}
+                    </span>
+                  </p>
+                )}
               </div>
               {currentAppMode === 'hanon' && (
                 <>
