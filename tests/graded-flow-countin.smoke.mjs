@@ -64,6 +64,20 @@ try {
       assert.ok(starts.some(a => starts.some(b => Math.abs(b - a - 4) < 0.001)),
         '60 BPM: certified first downbeat is scheduled four full beats after count-in');
       assert.ok(await score.locator('svg').first().isVisible());
+      const scorePositionDuringCountIn = await page.evaluate(() => {
+        const staff = document.querySelector('[data-testid="osmd-score"] .vf-notehead');
+        const scoreArea = document.querySelector('[data-testid="studio-score-area"]');
+        const hud = document.querySelector('[data-testid="trainer-count-in"]');
+        const clef = document.querySelector('[data-testid="osmd-score"] .vf-clef');
+        return {
+          staffTop: staff.getBoundingClientRect().top,
+          scoreTop: scoreArea.getBoundingClientRect().top,
+          aboveNotation: hud.getBoundingClientRect().bottom < Math.min(
+            staff.getBoundingClientRect().top, clef.getBoundingClientRect().top)
+        };
+      });
+      assert.ok(scorePositionDuringCountIn.aboveNotation,
+        'countdown must float above the notation without covering it');
 
       const accuracy = page.getByTitle('Точность попаданий в текущей сессии');
       const before = await accuracy.innerText();
@@ -72,6 +86,14 @@ try {
         'MIDI input in preparation must not enter course grading');
       await page.evaluate(() => window.__gradedMidi.send([0x80, 60, 0]));
       await hud.waitFor({ state: 'hidden', timeout: 20000 });
+      const scorePositionAfterCountIn = await page.evaluate(() => ({
+        staffTop: document.querySelector('[data-testid="osmd-score"] .vf-notehead').getBoundingClientRect().top,
+        scoreTop: document.querySelector('[data-testid="studio-score-area"]').getBoundingClientRect().top
+      }));
+      assert.ok(Math.abs(scorePositionAfterCountIn.staffTop - scorePositionDuringCountIn.staffTop) < 2,
+        'graded countdown must not jump the music staff on beat five');
+      assert.ok(Math.abs(scorePositionAfterCountIn.scoreTop - scorePositionDuringCountIn.scoreTop) < 2,
+        'graded countdown must not change the score area layout');
       assert.equal(await score.getAttribute('data-active-note-index'), '0');
       assert.ok(await score.locator('svg').first().isVisible());
       assert.equal((await page.getByTestId('status-course-window').innerText()).includes('0 / 20'), true,

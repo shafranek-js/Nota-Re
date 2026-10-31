@@ -70,31 +70,32 @@ export const PreplayChecklist: React.FC = () => {
 };
 
 /**
- * Score-first preparation: the count is large and centred above the staff,
- * without covering notes or repeating the instructions from the lesson.
+ * Score-first preparation: absolute overlay in the score's unused top space.
+ * Never take up flex height or recenter the OSMD staff during count-in.
+ * Keep the score unobscured and avoid repeating lesson instructions.
  * Musical timing and scoring remain owned by the trainer store.
  */
 export const CountInScreen: React.FC = () => {
   const { countInBeat, bpm, cancelTrainerCountIn } = useAppStore();
   return (
     <aside data-testid="trainer-count-in" aria-label="Подготовка к игре"
-      className="relative z-20 w-full shrink-0 flex flex-col items-center justify-center gap-0.5 py-1.5 sm:py-2 text-center">
+      className="pointer-events-none absolute inset-x-0 top-0 z-20 flex flex-col items-center justify-center gap-0 py-0.5 sm:py-1 text-center">
       <button type="button" onClick={cancelTrainerCountIn}
         aria-label="Отменить отсчёт" title="Отменить отсчёт"
-        className="absolute right-1 top-1 rounded-lg border border-slate-700 bg-slate-950/80 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+        className="pointer-events-auto absolute right-1 top-1 rounded-lg border border-slate-700 bg-slate-950/80 px-2.5 py-1.5 text-xs text-slate-200 hover:bg-slate-800 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
         <span className="hidden sm:inline">Отменить отсчёт</span>
         <span className="sm:hidden" aria-hidden="true">✕</span>
       </button>
-      <p className="text-base sm:text-xl font-semibold text-slate-100">Приготовьтесь</p>
+      <p className="text-sm sm:text-base font-semibold text-slate-100">Приготовьтесь</p>
       <div className="flex items-center justify-center gap-5 sm:gap-10">
         <span aria-hidden="true" className="h-px w-7 sm:w-12 bg-slate-600" />
         <span data-testid="count-in-beat" role="status" aria-live="off"
-          className="min-w-[1ch] text-center font-mono text-[clamp(4.5rem,10vw,7.5rem)] font-bold leading-none tabular-nums text-emerald-300">
+          className="min-w-[1ch] text-center font-mono text-[clamp(4rem,5.6vw,7rem)] font-bold leading-none tabular-nums text-emerald-300">
           {countInBeat || '…'}
         </span>
         <span aria-hidden="true" className="h-px w-7 sm:w-12 bg-slate-600" />
       </div>
-      <p className="text-xs sm:text-sm font-medium tracking-wide text-slate-400">{bpm} BPM</p>
+      <p className="text-[11px] sm:text-xs font-medium tracking-wide text-slate-400">{bpm} BPM</p>
     </aside>
   );
 };
