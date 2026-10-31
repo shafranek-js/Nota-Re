@@ -9,6 +9,8 @@ on:
       - 'scripts/export-pitchplease-onsets.mjs'
       - 'scripts/export-basic-pitch-onsets.mjs'
       - 'scripts/compare-piano-detectors.mjs'
+      - 'scripts/diagnose-piano-errors.mjs'
+      - 'src/core/audio/microphoneFailureAnalysis.ts'
   workflow_dispatch:
 
 permissions:
@@ -43,6 +45,8 @@ jobs:
         run: node --experimental-strip-types scripts/export-basic-pitch-onsets.mjs .microphone-maestro/manifest.json > .microphone-maestro/basicpitch.json
       - name: Compare independently detected attacks to aligned MIDI truth
         run: node --experimental-strip-types scripts/compare-piano-detectors.mjs .microphone-maestro/pitchplease.json .microphone-maestro/basicpitch.json > .microphone-maestro/comparison.json
+      - name: Describe real-piano octave coincidences and note registers (not causes)
+        run: node --experimental-strip-types scripts/diagnose-piano-errors.mjs .microphone-maestro/pitchplease.json .microphone-maestro/basicpitch.json > .microphone-maestro/diagnosis.json
       - name: Print labeled preliminary real-acoustic results
         run: |
           node --input-type=module -e '
@@ -63,6 +67,16 @@ jobs:
                 liveLatencyMs: null
               }));
             }
+
+            const diagnostic = JSON.parse(readFileSync(p + "diagnosis.json", "utf8"));
+            for (const model of diagnostic.analyses) {
+              console.log(JSON.stringify({
+                engine: model.engine,
+                unmatchedOctave12Coincidences: model.aggregate.falsePositivesAtReferenceOctave12,
+                unmatchedOctave24Coincidences: model.aggregate.falsePositivesAtReferenceOctave24,
+                caveat: "coincidence only, harmonic cause NOT proven"
+              }));
+            }
             if (summary.caseCount !== 1 || source.split !== "validation") {
               throw new Error("Unexpected pilot corpus split or case count");
             }
@@ -80,4 +94,5 @@ jobs:
             .microphone-maestro/pitchplease.json
             .microphone-maestro/basicpitch.json
             .microphone-maestro/comparison.json
+            .microphone-maestro/diagnosis.json
           retention-days: 7
