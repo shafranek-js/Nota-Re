@@ -252,11 +252,16 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   // Only an explicitly selected, rendered range with exact OSMD anchors can
   // start this self-paced *pitch* exercise. No timing, no misses, no course data.
   const pitchTrialPlan: PitchTrialPlan | null = useMemo(() => {
-    if (!selectionActive || !timeline?.score || geometryMessage) return null;
-    const range = selectMeasureIndices(timeline.score, firstBar - 1, lastBar - 1);
+    if (!timeline?.score) return null;
+    // Even before A–B selection, explain WHY unsupported polyphony cannot
+    // start. An eligible score still requires explicit measure selection.
+    const range = selectMeasureIndices(timeline.score,
+      selectionActive ? firstBar - 1 : 0,
+      selectionActive ? lastBar - 1 : timeline.score.measures.length - 1);
     return range ? planRepertoirePitchTrial(timeline.score, range) : null;
-  }, [timeline, selectionActive, geometryMessage, firstBar, lastBar]);
-  const canPitchTrial = supports('notehead-overlay') && !!pitchTrialPlan &&
+  }, [timeline, selectionActive, firstBar, lastBar]);
+  const canPitchTrial = selectionActive && !geometryMessage &&
+    supports('notehead-overlay') && !!pitchTrialPlan &&
     !pitchTrialPlan.reason && pitchTrialPlan.steps.length > 0 && midiInputsCount > 0;
 
   useEffect(() => {
@@ -458,7 +463,8 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
               ? `Нота ${pitchTrial.index + 1}/${pitchTrialPlan?.steps.length ?? 0} · верно: ${pitchTrial.correct} · ошибок: ${pitchTrial.wrong}`
               : pitchTrial.phase === 'complete'
                 ? `Все ${pitchTrial.correct} нот сыграны · ошибок: ${pitchTrial.wrong} · без зачёта`
-                : pitchTrialPlan?.reason ?? (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
+                : pitchTrialPlan?.reason ?? geometryMessage ?? noteMapping?.reason ??
+                  (!selectionActive ? 'Выделите такты A–B для MIDI-практики.' :
                     midiInputsCount === 0 ? 'Подключите MIDI-клавиатуру для практики.' :
                       'Без метронома: играйте каждую выделенную ноту в своём темпе.')}
             {pitchTrial.phase === 'playing' && pitchTrial.last === 'wrong' ? ' · Неверная нота, повторите.' : ''}
