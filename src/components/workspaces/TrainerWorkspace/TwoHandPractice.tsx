@@ -765,7 +765,9 @@ export const TwoHandPractice: React.FC = () => {
         </div>
       )}
       {tempoError && <p role="alert" className="text-xs text-rose-300">{tempoError}</p>}
-      <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? timedFeedbackText[timed.feedback] : feedbackText[trial.feedback]}</p>
+      <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? (timed.feedback === 'count-in'
+          ? `Подготовка: ${exercise.score.beats} удара метронома перед началом.`
+          : timedFeedbackText[timed.feedback]) : feedbackText[trial.feedback]}</p>
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
         <div ref={mountRef} aria-label="Независимые партии двух рук OpenSheetMusicDisplay"
           className="min-h-[220px] w-full" />
