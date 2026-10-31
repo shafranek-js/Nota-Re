@@ -72,6 +72,9 @@ test('unverified/historic/assisted responses cannot populate practice metrics', 
   ];
   state = addSelfPacedReflexAttempt(state, history, [c, e], 1700000000000);
   assert.equal(state.notes[key].observations, 1);
+  assert.equal(state.notes[key].correct, 1);
+  assert.equal(state.notes[key].reactionSamples, 0,
+    'uncalibrated MIDI pitch may count, but cannot supply reaction-time evidence');
   assert.equal(Object.keys(state.notes).length, 1);
 });
 
