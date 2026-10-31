@@ -1,0 +1,25 @@
+{
+  "schemaVersion": 1,
+  "engine": "SYNTHETIC-DEMO-NOT-A-DETECTOR-RESULT",
+  "onsetToleranceMs": 100,
+  "cases": [
+    {
+      "id": "single-note",
+      "category": "single",
+      "expected": [{"midi": 60, "onsetMs": 1000}],
+      "detected": [{"midi": 60, "onsetMs": 1015, "emittedAtMs": 1070, "confidence": 0.9}]
+    },
+    {
+      "id": "octave-harmonic-ghost",
+      "category": "harmonic",
+      "expected": [{"midi": 48, "onsetMs": 1000}],
+      "detected": [{"midi": 48, "onsetMs": 1020}, {"midi": 60, "onsetMs": 1025}]
+    },
+    {
+      "id": "incomplete-chord",
+      "category": "chord",
+      "expected": [{"midi": 60, "onsetMs": 1000}, {"midi": 64, "onsetMs": 1000}, {"midi": 67, "onsetMs": 1000}],
+      "detected": [{"midi": 60, "onsetMs": 1010}, {"midi": 67, "onsetMs": 1010}]
+    }
+  ]
+}
