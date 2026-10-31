@@ -35,7 +35,7 @@ test('24 score-derived written examples: all 4 keys, both qualities and three in
     });
     assert.equal((xml.match(/<chord\/>/g) ?? []).length, 2);
     assert.equal((xml.match(/<measure number=/g) ?? []).length, 1);
-    assert.doesNotMatch(xml, /Основной вид|Первое обращение|Второе обращение|5\/3|6\/4|triad|chord/i,
+    assert.doesNotMatch(xml, /Основной вид|Первое обращение|Второе обращение|5\/3|6\/4|triad/i,
       'MusicXML metadata must never carry an inversion hint');
   }
   assert.equal(combinations.size, 24, 'all quality/key/inversion pairs covered exactly once');
