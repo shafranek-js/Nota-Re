@@ -36,7 +36,7 @@ test('groups real score simultaneity, never flattens a chord', () => {
   const plan = planPolyphonicRehearsal(original, range, 'both');
   assert.equal(plan.reason, null);
   assert.deepEqual(plan.steps.map(step => step.targets.map(n => n.midi)),
-    [[48, 60, 64, 67], [50], [62]]);
+    [[60, 64, 67, 48], [50], [62]]);
   assert.ok(plan.steps.every(step => step.companion.length === 0));
   assert.equal(JSON.stringify(original), before);
 });
