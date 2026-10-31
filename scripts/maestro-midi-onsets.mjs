@@ -1,12 +1,13 @@
 /**
  * Read note-on reference events from a Standard MIDI File (SMF 0 or 1)
  * without turning note-off, pedal or model predictions into piano attacks.
- * The expanded reference annotates CC64 pedal state at a note attack, not
- * acoustic sustain or note duration; channels without CC64 remain unknown.
+ * With optional release envelopes, model key-up and CC64 controller-lift
+ * times, NOT physical acoustic decay. Ambiguous same-pitch overlap is flagged;
+ * channels without CC64 remain unknown.
  * MAESTRO MIDI/audio must already be aligned; any residual acoustic offset
  * needs independent calibration before onset timing is trusted.
  */
-export function parseMidiReference(bytes) {
+export function parseMidiReference(bytes, { withReleases = false } = {}) {
   const data = Buffer.isBuffer(bytes) ? bytes : Buffer.from(bytes);
   let position = 0;
   const requireBytes = length => {
@@ -56,6 +57,7 @@ export function parseMidiReference(bytes) {
   position += headerSize - 6;
 
   const attacks = [];
+  const noteReleases = [];
   const pedalChanges = [];
   const tempoChanges = [];
   let serial = 0;
@@ -109,6 +111,11 @@ export function parseMidiReference(bytes) {
             pitchOrData >= 21 && pitchOrData <= 108) {
           attacks.push({ tick, midi: pitchOrData, channel: status & 0x0f, serial: serial++ });
         }
+        // SMF Note Off and velocity-zero Note On both release a key.
+        if (withReleases && (kind === 0x80 || (kind === 0x90 && velocityOrData === 0)) &&
+            pitchOrData >= 21 && pitchOrData <= 108) {
+          noteReleases.push({ tick, midi: pitchOrData, channel: status & 0x0f, serial: serial++ });
+        }
         if (kind === 0xb0 && pitchOrData === 64) {
           pedalChanges.push({ tick, value: velocityOrData, channel: status & 0x0f, serial: serial++ });
         }
@@ -139,26 +146,85 @@ export function parseMidiReference(bytes) {
   const state = new Map();
   const timeline = [
     ...attacks.map(x => ({ ...x, type: 'attack' })),
+    ...noteReleases.map(x => ({ ...x, type: 'release' })),
     ...pedalChanges.map(x => ({ ...x, type: 'pedal' }))
   ].sort((a, b) => a.tick - b.tick || a.serial - b.serial);
   const annotated = [];
   const convertedPedal = [];
+  const openKeys = new Map();
+  const heldByPedal = new Map();
+  let unmatchedNoteOffs = 0;
+  const key = (channel, midi) => channel + ':' + midi;
   for (const event of timeline) {
     const onsetMs = msAtTick(event.tick);
     if (event.type === 'pedal') {
-      state.set(event.channel, event.value >= 64);
+      const down = event.value >= 64;
+      const wasDown = state.get(event.channel) ?? false;
+      state.set(event.channel, down);
       convertedPedal.push({ onsetMs, value: event.value, channel: event.channel });
+      if (withReleases && wasDown && !down) {
+        for (const note of heldByPedal.get(event.channel) ?? []) {
+          note.midiControlEndMs = onsetMs;
+        }
+        heldByPedal.set(event.channel, []);
+      }
+    } else if (event.type === 'release') {
+      const id = key(event.channel, event.midi);
+      const active = openKeys.get(id) ?? [];
+      if (!active.length) {
+        unmatchedNoteOffs++;
+        continue;
+      }
+      // FIFO is deterministic, but overlapping key-down instances of the
+      // same channel/pitch cannot be unambiguously paired with note-offs.
+      const note = active.shift();
+      if (active.length || note.ambiguousRelease) {
+        note.ambiguousRelease = true;
+        for (const other of active) other.ambiguousRelease = true;
+      }
+      note.keyReleaseMs = onsetMs;
+      if (!channelsWithPedal.has(event.channel)) {
+        note.pedalHeldAfterRelease = null;
+      } else if (state.get(event.channel) ?? false) {
+        note.pedalHeldAfterRelease = true;
+        const pending = heldByPedal.get(event.channel) ?? [];
+        pending.push(note);
+        heldByPedal.set(event.channel, pending);
+      } else {
+        note.pedalHeldAfterRelease = false;
+        note.midiControlEndMs = onsetMs;
+      }
     } else {
-      annotated.push({
+      const note = {
         midi: event.midi, onsetMs,
-        // MIDI's default controller state is pedal-up, but only channels with
-        // independent CC64 evidence receive an observed condition label.
         pedalDownAtOnset: channelsWithPedal.has(event.channel)
           ? (state.get(event.channel) ?? false) : null
-      });
+      };
+      if (withReleases) {
+        note.keyReleaseMs = null;
+        note.midiControlEndMs = null;
+        note.pedalHeldAfterRelease = null;
+        note.ambiguousRelease = false;
+        const id = key(event.channel, event.midi);
+        const active = openKeys.get(id) ?? [];
+        if (active.length) {
+          note.ambiguousRelease = true;
+          for (const other of active) other.ambiguousRelease = true;
+        }
+        // A reattack while CC64 keeps an earlier released pitch sounding
+        // makes the acoustic fate of that earlier pitch uncertain.
+        for (const previous of heldByPedal.get(event.channel) ?? []) {
+          if (previous.midi === event.midi) previous.ambiguousRelease = true;
+        }
+        active.push(note);
+        openKeys.set(id, active);
+      }
+      annotated.push(note);
     }
   }
-  return { attacks: annotated, pedalChanges: convertedPedal };
+  return withReleases
+    ? { attacks: annotated, pedalChanges: convertedPedal, unmatchedNoteOffs }
+    : { attacks: annotated, pedalChanges: convertedPedal };
 }
 
 /** Backward-compatible note-on-only reference: CC64 is never treated as a note. */
@@ -177,6 +243,12 @@ export function selectMidiAttacksForAudioClip(events, { startMs, durationMs }) {
     .filter(item => item.onsetMs >= startMs && item.onsetMs < startMs + durationMs)
     .map(item => ({
       midi: item.midi, onsetMs: item.onsetMs - startMs,
-      ...('pedalDownAtOnset' in item ? { pedalDownAtOnset: item.pedalDownAtOnset } : {})
+      ...('pedalDownAtOnset' in item ? { pedalDownAtOnset: item.pedalDownAtOnset } : {}),
+      ...('keyReleaseMs' in item ? {
+        keyReleaseMs: item.keyReleaseMs === null ? null : item.keyReleaseMs - startMs,
+        midiControlEndMs: item.midiControlEndMs === null ? null : item.midiControlEndMs - startMs,
+        pedalHeldAfterRelease: item.pedalHeldAfterRelease,
+        ambiguousRelease: item.ambiguousRelease
+      } : {})
     }));
 }

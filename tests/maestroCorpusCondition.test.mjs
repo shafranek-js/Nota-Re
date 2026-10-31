@@ -111,3 +111,55 @@ test('different independently labeled pedal ground truth is invalid, even when n
   second.cases[0].expected = expected.map(x => ({...x, pedalDownAtOnset: 'definitely'}));
   assert.throws(() => summarizePianoCorpus([first, second]), /Invalid independent CC64/);
 });
+
+test('release-aware reference classifies MIDI control hold separately from acoustic decay', () => {
+  const annotations = [
+    { keyReleaseMs: 200, midiControlEndMs: 650, pedalHeldAfterRelease: true, ambiguousRelease: false },
+    { keyReleaseMs: 180, midiControlEndMs: 180, pedalHeldAfterRelease: false, ambiguousRelease: false },
+    { keyReleaseMs: null, midiControlEndMs: null, pedalHeldAfterRelease: null, ambiguousRelease: false },
+    { keyReleaseMs: 440, midiControlEndMs: null, pedalHeldAfterRelease: true, ambiguousRelease: false },
+    { keyReleaseMs: 600, midiControlEndMs: 600, pedalHeldAfterRelease: false, ambiguousRelease: true }
+  ];
+  const aData = dataset('model-a', a);
+  const bData = dataset('model-b', b);
+  for (const item of [...aData.cases, ...bData.cases]) {
+    item.expected = expected.map((note, i) => ({ ...note, pedalDownAtOnset: false, ...annotations[i] }));
+  }
+  const summary = summarizePianoCorpus([aData, bData]);
+  const first = summary.models[0].takes[0].condition.releaseAware;
+  const second = summary.models[1].takes[0].condition.releaseAware;
+  assert.equal(first.observedUnambiguousKeyRelease.referenceAttacks, 3);
+  assert.equal(first.observedUnambiguousKeyRelease.detectedReferenceAttacks, 3);
+  assert.equal(first.pedalHeldAfterKeyRelease.referenceAttacks, 2);
+  assert.equal(first.pedalHeldAfterKeyRelease.detectedReferenceAttacks, 2);
+  assert.equal(second.pedalHeldAfterKeyRelease.detectedReferenceAttacks, 1);
+  assert.equal(first.keyReleaseWithoutPedalHold.referenceAttacks, 1);
+  assert.equal(first.missingOrAmbiguousReleaseOrPedal.referenceAttacks, 2);
+  assert.equal(first.completePedalHeldControlEnds, 1);
+  assert.equal(first.censoredPedalHeldControlEnds, 1);
+  assert.equal(first.medianMidiControllerHoldAfterKeyReleaseMs, 450);
+  assert.equal(first.p95MidiControllerHoldAfterKeyReleaseMs, 450);
+  assert.deepEqual([summary.models[0].takes[0].truePositives, summary.models[0].takes[0].falsePositives,
+    summary.models[0].takes[0].falseNegatives], [4, 1, 1],
+    'release diagnostics must never alter exact note-on scoring');
+  bData.cases[1].expected = bData.cases[1].expected.map((x, i) =>
+    i === 0 ? { ...x, midiControlEndMs: 600 } : x);
+  assert.throws(() => summarizePianoCorpus([aData, bData]), /Different audio\/reference/);
+});
+
+test('rejects impossible or malicious release envelopes', () => {
+  for (const bad of [
+    { keyReleaseMs: 50, midiControlEndMs: 70, pedalHeldAfterRelease: true, ambiguousRelease: false },
+    { keyReleaseMs: 200, midiControlEndMs: 150, pedalHeldAfterRelease: true, ambiguousRelease: false },
+    { keyReleaseMs: null, midiControlEndMs: 300, pedalHeldAfterRelease: null, ambiguousRelease: false },
+    { keyReleaseMs: 200, midiControlEndMs: 200, pedalHeldAfterRelease: 'yes', ambiguousRelease: false }
+  ]) {
+    const first = dataset('first', a);
+    const second = dataset('second', b);
+    first.cases[0].expected = expected.map((x, i) =>
+      i === 0 ? { ...x, ...bad } : x);
+    second.cases[0].expected = first.cases[0].expected;
+    assert.throws(() => summarizePianoCorpus([first, second]),
+      /Invalid independent release\/CC64 reference envelope/);
+  }
+});

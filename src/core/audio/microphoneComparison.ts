@@ -69,9 +69,16 @@ function aggregate(cases: readonly ReportCase[], durations: ReadonlyMap<string, 
 
 function normalizedGroundTruth(data: VerifiedPianoCase): string {
   return JSON.stringify(data.expected.map(x => {
-    const truth = x as typeof x & { pedalDownAtOnset?: boolean | null };
+    const truth = x as typeof x & {
+      pedalDownAtOnset?: boolean | null; keyReleaseMs?: number | null;
+      midiControlEndMs?: number | null; pedalHeldAfterRelease?: boolean | null;
+      ambiguousRelease?: boolean
+    };
     return [x.midi, x.onsetMs,
-      Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') ? truth.pedalDownAtOnset : 'unavailable'];
+      Object.prototype.hasOwnProperty.call(truth, 'pedalDownAtOnset') ? truth.pedalDownAtOnset : 'unavailable',
+      Object.prototype.hasOwnProperty.call(truth, 'keyReleaseMs')
+        ? [truth.keyReleaseMs, truth.midiControlEndMs, truth.pedalHeldAfterRelease, truth.ambiguousRelease]
+        : 'unavailable'];
   }).sort((a, b) => Number(a[1]) - Number(b[1]) || Number(a[0]) - Number(b[0])));
 }
 function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is VerifiedPianoCase {
@@ -93,6 +100,27 @@ function verifyCase(data: PianoBenchmarkCase, engine: string): asserts data is V
         truth.pedalDownAtOnset !== null &&
         typeof truth.pedalDownAtOnset !== 'boolean') {
       throw new Error('Invalid independent CC64 attack label in ' + engine + '/' + data.id);
+    }
+    const envelope = truth as typeof truth & {
+      keyReleaseMs?: unknown; midiControlEndMs?: unknown;
+      pedalHeldAfterRelease?: unknown; ambiguousRelease?: unknown
+    };
+    if (Object.prototype.hasOwnProperty.call(envelope, 'keyReleaseMs')) {
+      const released = envelope.keyReleaseMs;
+      const end = envelope.midiControlEndMs;
+      const held = envelope.pedalHeldAfterRelease;
+      if ((released !== null && (typeof released !== 'number' ||
+            !Number.isFinite(released) || released < truth.onsetMs)) ||
+          (end !== null && (typeof end !== 'number' ||
+            !Number.isFinite(end) || typeof released !== 'number' || end < released)) ||
+          (held !== null && typeof held !== 'boolean') ||
+          typeof envelope.ambiguousRelease !== 'boolean' ||
+          (released === null && (end !== null || held !== null)) ||
+          (held === false && end !== released) ||
+          (held === true && end !== null && typeof released === 'number' && end < released)) {
+        throw new Error('Invalid independent release/CC64 reference envelope in ' +
+          engine + '/' + data.id);
+      }
     }
   }
 }

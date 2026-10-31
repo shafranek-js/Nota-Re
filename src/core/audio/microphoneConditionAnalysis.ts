@@ -47,6 +47,24 @@ function conditionBreakdown(data: PianoBenchmarkCase, toleranceMs: number) {
   const pedalAnnotations = data.expected.map(note =>
     (note as typeof note & { pedalDownAtOnset?: boolean | null }).pedalDownAtOnset);
   const hasPedalEvidence = pedalAnnotations.some(x => typeof x === 'boolean');
+  const envelopes = data.expected.map(note => note as typeof note & {
+    keyReleaseMs?: number | null; midiControlEndMs?: number | null;
+    pedalHeldAfterRelease?: boolean | null; ambiguousRelease?: boolean;
+  });
+  const hasReleaseEvidence = envelopes.some(note =>
+    Object.prototype.hasOwnProperty.call(note, 'keyReleaseMs'));
+  // Release groups are defined entirely by controller/note-off reference data.
+  // Never assign a detector FP to a truth condition or infer acoustic decay.
+  const released = all.filter(i => envelopes[i].keyReleaseMs != null &&
+    envelopes[i].ambiguousRelease === false);
+  const heldAfterRelease = released.filter(i => envelopes[i].pedalHeldAfterRelease === true);
+  const noHoldAfterRelease = released.filter(i => envelopes[i].pedalHeldAfterRelease === false);
+  const endedHeld = heldAfterRelease.filter(i => envelopes[i].midiControlEndMs != null);
+  const unknownRelease = all.filter(i => envelopes[i].keyReleaseMs == null ||
+    envelopes[i].ambiguousRelease !== false ||
+    envelopes[i].pedalHeldAfterRelease == null);
+  const controllerHoldMs = endedHeld.map(i =>
+    envelopes[i].midiControlEndMs! - envelopes[i].keyReleaseMs!);
   const unmatched = data.detected.filter((_, i) => !matchedDetected.has(i));
   return {
     registers: ranges.map(r => ({
@@ -66,7 +84,18 @@ function conditionBreakdown(data: PianoBenchmarkCase, toleranceMs: number) {
       pedalUpAtOnset: hasPedalEvidence
         ? recall(all.filter(i => pedalAnnotations[i] === false), matchedTruth) : null,
       pedalUnknownAtOnset: recall(all.filter(i => pedalAnnotations[i] == null), matchedTruth)
-    }
+    },
+    releaseAware: hasReleaseEvidence ? {
+      observedUnambiguousKeyRelease: recall(released, matchedTruth),
+      pedalHeldAfterKeyRelease: recall(heldAfterRelease, matchedTruth),
+      keyReleaseWithoutPedalHold: recall(noHoldAfterRelease, matchedTruth),
+      missingOrAmbiguousReleaseOrPedal: recall(unknownRelease, matchedTruth),
+      completePedalHeldControlEnds: endedHeld.length,
+      censoredPedalHeldControlEnds: heldAfterRelease.length - endedHeld.length,
+      medianMidiControllerHoldAfterKeyReleaseMs: percentile(controllerHoldMs, 0.5),
+      p95MidiControllerHoldAfterKeyReleaseMs: percentile(controllerHoldMs, 0.95),
+      caveat: 'MIDI controller hold is not recorded acoustic decay or independently measured sound duration'
+    } : null
   };
 }
 
@@ -152,6 +181,7 @@ export function summarizePianoCorpus(datasets: readonly PianoBenchmarkDataset[])
       repeated: 'independent MIDI truth: earlier same-pitch attack 51–500ms before',
       genuineOctave: 'independent MIDI truth: another note with pitch 12 semitones away attacked within ±50ms; counts attacked notes, not pairs',
       pedal: 'channel-scoped MIDI CC64 value ≥64 at note onset; channel with no CC64 events is unknown; this is NOT evidence of acoustic string sustain',
+      releaseAware: 'key-release is MIDI Note Off or velocity-zero Note On; pedal-held-after-release means CC64 down at key-up; MIDI control end is the next CC64 pedal-up, even if beyond the short WAV clip; ambiguous same-pitch overlaps and absent events are excluded from clean groups',
       attackDensity: 'all truth attacks divided by the selected clip duration',
       caveat: 'Conditions overlap; truth-condition recall cannot be converted to precision/F1 by assigning unmatched predicted notes to arbitrary truth categories'
     },

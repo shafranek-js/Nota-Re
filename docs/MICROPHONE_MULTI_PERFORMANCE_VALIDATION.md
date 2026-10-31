@@ -71,6 +71,43 @@ matching note attacks, WAV SHA-256 and clip duration. Invalid or conflicting
 CC64 labels fail the comparison. All original WAV/MIDI remain runner-local;
 only JSON truth annotations, source audit and summary are uploaded.
 
+### R0C release-aware MIDI controller envelopes (follow-up to #138)
+
+With `parseMidiReference(midiBytes, { withReleases: true })` the research
+pipeline decodes both real Note Off (0x8n) and zero-velocity Note On (0x9n).
+It pairs key-down and key-up by channel and pitch. Overlapping same-pitch
+key-downs cannot be paired unambiguously, so the notes are flagged rather
+than used in the clean release condition groups. A same-pitch reattack
+during pedal-held release also makes the *earlier* control envelope
+ambiguous. Unmatched Note Offs and missing key releases are audited.
+
+For each reference *attack* the clip keeps `keyReleaseMs`,
+`midiControlEndMs`, `pedalHeldAfterRelease` and `ambiguousRelease`.
+When a key is released with CC64 up, the MIDI control end equals key-up.
+When CC64 is down at key-up, the control end is the next CC64 pedal-up
+event. A missing pedal-up is censored as `null`; absent CC64 on that MIDI
+channel is **unknown**, never assumed to be pedal-up. The entire
+original MIDI file is processed before cutting a 14-second excerpt:
+relative key-up/control-end timestamps may exceed the excerpt duration.
+They must not be clipped to its end or misread as observed audio there.
+
+Research `conditions.json` adds *truth-defined* recall for complete
+unambiguous key releases, pedal-held after release, and non-held key
+releases; ambiguous/missing/unknown references remain separately counted.
+MIDI controller-hold P50/P95 are durations between the key-up event
+and later pedal-up, for complete unambiguous examples only. These are
+**NOT acoustically measured decay or real-time delay**, and the models
+still output note onsets rather than reliable note-off predictions.
+Thus the extra data measures how *attack* detection behaves under
+release/sustain conditions; it does not measure whether a model detects
+key releases correctly.
+
+The shared reference including these annotations must be byte-equivalent
+between both model exporters. Invalid, unequal, or physically impossible
+release-envelope annotations fail the comparison. The normal note-on
+scoring, thresholds, and official MIDI course grading are unchanged.
+
+
 Conditions are defined *before viewing predictions*: bass MIDI 21–47, middle
 48–71, treble 72–108; a simultaneous attack has another **different-pitch
 MIDI truth attack** within ±50 ms; a repeated attack has an earlier same-pitch

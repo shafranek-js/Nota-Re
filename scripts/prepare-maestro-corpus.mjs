@@ -66,7 +66,7 @@ async function main(dir) {
       '-v', 'error', '-show_entries', 'format=duration',
       '-of', 'default=noprint_wrappers=1:nokey=1', wav
     ])) * 1000;
-    const midiReference = parseMidiReference(sourceMidi);
+    const midiReference = parseMidiReference(sourceMidi, { withReleases: true });
     const clip = chooseReferenceClip(midiReference.attacks, durationMs);
     const clipped = join(folder, 'piano-clip.wav');
     exec('ffmpeg', [
@@ -96,6 +96,13 @@ async function main(dir) {
         pedalAnnotatedAttacks: clip.expected.filter(x => x.pedalDownAtOnset !== null).length,
         pedalDownAtAttackCount: clip.expected.filter(x => x.pedalDownAtOnset === true).length,
         pedalUnknownAtAttackCount: clip.expected.filter(x => x.pedalDownAtOnset === null).length,
+        observedKeyReleaseCount: clip.expected.filter(x => x.keyReleaseMs !== null).length,
+        pedalHeldAfterKeyReleaseCount: clip.expected.filter(x => x.pedalHeldAfterRelease === true &&
+          !x.ambiguousRelease).length,
+        completePedalControlEndCount: clip.expected.filter(x => x.pedalHeldAfterRelease === true &&
+          x.midiControlEndMs !== null && !x.ambiguousRelease).length,
+        ambiguousSamePitchReleaseCount: clip.expected.filter(x => x.ambiguousRelease).length,
+        unmatchedMidiNoteOffsInSource: midiReference.unmatchedNoteOffs,
         targetSampleRate: 22050, mono: true, pcm: 'signed PCM16',
         method: 'ffmpeg accurate seek; MIDI PPQ tempo map; first-attack anchored'
       }
