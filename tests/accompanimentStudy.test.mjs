@@ -63,9 +63,11 @@ for (const [key, quality, fifths, bass] of cases) {
         const lh=both.score.notes.filter(n=>n.staff===2);
         assert.deepEqual(lh.map(n=>n.onsetTicks),Array.from({length:16},(_,i)=>i*2));
         assert.ok(lh.every(n=>n.durationTicks===2));
+        const triad=[...new Set(lh.slice(0,8).map(n=>n.midi))].sort((a,b)=>a-b);
+        assert.equal(triad.length,3);
         assert.deepEqual(lh.slice(0,4).map(n=>n.midi),
-          texture==='alberti' ? [lh[0].midi,lh[2].midi,lh[4].midi,lh[2].midi] :
-            [lh[0].midi,lh[1].midi,lh[2].midi,lh[1].midi]);
+          texture==='alberti' ? [triad[0],triad[2],triad[1],triad[2]] :
+            [triad[0],triad[1],triad[2],triad[1]]);
       }
     }
   });
