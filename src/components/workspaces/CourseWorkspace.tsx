@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useAppStore } from '../../store/useAppStore';
 import { COURSE_CURRICULUM } from '../../data/curriculum';
+import { ModuleVWorkspace } from './ModuleVWorkspace';
 import { isTwoHandCourseLesson, lessonAssessmentCaveat } from '../../core/training/courseAssessmentPolicy';
 import { evaluateCourseWindow } from '../../core/training/recentCourseWindow';
 import { loadTwoHandShadowSeries } from '../../core/storage/twoHandShadowStorage';
@@ -24,7 +25,9 @@ export const CourseWorkspace: React.FC = () => {
     resetCourseProgress,
     restartSelectedLessonWindow,
     startActiveLessonInTrainer,
-    prepareSelectedLessonInTrainer
+    prepareSelectedLessonInTrainer,
+    moduleVRouteOpen,
+    setModuleVRouteOpen
   } = useAppStore();
 
   const lesson = COURSE_CURRICULUM.find(l => l.id === selectedLessonId) || COURSE_CURRICULUM[0];
@@ -59,6 +62,8 @@ export const CourseWorkspace: React.FC = () => {
     selectCourseLesson(nextLesson.id);
     startActiveLessonInTrainer();
   };
+
+  if (moduleVRouteOpen) return <ModuleVWorkspace />;
 
   return (
     <section className="flex-1 min-h-full lg:min-h-0 w-full min-w-0 p-2.5 sm:p-3 overflow-visible lg:overflow-hidden flex flex-col gap-2.5">
@@ -102,6 +107,11 @@ export const CourseWorkspace: React.FC = () => {
               </button>
             );
           })}
+          <button type="button" data-testid="course-module-V"
+            onClick={() => setModuleVRouteOpen(true)}
+            className="shrink-0 rounded-lg border border-sky-600/40 bg-sky-900/20 px-2.5 py-1.5 text-[11px] font-semibold text-sky-200 hover:bg-sky-900/40 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+            V · Аккорды (практика)
+          </button>
         </nav>
       </div>
 
