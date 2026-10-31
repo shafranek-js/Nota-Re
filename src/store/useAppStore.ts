@@ -21,6 +21,9 @@ import type { KeyboardLabelMode } from '../core/storage/trainerPreferences';
 import { COUNT_IN_BEATS, countInBeatDurationMs, countInFinished, countInIndex } from '../core/training/countInTiming';
 import type { TrainerPhase } from '../core/training/trainerSession';
 import { generateExerciseNotes } from '../core/generator/ExerciseGenerator';
+import { generateAdaptiveReflexExercise, type AdaptiveTrace } from '../core/generator/adaptiveReflex';
+import { addSelfPacedReflexAttempt, emptyPracticeStats, type PracticeStats } from '../core/training/practiceStatistics';
+import { loadPracticeStats, savePracticeStats, clearPracticeStats } from '../core/storage/practiceStatsStorage';
 import { assessmentModeForLesson, canCreditLessonMode } from '../core/training/lessonStages';
 import { allowsAutomaticLessonCredit, isTwoHandCourseLesson, requiresSpeedForLessonCredit } from '../core/training/courseAssessmentPolicy';
 import { 
@@ -82,6 +85,10 @@ export interface AppState {
   isTwoHandPracticeOpen: boolean;
   /** Session-only: imported score is visible; never grade it as generated exercise. */
   isRepertoirePreviewOpen: boolean;
+  /** Explicit session-only opt-in; never enabled inside certified lessons. */
+  adaptiveReflexEnabled: boolean;
+  adaptiveStats: PracticeStats;
+  adaptiveTrace: AdaptiveTrace | null;
   /** Session-only course trial; never accepted as formal lesson completion. */
   twoHandTrialLessonId: number | null;
   showBassLandmarks: boolean;
@@ -163,6 +170,8 @@ export interface AppState {
   toggleContinuousFlow: () => void;
   toggleBlindfoldKeys: () => void;
   toggleTabletopMode: () => void;
+  toggleAdaptiveReflex: () => void;
+  clearAdaptiveStats: () => void;
   toggleTwoHandPractice: () => void;
   setRepertoirePreviewOpen: (open: boolean) => void;
   toggleBassLandmarks: () => void;
@@ -457,6 +466,22 @@ function finishExercise(
     assisted: state.isExerciseAssisted,
     lessonPassed: certified
   });
+  // Optional adaptive evidence is *only* from fully completed self-paced
+  // standalone Reflex exercises. This is a separate privacy-local dataset.
+  // Graded lessons, assisted, rhythm/flow and imported scores never feed it.
+  if (state.currentAppMode === 'reflex' && state.activeLessonId === null &&
+      !state.isContinuousFlow && !state.isExerciseAssisted &&
+      !state.isRepertoirePreviewOpen && !state.isTwoHandPracticeOpen) {
+    const observations = addSelfPacedReflexAttempt(
+      state.adaptiveStats, state.attemptEvents,
+      state.activeExerciseNotes.map(note => ({ noteName: note.noteName, clef: note.clef })),
+      Date.now()
+    );
+    if (observations !== state.adaptiveStats) {
+      savePracticeStats(observations);
+      set({ adaptiveStats: observations });
+    }
+  }
   set({ courseEvidence: result.evidence, completedExercisesCount: result.creditedRepetitions,
     lastAttemptResult, trainerPhase: 'results' });
   if (lesson && result.credited) {
@@ -499,6 +524,9 @@ export const useAppStore = create<AppState>((set, get) => ({
   isContinuousFlow: false,
   isTwoHandPracticeOpen: false,
   isRepertoirePreviewOpen: false,
+  adaptiveReflexEnabled: false,
+  adaptiveStats: loadPracticeStats(),
+  adaptiveTrace: null,
   twoHandTrialLessonId: null,
   isPhotoMasked: false,
   midiInputsCount: 0,
@@ -1020,6 +1048,22 @@ export const useAppStore = create<AppState>((set, get) => ({
     });
   },
 
+  toggleAdaptiveReflex: () => {
+    const state = get();
+    // Never replace a certified or running timed lesson with adaptive material.
+    if (state.activeLessonId !== null || state.isContinuousFlow ||
+        state.currentAppMode !== 'reflex' || state.currentFilter === 'both' ||
+        state.trainerPhase === 'countIn' || state.trainerPhase === 'playing' &&
+        state.attemptEvents.length > 0) return;
+    set({ adaptiveReflexEnabled: !state.adaptiveReflexEnabled, adaptiveTrace: null });
+    get().regenerateExercise();
+  },
+
+  clearAdaptiveStats: () => {
+    clearPracticeStats();
+    set({ adaptiveStats: emptyPracticeStats(), adaptiveTrace: null });
+  },
+
   toggleTwoHandPractice: () => {
     const opening = !get().isTwoHandPracticeOpen;
     if (opening && !confirmAssessmentExit(get)) return;
@@ -1212,13 +1256,16 @@ export const useAppStore = create<AppState>((set, get) => ({
     const exerciseMode = assessmentModeForLesson(activeLessonId,
       assessmentCount, currentAppMode);
 
-    const notes = generateExerciseNotes({
-      mode: exerciseMode,
-      filter: currentFilter,
-      tonality: currentTonality,
-      scoreNoteCount,
-      hanonType: currentHanonType
-    });
+    const options = { mode: exerciseMode, filter: currentFilter, tonality: currentTonality,
+      scoreNoteCount, hanonType: currentHanonType };
+    const adaptiveActive = get().adaptiveReflexEnabled && activeLessonId === null &&
+      exerciseMode === 'reflex' && currentFilter !== 'both' && !get().isContinuousFlow;
+    const adaptive = adaptiveActive
+      ? generateAdaptiveReflexExercise(options, get().adaptiveStats,
+        get().midiInputsCount > 0 ? 'midi' : 'pc',
+        Math.floor(Math.random() * 0x7fffffff))
+      : null;
+    const notes = adaptive?.notes ?? generateExerciseNotes(options);
 
     // The course Start path used to jump directly to 'playing', unlike
     // Retry, silently skipping the score-first count-in for flow lessons.
@@ -1231,6 +1278,7 @@ export const useAppStore = create<AppState>((set, get) => ({
       currentAppMode: exerciseMode,
       activeExerciseNotes: notes,
       activeNoteIndex: 0,
+      adaptiveTrace: adaptive?.trace ?? null,
       noteShownTimestamp: performance.now(),
       isPhotoMasked: gradedFlowCountIn && exerciseMode === 'photo',
       isExerciseAssisted: false,
@@ -1385,6 +1433,7 @@ export const useAppStore = create<AppState>((set, get) => ({
           noteIndex: activeNoteIndex,
           expectedNote: target.noteName,
           playedNote: noteName,
+          source: fromMidi ? 'midi' : 'pc',
           outcome,
           reactionMs: Number.isFinite(rt) && rt >= 0 ? rt : null
         }],
