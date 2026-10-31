@@ -18,8 +18,17 @@ export interface ExercisePitch {
   readonly syllable?: string;
 }
 
+/** Written pitch, independent of enharmonic MIDI equivalence. */
+export interface WrittenPitch {
+  readonly step: 'A' | 'B' | 'C' | 'D' | 'E' | 'F' | 'G';
+  readonly alter: -1 | 0 | 1;
+  readonly octave: number;
+}
+
 export interface ScoreEvent {
   readonly midi: number;
+  /** Optional on GENERATED scores; never guess a leading tone from MIDI alone. */
+  readonly spelling?: WrittenPitch;
   readonly staff: StaffNumber;
   /** Integer time offsets in sixteenth-note ticks. */
   readonly onsetTicks: number;
@@ -236,7 +245,30 @@ function escapeXml(text: string): string {
     .replace(/>/g, '&gt;').replace(/"/g, '&quot;').replace(/'/g, '&apos;');
 }
 
-function midiPitch(midi: number, fifths: number): string {
+const STEP_SEMITONES: Readonly<Record<WrittenPitch['step'], number>> = {
+  C: 0, D: 2, E: 4, F: 5, G: 7, A: 9, B: 11
+};
+const SHARP_ORDER: readonly WrittenPitch['step'][] = ['F', 'C', 'G', 'D', 'A', 'E', 'B'];
+const FLAT_ORDER: readonly WrittenPitch['step'][] = ['B', 'E', 'A', 'D', 'G', 'C', 'F'];
+
+function writtenKeyAlter(step: WrittenPitch['step'], fifths: number): number {
+  if (fifths > 0) return SHARP_ORDER.slice(0, fifths).includes(step) ? 1 : 0;
+  if (fifths < 0) return FLAT_ORDER.slice(0, -fifths).includes(step) ? -1 : 0;
+  return 0;
+}
+
+function midiPitch(midi: number, fifths: number, spelling?: WrittenPitch): string {
+  if (spelling) {
+    const { step, alter, octave } = spelling;
+    if (!(step in STEP_SEMITONES) || !Number.isInteger(octave) ||
+        octave < 0 || octave > 8 || ![-1, 0, 1].includes(alter) ||
+        (12 * (octave + 1) + STEP_SEMITONES[step] + alter) !== midi) {
+      throw new Error('Written pitch conflicts with sounding MIDI: ' + midi);
+    }
+    return '<pitch><step>' + step + '</step>' +
+      (alter !== 0 ? '<alter>' + alter + '</alter>' : '') +
+      '<octave>' + octave + '</octave></pitch>';
+  }
   const pc = midi % 12;
   const octave = Math.floor(midi / 12) - 1;
   // Use B-flat rather than A-sharp in F major.
@@ -266,7 +298,8 @@ function renderEvent(
   startTicks: number,
   endTicks: number,
   fifths: number,
-  options: XmlOptions
+  options: XmlOptions,
+  accidental?: 'sharp' | 'flat' | 'natural'
 ): string {
   let xml = '';
   let elapsed = 0;
@@ -286,10 +319,11 @@ function renderEvent(
       notations += '<technical><fingering>' + event.finger + '</fingering></technical>';
     }
 
-    xml += '<note>' + midiPitch(event.midi, fifths) + '<duration>' + part.duration + '</duration>' +
+    xml += '<note>' + midiPitch(event.midi, fifths, event.spelling) + '<duration>' + part.duration + '</duration>' +
       (tieStop ? '<tie type="stop"/>' : '') + (tieStart ? '<tie type="start"/>' : '') +
       '<voice>' + event.staff + '</voice><type>' + part.type + '</type>' +
       (part.dotted ? '<dot/>' : '') +
+      (firstSegment && accidental ? '<accidental>' + accidental + '</accidental>' : '') +
       (options.bassStemsUp && event.staff === 2 && part.type !== 'whole' ? '<stem>up</stem>' : '') +
       '<staff>' + event.staff + '</staff>' +
       (notations ? '<notations>' + notations + '</notations>' : '') +
@@ -338,6 +372,10 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
       const silentStaff = !!options.hideInactiveStaffRests && !score.notes.some(note => note.staff === staff);
       if (staff === 2) xml += '<backup><duration>' + ticksPerBar + '</duration></backup>';
       let cursor = begin;
+      // The active written alteration resets each bar and is tracked per
+      // staff and octave. MusicXML <alter> alone does not guarantee that
+      // a required visible local accidental is displayed by the engraver.
+      const activeAccidentals = new Map<string, number>();
       const staffNotes = score.notes.filter(n => n.staff === staff &&
         n.onsetTicks < end && n.onsetTicks + n.durationTicks > begin)
         .sort((a, b) => a.onsetTicks - b.onsetTicks);
@@ -364,7 +402,21 @@ export function toMusicXml(score: ExerciseScore, options: XmlOptions = {}): stri
         for (const part of chunks(finish - start)) {
           const segmentEnd = segmentStart + part.duration;
           for (let j = 0; j < chord.length; j++) {
-            const noteXml = renderEvent(chord[j], segmentStart, segmentEnd, score.fifths, options);
+            const chordNote = chord[j];
+            let accidental: 'sharp' | 'flat' | 'natural' | undefined;
+            if (chordNote.spelling && segmentStart === start) {
+              const { step, alter, octave } = chordNote.spelling;
+              const signature = writtenKeyAlter(step, score.fifths);
+              const accidentalKey = step + ':' + octave;
+              const previous = activeAccidentals.get(accidentalKey) ?? signature;
+              if (alter !== previous && start === chordNote.onsetTicks) {
+                accidental = alter === 1 ? 'sharp' : alter === -1 ? 'flat' : 'natural';
+              }
+              // Also restore the carried alteration for a tied continuation
+              // at a barline, but never print a second accidental on the tie.
+              activeAccidentals.set(accidentalKey, alter);
+            }
+            const noteXml = renderEvent(chordNote, segmentStart, segmentEnd, score.fifths, options, accidental);
             xml += j === 0 ? noteXml : noteXml.replace('<note>', '<note><chord/>');
           }
           segmentStart = segmentEnd;
