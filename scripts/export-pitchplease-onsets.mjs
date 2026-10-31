@@ -1,5 +1,6 @@
 /** Offline benchmark only; no microphone, certificate, UI or course scoring integration. */
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { dirname, resolve } from 'node:path';
 import { readPianoWav } from './read-piano-wav.mjs';
 import { activationFramesToOnsets } from '../src/core/audio/activationOnsetAdapter.ts';
@@ -46,10 +47,21 @@ if (args.length !== 1 || args[0] === '--help') {
         throw new Error('Invalid corpus case metadata');
       }
       const filename = resolve(dirname(file), item.wav);
-      const { samples, sampleRate } = await readPianoWav(filename);
+      const sourceBytes = await readFile(filename);
+      const audioSha256 = createHash('sha256').update(sourceBytes).digest('hex');
+      const { samples, sampleRate, durationSeconds } = await readPianoWav(filename);
+      const durationMs = durationSeconds * 1000;
+      if (item.audioSha256 !== undefined && item.audioSha256 !== audioSha256) {
+        throw new Error('Reference audio SHA-256 mismatch for ' + item.id);
+      }
+      if (item.durationMs !== undefined &&
+          (!Number.isFinite(item.durationMs) || Math.abs(item.durationMs - durationMs) > 1)) {
+        throw new Error('Reference audio duration mismatch for ' + item.id);
+      }
       const frames = await packageApi.analyze(samples, sampleRate, { model: 'piano' });
       const detected = activationFramesToOnsets(frames);
-      cases.push({ id: item.id, category: item.category, expected: item.expected, detected });
+      cases.push({ id: item.id, category: item.category, audioSha256,
+        durationMs, expected: item.expected, detected });
       console.error(`Analyzed ${item.id}: ${frames.length} frames, ${detected.length} estimated attacks`);
     }
 
