@@ -1,0 +1,83 @@
+name: Microphone R0C — MAESTRO real-piano validation pilot
+
+on:
+  pull_request:
+    paths:
+      - '.github/workflows/maestro-real-piano-pilot.yml'
+      - 'scripts/fetch-maestro-pilot.py'
+      - 'scripts/prepare-maestro-pilot.mjs'
+      - 'scripts/export-pitchplease-onsets.mjs'
+      - 'scripts/export-basic-pitch-onsets.mjs'
+      - 'scripts/compare-piano-detectors.mjs'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  real-piano-pilot:
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+          cache: npm
+      - name: Install audio tooling for the ephemeral CI runner
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq ffmpeg
+          ffmpeg -version
+          ffprobe -version
+      - run: npm ci
+      - name: Install optional pinned ML models (not shipped with Nota-Re)
+        run: npm install --no-save --package-lock=false @spotify/basic-pitch@1.0.1 @tensorflow/tfjs@3.21.0 @markusstrasser/pitchplease@3.1.0
+      - name: Download a bounded public MAESTRO v3 validation WAV and MIDI to ephemeral runner
+        run: python3 scripts/fetch-maestro-pilot.py .microphone-maestro
+      - name: Create a synchronized 14 s acoustic piano WAV, note attacks and provenance
+        run: node scripts/prepare-maestro-pilot.mjs .microphone-maestro
+      - name: Execute PitchPlease piano detector
+        run: node --experimental-strip-types scripts/export-pitchplease-onsets.mjs .microphone-maestro/manifest.json > .microphone-maestro/pitchplease.json
+      - name: Execute Spotify Basic Pitch detector on identical audio
+        run: node --experimental-strip-types scripts/export-basic-pitch-onsets.mjs .microphone-maestro/manifest.json > .microphone-maestro/basicpitch.json
+      - name: Compare independently detected attacks to aligned MIDI truth
+        run: node --experimental-strip-types scripts/compare-piano-detectors.mjs .microphone-maestro/pitchplease.json .microphone-maestro/basicpitch.json > .microphone-maestro/comparison.json
+      - name: Print labeled preliminary real-acoustic results
+        run: |
+          node --input-type=module -e '
+            import { readFileSync } from "node:fs";
+            const p = ".microphone-maestro/";
+            const summary = JSON.parse(readFileSync(p + "comparison.json", "utf8"));
+            const source = JSON.parse(readFileSync(p + "pilot-source-audit.json", "utf8"));
+            console.log("MAESTRO validation pilot (one clip, exploratory, not final benchmark)");
+            console.log("Source:", source.audio_filename, "clip:", source.derived_clip.durationMs, "ms");
+            console.log("Independent reference attacks:", source.derived_clip.referenceNoteAttacks);
+            for (const model of summary.models) {
+              const m = model.overall;
+              console.log(JSON.stringify({
+                engine: model.engine, TP: m.truePositives, FP: m.falsePositives,
+                FN: m.falseNegatives, noteOnsetF1: m.f1,
+                onsetP95ms: m.p95AbsoluteOnsetErrorMs,
+                falseAttacksPerMinute: m.falsePositivesPerMinute,
+                liveLatencyMs: null
+              }));
+            }
+            if (summary.caseCount !== 1 || source.split !== "validation") {
+              throw new Error("Unexpected pilot corpus split or case count");
+            }
+          '
+      - name: Upload research reports only (NEVER audio, MIDI or weights)
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: maestro-validation-pilot-reports
+          if-no-files-found: warn
+          path: |
+            .microphone-maestro/source.json
+            .microphone-maestro/pilot-source-audit.json
+            .microphone-maestro/manifest.json
+            .microphone-maestro/pitchplease.json
+            .microphone-maestro/basicpitch.json
+            .microphone-maestro/comparison.json
+          retention-days: 7
