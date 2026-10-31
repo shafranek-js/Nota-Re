@@ -75,7 +75,7 @@ try {
       await mode.selectOption('right');
       assert.ok(await button.isEnabled(), 'right-hand self-paced rehearsal is available on a grand staff');
       await button.click();
-      await status.getByText(/Группа 1\/2/).waitFor({ state: 'visible' });
+      await page.waitForFunction(() => document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 1/2'));
       const beforeAudio = await page.evaluate(() => window.__companionOscCount);
       await page.evaluate(() => {
         for (const [note, velocity] of [[60, 100], [64, 100], [67, 100]])
@@ -94,7 +94,7 @@ try {
       // Both hands: do not accept a chord until all notes are simultaneously held.
       await mode.selectOption('both');
       await button.click();
-      await status.getByText(/Группа 1\/3/).waitFor({ state: 'visible' });
+      await page.waitForFunction(() => document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 1/3'));
       await page.evaluate(() => {
         window.__polyMidi.send([0x90, 48, 100]);
         window.__polyMidi.send([0x90, 60, 100]);
@@ -111,7 +111,7 @@ try {
       // Other-hand practice: swapped staff assignment, still no course writes.
       await mode.selectOption('left');
       await button.click();
-      await status.getByText(/Группа 1\/3/).waitFor({ state: 'visible' });
+      await page.waitForFunction(() => document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 1/3'));
       await page.evaluate(() => window.__polyMidi.send([0x90, 48, 100]));
       await page.waitForFunction(() =>
         document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 2/3'));
