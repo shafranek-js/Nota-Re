@@ -126,3 +126,87 @@ test('missing CC64 stays unknown and invalid CC64 message is rejected', () => {
   const malformedCc = midi([track([[0, 0xb0, 64, 128]])]);
   assert.throws(() => parseMidiReference(malformedCc), /Invalid MIDI data byte/);
 });
+
+test('release-aware MIDI preserves Note Off, velocity-zero release and pedal control end', () => {
+  const bytes = midi([track([
+    [0, 0x90, 60, 98],
+    [...varint(120), 0xb0, 64, 127],
+    [...varint(120), 0x80, 60, 25],
+    [...varint(240), 0x90, 62, 100],
+    [...varint(120), 0xb0, 64, 0],
+    [...varint(120), 0x90, 62, 0],
+    [0, 0xff, 0x2f, 0]
+  ])]);
+  const old = parseMidiReference(bytes);
+  assert.deepEqual(old.attacks, [
+    { midi: 60, onsetMs: 0, pedalDownAtOnset: false },
+    { midi: 62, onsetMs: 500, pedalDownAtOnset: true }
+  ], 'existing call shape is unchanged for legacy consumers');
+  const ref = parseMidiReference(bytes, { withReleases: true });
+  assert.deepEqual(ref.attacks, [
+    { midi: 60, onsetMs: 0, pedalDownAtOnset: false,
+      keyReleaseMs: 250, midiControlEndMs: 625, pedalHeldAfterRelease: true,
+      ambiguousRelease: false },
+    { midi: 62, onsetMs: 500, pedalDownAtOnset: true,
+      keyReleaseMs: 750, midiControlEndMs: 750, pedalHeldAfterRelease: false,
+      ambiguousRelease: false }
+  ]);
+  assert.equal(ref.unmatchedNoteOffs, 0);
+  assert.deepEqual(parseMidiOnsets(bytes), [
+    { midi: 60, onsetMs: 0 }, { midi: 62, onsetMs: 500 }
+  ]);
+  assert.deepEqual(selectMidiAttacksForAudioClip(ref.attacks, {
+    startMs: 200, durationMs: 400
+  }), [
+    { midi: 62, onsetMs: 300, pedalDownAtOnset: true,
+      keyReleaseMs: 550, midiControlEndMs: 550, pedalHeldAfterRelease: false,
+      ambiguousRelease: false }
+  ], 'control release after a short excerpt is retained as MIDI provenance');
+});
+
+test('same-pitch overlapping key-down is flagged rather than confidently attributed', () => {
+  const ref = parseMidiReference(midi([track([
+    [0, 0x90, 60, 80],
+    [...varint(120), 0x90, 60, 90],
+    [...varint(120), 0x80, 60, 0],
+    [...varint(120), 0x80, 60, 0],
+    [0, 0xff, 0x2f, 0]
+  ])]), { withReleases: true });
+  assert.equal(ref.attacks.length, 2);
+  assert.equal(ref.attacks[0].ambiguousRelease, true);
+  assert.equal(ref.attacks[1].ambiguousRelease, true);
+  assert.equal(ref.attacks[0].keyReleaseMs, 250);
+  assert.equal(ref.attacks[1].keyReleaseMs, 375);
+});
+
+test('CC64 unavailable and unmatched/unfinished releases remain explicitly censored', () => {
+  const ref = parseMidiReference(midi([track([
+    [0, 0x80, 70, 0],
+    [0, 0x90, 60, 100],
+    [...varint(480), 0x80, 60, 0],
+    [0, 0x90, 62, 100],
+    [0, 0xff, 0x2f, 0]
+  ])]), { withReleases: true });
+  assert.equal(ref.unmatchedNoteOffs, 1);
+  assert.equal(ref.attacks[0].keyReleaseMs, 500);
+  assert.equal(ref.attacks[0].pedalHeldAfterRelease, null);
+  assert.equal(ref.attacks[0].midiControlEndMs, null);
+  assert.equal(ref.attacks[1].keyReleaseMs, null);
+  assert.equal(ref.attacks[1].midiControlEndMs, null);
+});
+
+test('same-pitch reattack under held CC64 marks the first controller envelope ambiguous', () => {
+  const ref = parseMidiReference(midi([track([
+    [0, 0xb0, 64, 127],
+    [0, 0x90, 60, 100],
+    [...varint(240), 0x80, 60, 0],
+    [...varint(120), 0x90, 60, 100],
+    [...varint(120), 0xb0, 64, 0],
+    [0, 0x80, 60, 0],
+    [0, 0xff, 0x2f, 0]
+  ])]), { withReleases: true });
+  assert.equal(ref.attacks[0].pedalHeldAfterRelease, true);
+  assert.equal(ref.attacks[0].midiControlEndMs, 500);
+  assert.equal(ref.attacks[0].ambiguousRelease, true);
+  assert.equal(ref.attacks[1].ambiguousRelease, false);
+});
