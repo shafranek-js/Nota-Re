@@ -6,7 +6,7 @@ import { createModuleVLeftFixture, readLeftTexture, evaluateModuleVLeftFixture,
 import { initialChordPractice, reduceChordPractice } from '../src/core/training/twoHandPractice.ts';
 import { validateV3, loadV3, recordV3Attempt, recordV3MidiRehearsal } from '../src/core/storage/moduleVLeftStorage.ts';
 import { MODULE_V_STAGES, MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID,
-  MODULE_V_LEFT_TEXTURES_ID } from '../src/data/moduleVCurriculum.ts';
+  MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID } from '../src/data/moduleVCurriculum.ts';
 
 test('24 real left-hand score fixtures span 4 keys × 2 modes × 3 textures', () => {
   assert.equal(MODULE_V_LH_COUNT, 24);
@@ -90,7 +90,7 @@ test('strict physical MIDI note-on/off rehearsal uses real score event order, no
 
 test('V3 journal is versioned, bounded, rejects invalid entries and never mutates V1/V2 or course keys', () => {
   assert.deepEqual(MODULE_V_STAGES.filter(s => s.available).map(s => s.id),
-    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID]);
+    [MODULE_V_TRIADS_ID, MODULE_V_INVERSIONS_ID, MODULE_V_LEFT_TEXTURES_ID, MODULE_V_TWO_HANDS_ID]);
   assert.deepEqual(validateV3(null), { schemaVersion: 3, attempts: [], midiRehearsals: [] });
   assert.deepEqual(validateV3({ schemaVersion: 9, attempts: [], midiRehearsals: [] }),
     { schemaVersion: 3, attempts: [], midiRehearsals: [] });
