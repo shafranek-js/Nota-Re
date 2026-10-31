@@ -60,7 +60,6 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
             : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>}
         </div>
       )}
-      {countIn && <CountInScreen />}
       {isTwoHandPracticeOpen && (
         <div className="shrink-0 flex items-center gap-2 px-1">
           <button type="button" onClick={toggleTwoHandPractice}
@@ -76,7 +75,8 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
           <TwoHandPractice />
         </Suspense>
       ) : <>
-      <div data-testid="studio-score-area" className={`w-full flex flex-col justify-between overflow-hidden gap-1 ${zenActive ? 'flex-1 min-h-[260px] sm:min-h-[320px] lg:min-h-0' : 'flex-none min-h-[380px] lg:flex-1 lg:min-h-0'}`}>
+      <div data-testid="studio-score-area" className={`relative w-full flex flex-col justify-between overflow-hidden gap-1 ${zenActive ? 'flex-1 min-h-[260px] sm:min-h-[320px] lg:min-h-0' : 'flex-none min-h-[380px] lg:flex-1 lg:min-h-0'}`}>
+        {countIn && <CountInScreen />}
         {renderOsmd ? (
           <Suspense fallback={
             <div role="status" className="flex-1 min-h-0 grid place-content-center bg-slate-900 rounded-xl text-slate-400 text-xs">
