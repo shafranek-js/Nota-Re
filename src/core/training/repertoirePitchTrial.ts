@@ -1,4 +1,4 @@
-import { addQuarter, compareQuarter, type ScoreDocument, type ScoreEvent, type ScoreMeasureRange } from '../notation/scoreDocument';
+import { addQuarter, compareQuarter, type ScoreDocument, type ScoreEvent, type ScoreMeasureRange } from '../notation/scoreDocument.ts';
 
 /**
  * Isolated, self-paced MIDI pitch recognition for imported repertoire.
