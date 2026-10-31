@@ -30,8 +30,8 @@ for (const item of cases) {
         'relative minor has signature of relative major, not parallel major');
       assert.equal(study.score.notes.length,12);
       assert.equal(study.steps.length,4);
-      assert.deepEqual(study.pitchNames.map(n=>MIDI_NOTE_MAP[n].midi).sort((a,b)=>a-b)
-        .map(n=>n %12), semitones(item.pitch).map(n=>n %12));
+      assert.deepEqual(study.pitchNames.map(n=>MIDI_NOTE_MAP[n].midi % 12).sort((a,b)=>a-b),
+        semitones(item.pitch).map(n=>n%12).sort((a,b)=>a-b));
       const sorted=study.pitchNames.map(n=>MIDI_NOTE_MAP[n].midi);
       assert.ok(sorted[0]<sorted[1] && sorted[1]<sorted[2]);
       assert.ok(sorted[2]-sorted[0]<=12);
