@@ -1,5 +1,6 @@
 /** Prepare one independently annotated WAV/MIDI corpus case, without uploading recordings. */
 import { readFile } from 'node:fs/promises';
+import { createHash } from 'node:crypto';
 import { parseMidiOnsets, selectMidiAttacksForAudioClip } from './maestro-midi-onsets.mjs';
 import { readPianoWav } from './read-piano-wav.mjs';
 
@@ -17,8 +18,8 @@ if (process.argv.length !== 8) {
         typeof category !== 'string' || !category.trim()) {
       throw new Error('Invalid clip timing or case metadata');
     }
-    const [midiData, wav] = await Promise.all([
-      readFile(midiPath), readPianoWav(wavPath)
+    const [midiData, wavData, wav] = await Promise.all([
+      readFile(midiPath), readFile(wavPath), readPianoWav(wavPath)
     ]);
     const actualDuration = wav.durationSeconds * 1000;
     if (Math.abs(actualDuration - durationMs) > 100) {
@@ -31,7 +32,9 @@ if (process.argv.length !== 8) {
     );
     // The WAV path is preserved as provided, relative to the eventual manifest.
     // The script never guesses missing audio/MIDI synchronization offsets.
-    console.log(JSON.stringify({ id, category, wav: wavPath, expected }, null, 2));
+    console.log(JSON.stringify({ id, category, wav: wavPath,
+      audioSha256: createHash('sha256').update(wavData).digest('hex'),
+      durationMs: actualDuration, expected }, null, 2));
     console.error(`Reference: ${expected.length} physical MIDI note attacks; time origin = WAV clip start`);
   } catch (error) {
     console.error('Cannot construct piano reference case: ' +
