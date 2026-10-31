@@ -5,6 +5,7 @@ import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MetronomeToggle } from './MetronomeToggle';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
 import { toMusicXml, type SupportedKey } from '../../../core/notation/musicXml';
+import { getVerticalChordGuides } from '../../../core/notation/intervalGuides';
 import {
   createTwoHandPractice,
   initialChordPractice,
@@ -113,6 +114,19 @@ export const TwoHandPractice: React.FC = () => {
   const accompaniment: AccompanimentStudy | null =
     isAccompaniment ? exercise as AccompanimentStudy : null;
   const xml = useMemo(() => toMusicXml(exercise.score), [exercise]);
+  // Genuine simultaneous note events from this score, never the selected
+  // quality/inversion dropdown. No teaching labels in course/graded contexts.
+  const verticalChordGuides = useMemo(() => {
+    const guides = getVerticalChordGuides(exercise.score.notes, exercise.score.fifths,
+      harmonicStudy ? 'reading' : 'graded');
+    const seen = new Set<string>();
+    return guides.filter(guide => {
+      const key = guide.staff + ':' + guide.pitchNames.join('/');
+      if (seen.has(key)) return false;
+      seen.add(key);
+      return true;
+    });
+  }, [exercise, harmonicStudy]);
   const [trial, setTrial] = useState<ChordPracticeState>(initialChordPractice);
   const trialRef = useRef(trial);
   const [timed, setTimed] = useState<TimedPracticeState>(initialTimedPractice);
@@ -852,6 +866,35 @@ export const TwoHandPractice: React.FC = () => {
       <p data-testid="two-hand-feedback" role="status" className="text-sm text-emerald-300">{plan ? (timed.feedback === 'count-in'
           ? `Подготовка: ${exercise.score.beats} удара метронома перед началом.`
           : timedFeedbackText[timed.feedback]) : feedbackText[trial.feedback]}</p>
+      {harmonicStudy && (
+        <details data-testid="vertical-chord-reading"
+          className="rounded-md border border-slate-700/70 px-2 py-1 text-xs text-slate-200">
+          <summary className="cursor-pointer text-sky-300 focus-visible:outline focus-visible:outline-2 focus-visible:outline-sky-400">
+            Разбор вертикальных аккордов по нотам (OSMD)
+          </summary>
+          {verticalChordGuides.length ? (
+            <ul className="mt-1 space-y-1" data-testid="vertical-chord-guide-list">
+              {verticalChordGuides.map(guide => (
+                <li key={guide.staff + ':' + guide.onsetTicks + ':' + guide.pitchNames.join('-')}>
+                  {guide.staff === 1 ? 'Правая рука' : 'Левая рука'}
+                  {' '}· такт {Math.floor(guide.onsetTicks / (exercise.score.beats * 4)) + 1}
+                  {' '}· <strong>{guide.tonic} {guide.quality === 'major' ? 'мажор' : 'минор'}</strong>
+                  {' '}· {guide.figure}: {guide.explanation}
+                </li>
+              ))}
+            </ul>
+          ) : (
+            <p className="mt-1 text-slate-400">
+              В этой фактуре нет трёх одновременно записанных нот в одном стане.
+              Отдельные басовые звуки и двухзвучия не считаются полными трезвучиями.
+            </p>
+          )}
+          <p className="mt-1 text-slate-400">
+            Разбор доступен только в свободной учебной практике; в заданиях на память
+            и на официальный зачёт подсказки отключены.
+          </p>
+        </details>
+      )}
       <div className="relative flex-1 min-h-[230px] overflow-auto rounded-lg bg-white">
         <div ref={mountRef} aria-label="Независимые партии двух рук OpenSheetMusicDisplay"
           className="min-h-[220px] w-full" />
