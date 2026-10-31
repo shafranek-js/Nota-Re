@@ -112,6 +112,10 @@ jobs:
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
         run: node tests/moduleVInversions.smoke.mjs
+      - name: Verify Module V V3 left-texture reading, hardware MIDI and privacy in Chrome
+        env:
+          CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}
+        run: node tests/moduleVLeftTextures.smoke.mjs
       - name: Verify independent LH accompaniments in 4/4 and genuine 3/4
         env:
           CHROME_PATH: ${{ steps.chrome.outputs.chrome-path }}

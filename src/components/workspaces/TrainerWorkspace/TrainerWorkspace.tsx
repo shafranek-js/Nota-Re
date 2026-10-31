@@ -52,7 +52,6 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
 
   return (
     <section data-testid="studio-workspace" data-zen-active={zenActive} className={`relative flex-1 min-h-0 w-full flex flex-col justify-between gap-1.5 overflow-y-auto lg:overflow-hidden ${zenActive ? 'p-1 sm:p-1.5' : 'p-2'}`}>
-      {countIn && <CountInScreen />}
       {zenActive && <div className="shrink-0" inert={countIn}><ZenControlStrip /></div>}
       {!zenActive && !isTwoHandPracticeOpen && (
         <div className="shrink-0" inert={countIn}>
@@ -61,6 +60,7 @@ export const TrainerWorkspace: React.FC<TrainerWorkspaceProps> = ({ renderer, on
             : <><TrainerBanner /><TrainerToolbar renderer={renderer} onSelectRenderer={onSelectRenderer} /></>}
         </div>
       )}
+      {countIn && <CountInScreen />}
       {isTwoHandPracticeOpen && (
         <div className="shrink-0 flex items-center gap-2 px-1">
           <button type="button" onClick={toggleTwoHandPractice}

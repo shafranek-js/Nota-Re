@@ -4,6 +4,7 @@
  */
 export const MODULE_V_TRIADS_ID = 'module-v/v1/triads-5-3' as const;
 export const MODULE_V_INVERSIONS_ID = 'module-v/v1/inversions' as const;
+export const MODULE_V_LEFT_TEXTURES_ID = 'module-v/v1/left-textures' as const;
 export type ModuleVLessonId = typeof MODULE_V_TRIADS_ID; // V2 reads and responds within the Module V route, not the graded trainer.
 
 export const MODULE_V_STAGES = [
@@ -20,10 +21,10 @@ export const MODULE_V_STAGES = [
     available: true
   },
   {
-    id: 'module-v/v1/left-textures',
-    title: 'Фактуры левой руки',
-    summary: 'Бас Альберти, вальс 3/4, ломаное арпеджио.',
-    available: false
+    id: MODULE_V_LEFT_TEXTURES_ID,
+    title: 'Чтение фактур левой руки',
+    summary: 'Распознать по нотам бас Альберти, настоящий вальс 3/4 и ломаное арпеджио, затем попробовать на MIDI.',
+    available: true
   },
   {
     id: 'module-v/v1/two-hands',
