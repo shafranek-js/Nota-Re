@@ -16,6 +16,9 @@ on:
       - 'scripts/export-basic-pitch-onsets.mjs'
       - 'scripts/offline-model-timing.mjs'
       - 'tests/offlineModelTiming.test.mjs'
+      - 'scripts/causal-window-replay.mjs'
+      - 'scripts/replay-pitchplease-windows.mjs'
+      - 'tests/causalWindowReplay.test.mjs'
   workflow_dispatch:
 
 permissions:
@@ -33,7 +36,7 @@ jobs:
           cache: npm
       - run: npm ci
       - name: Validate corpus and independent-condition test fixtures
-        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs tests/maestroMidiOnsets.test.mjs tests/offlineModelTiming.test.mjs
+        run: node --experimental-strip-types --test tests/maestroCorpusCondition.test.mjs tests/maestroMidiOnsets.test.mjs tests/offlineModelTiming.test.mjs tests/causalWindowReplay.test.mjs
       - name: Install ffmpeg for temporary WAV conversion
         run: |
           sudo apt-get update -qq
@@ -48,6 +51,8 @@ jobs:
         run: node --experimental-strip-types scripts/export-pitchplease-onsets.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/pitchplease.json
       - name: Run Spotify Basic Pitch on the exact same WAV bytes
         run: node --experimental-strip-types scripts/export-basic-pitch-onsets.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/basicpitch.json
+      - name: Replay real PitchPlease in causal 2-second windows with 1-second hop
+        run: node --experimental-strip-types scripts/replay-pitchplease-windows.mjs .microphone-maestro-corpus/manifest.json > .microphone-maestro-corpus/causal-pitchplease.json
       - name: Independently score both models and describe acoustic coincidences
         run: |
           node --experimental-strip-types scripts/compare-piano-detectors.mjs .microphone-maestro-corpus/pitchplease.json .microphone-maestro-corpus/basicpitch.json > .microphone-maestro-corpus/comparison.json
@@ -94,6 +99,24 @@ jobs:
               medianMidiControllerHoldMs: take.condition.releaseAware?.medianMidiControllerHoldAfterKeyReleaseMs ?? null,
               liveMicrophoneLatencyMs: null
             }));
+            const causal = JSON.parse(readFileSync(base + "causal-pitchplease.json", "utf8"));
+            if (causal.experiment !== "research-only-causal-window-replay-v1" ||
+                causal.results.length !== 3 ||
+                causal.results.some(x => x.replay.unprocessedTailMs > 1 || x.replay.windows.length !== 13)) {
+              throw new Error("Causal replay has incomplete/wrongly sized windows");
+            }
+            for (const item of causal.results) console.log(JSON.stringify({
+              causalEngine: causal.engine, take: item.id,
+              referenceAttacks: item.independentReferenceAttacks,
+              TP: item.score.truePositives, FP: item.score.falsePositives, FN: item.score.falseNegatives,
+              F1: item.score.f1,
+              syntheticVirtualP50EmissionLagMs: item.score.medianProcessingLatencyMs,
+              syntheticVirtualP95EmissionLagMs: item.score.p95ProcessingLatencyMs,
+              totalInferenceMs: item.replay.totalInferenceMs,
+              maxSerialCpuBacklogMs: item.replay.maxBacklogMs,
+              measuredLiveMicrophoneLatencyMs: null,
+              caveat: "Causal offline rolling WAV replay, NOT native online AMT or live capture"
+            }));
             console.log(JSON.stringify({exploratoryPairedMacroF1: report.pairedMacroF1,
               caveat: "small biased sample, NOT a general model winner"}));
             for (const row of report.offlineRuntimeProfiles) {
@@ -135,4 +158,5 @@ jobs:
             .microphone-maestro-corpus/comparison.json
             .microphone-maestro-corpus/diagnosis.json
             .microphone-maestro-corpus/conditions.json
+            .microphone-maestro-corpus/causal-pitchplease.json
           retention-days: 7
