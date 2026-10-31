@@ -84,7 +84,7 @@ export interface AppState {
   /** Dedicated, ungraded physical-MIDI polyphonic practice. */
   isTwoHandPracticeOpen: boolean;
   /** Session-only entry choice for ungraded MIDI practice. */
-  twoHandPracticeFocus: 'hands' | 'chords';
+  twoHandPracticeFocus: 'hands' | 'chords' | 'accompaniment';
   /** Session-only: imported score is visible; never grade it as generated exercise. */
   isRepertoirePreviewOpen: boolean;
   /** Explicit session-only opt-in; never enabled inside certified lessons. */
@@ -176,6 +176,7 @@ export interface AppState {
   clearAdaptiveStats: () => void;
   toggleTwoHandPractice: () => void;
   openChordPractice: () => void;
+  openAccompanimentPractice: () => void;
   setRepertoirePreviewOpen: (open: boolean) => void;
   toggleBassLandmarks: () => void;
   toggleScaleHighlight: () => void;
@@ -1096,6 +1097,23 @@ export const useAppStore = create<AppState>((set, get) => ({
     set({
       isTwoHandPracticeOpen: true,
       twoHandPracticeFocus: 'chords',
+      twoHandTrialLessonId: null,
+      isContinuousFlow: false,
+      activeLessonId: null,
+      completedExercisesCount: 0,
+      isExerciseFlawless: false,
+      adaptiveReflexEnabled: false,
+      adaptiveTrace: null
+    });
+  },
+
+  openAccompanimentPractice: () => {
+    if (!confirmAssessmentExit(get)) return;
+    if (get().trainerPhase === 'countIn') get().cancelTrainerCountIn();
+    stopFlowClock();
+    set({
+      isTwoHandPracticeOpen: true,
+      twoHandPracticeFocus: 'accompaniment',
       twoHandTrialLessonId: null,
       isContinuousFlow: false,
       activeLessonId: null,
