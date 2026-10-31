@@ -1,5 +1,6 @@
 import type { AppMode, ClefType } from '../../types/music';
 import type { AttemptEvent } from './exerciseAttempt.ts';
+import { directedInterval } from './directedInterval.ts';
 
 export type PracticeSource = 'pc' | 'midi';
 export interface PracticeStat {
@@ -17,7 +18,7 @@ export interface PracticeStat {
   readonly lastAt: number;
 }
 export interface PracticeStats {
-  readonly version: 1;
+  readonly version: 2;
   readonly notes: Readonly<Record<string, PracticeStat>>;
   readonly intervals: Readonly<Record<string, PracticeStat>>;
 }
@@ -44,14 +45,19 @@ const modeSet = new Set<AppMode>(['reflex', 'rhythm', 'lookahead', 'photo', 'int
 const notesPattern = /^[A-G](?:#|b)?[0-8]$/;
 
 export function emptyPracticeStats(): PracticeStats {
-  return { version: 1, notes: {}, intervals: {} };
+  return { version: 2, notes: {}, intervals: {} };
 }
 export function noteStatisticsKey(source: PracticeSource, mode: AppMode, note: PracticeNoteIdentity): string {
   return [source, mode, note.clef, note.noteName].join(':');
 }
 export function intervalStatisticsKey(source: PracticeSource, mode: AppMode,
   previous: PracticeNoteIdentity, current: PracticeNoteIdentity): string {
-  return [source, mode, previous.clef, previous.noteName, 'to', current.clef, current.noteName].join(':');
+  const interval = directedInterval(previous, current);
+  if (!interval) throw new Error('Invalid or unsupported spelled interval');
+  const signed = (value: number) => value >= 0 ? '+' + value : String(value);
+  return [source, mode, previous.clef, previous.noteName, 'to',
+    current.clef, current.noteName, 'd' + signed(interval.diatonicSteps),
+    'c' + signed(interval.chromaticSemitones)].join(':');
 }
 const newStat = (): PracticeStat => ({
   observations: 0, correct: 0, wrong: 0, late: 0, missed: 0,
@@ -102,19 +108,28 @@ export function addPracticeObservation(stats: PracticeStats, o: PracticeObservat
     if (oldest) delete notes[oldest];
   }
   notes[key] = observe(notes[key] ?? newStat(), o);
+  return { version: 2, notes, intervals: stats.intervals };
+}
+
+/** Add a target-to-target transition ONLY when the caller proves adjacency. */
+export function addPracticeIntervalObservation(
+  stats: PracticeStats, o: PracticeObservation
+): PracticeStats {
+  if (!validObservation(o) || !o.previousNoteName ||
+      !o.previousClef || !notesPattern.test(o.previousNoteName) ||
+      !['treble', 'bass'].includes(o.previousClef)) return stats;
+  const previous = { noteName: o.previousNoteName, clef: o.previousClef };
+  const current = { noteName: o.noteName, clef: o.clef };
+  if (!directedInterval(previous, current)) return stats;
+  const key = intervalStatisticsKey(o.source, o.mode, previous, current);
   const intervals = { ...stats.intervals };
-  if (o.previousNoteName && o.previousClef &&
-      notesPattern.test(o.previousNoteName) && ['treble', 'bass'].includes(o.previousClef)) {
-    const pairKey = intervalStatisticsKey(o.source, o.mode,
-      { noteName: o.previousNoteName, clef: o.previousClef },
-      { noteName: o.noteName, clef: o.clef });
-    if (!(pairKey in intervals) && Object.keys(intervals).length >= MAX_ITEMS) {
-      const oldest = Object.entries(intervals).sort((a, b) => a[1].lastAt - b[1].lastAt)[0]?.[0];
-      if (oldest) delete intervals[oldest];
-    }
-    intervals[pairKey] = observe(intervals[pairKey] ?? newStat(), o);
+  if (!(key in intervals) && Object.keys(intervals).length >= MAX_ITEMS) {
+    const oldest = Object.entries(intervals).sort((a, b) => a[1].lastAt - b[1].lastAt)[0]?.[0];
+    if (oldest) delete intervals[oldest];
   }
-  return { version: 1, notes, intervals };
+  intervals[key] = observe(intervals[key] ?? newStat(), o);
+  return { version: 2, notes: stats.notes, intervals };
+
 }
 
 /**
@@ -148,13 +163,45 @@ export function addSelfPacedReflexAttempt(
       ...(prev ? { previousNoteName: prev.noteName, previousClef: prev.clef } : {})
     });
   }
+  // A transition is verified only when the previous target was solved
+  // with ONE correct input, and the current target was ultimately solved
+  // with correct input by the SAME device. Corrections on the current target
+  // count as ONE transition error, not a clean/fast interval observation.
+  // A corrected previous target is never treated as a clean departure.
+  for (let index = 1; index < score.length; index++) {
+    const from = score[index - 1], to = score[index];
+    if (!from || !to) continue;
+    const preceding = events.filter(e => e.noteIndex === index - 1);
+    const current = events.filter(e => e.noteIndex === index);
+    if (preceding.length !== 1 || preceding[0]?.outcome !== 'correct' ||
+        preceding[0].expectedNote !== from.noteName ||
+        preceding[0].playedNote !== from.noteName ||
+        !['pc', 'midi'].includes(preceding[0].source ?? '') ||
+        !current.length) continue;
+    const source = preceding[0].source!;
+    if (!current.every(e => e.source === source && e.expectedNote === to.noteName &&
+        (e.outcome === 'correct' || e.outcome === 'wrong-pitch'))) continue;
+    const correct = current.filter(e => e.outcome === 'correct');
+    if (correct.length !== 1 || current[current.length - 1] !== correct[0] ||
+        correct[0].playedNote !== to.noteName) continue;
+    const hasErrors = current.some(e => e.outcome === 'wrong-pitch');
+    next = addPracticeIntervalObservation(next, {
+      source, mode: 'reflex', noteName: to.noteName, clef: to.clef,
+      previousNoteName: from.noteName, previousClef: from.clef,
+      outcome: hasErrors ? 'wrong-pitch' : 'correct',
+      // Only target-response timing on a clean *PC* transition is known.
+      // MIDI hardware latency is uncalibrated. Do not infer note-onset timing.
+      reactionMs: !hasErrors && source === 'pc' ? correct[0].reactionMs : null,
+      at: nowMs
+    });
+  }
   return next;
 }
 
 export function validatePracticeStats(value: unknown): PracticeStats {
   if (!value || typeof value !== 'object') return emptyPracticeStats();
   const obj = value as Record<string, unknown>;
-  if (obj.version !== 1) return emptyPracticeStats();
+  if (obj.version !== 1 && obj.version !== 2) return emptyPracticeStats();
   const read = (input: unknown): Record<string, PracticeStat> => {
     if (!input || typeof input !== 'object' || Array.isArray(input)) return {};
     const entries = Object.entries(input);
@@ -178,5 +225,20 @@ export function validatePracticeStats(value: unknown): PracticeStats {
     }
     return result;
   };
-  return { version: 1, notes: read(obj.notes), intervals: read(obj.intervals) };
+  // v1 interval observations were inferred from *every* input, including
+  // incorrect/assisted predecessor paths. Their reliability cannot be
+  // recovered. Migrate note evidence, but never let old pair data affect
+  // a new adaptive score.
+  const notes = Object.fromEntries(Object.entries(read(obj.notes)).filter(([key]) =>
+    /^(pc|midi):reflex:(treble|bass):[A-G](?:#|b)?[0-8]$/.test(key)));
+  const intervals = obj.version === 2
+    ? Object.fromEntries(Object.entries(read(obj.intervals)).filter(([key]) => {
+      const match = /^(pc|midi):reflex:(treble|bass):([A-G](?:#|b)?[0-8]):to:(treble|bass):([A-G](?:#|b)?[0-8]):d([+-]?\\d+):c([+-]?\\d+)$/.exec(key);
+      if (!match) return false;
+      const actual = directedInterval({ clef: match[2] as ClefType, noteName: match[3] },
+        { clef: match[4] as ClefType, noteName: match[5] });
+      return actual !== null && actual.diatonicSteps === Number(match[6]) &&
+        actual.chromaticSemitones === Number(match[7]);
+    })) : {};
+  return { version: 2, notes, intervals };
 }
