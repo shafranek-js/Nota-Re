@@ -30,6 +30,8 @@ try{
  });
  const base='http://127.0.0.1:'+server.address().port;
  await page.goto(base,{waitUntil:'domcontentloaded'});
+ assert.ok(await page.evaluate(()=>document.styleSheets.length>0),
+   'research UI stylesheet must load under strict Content Security Policy');
  assert.equal(await page.evaluate(()=>window.__micCalls),0,'no microphone access before user click');
  assert.equal(await page.locator('#export').isDisabled(),true);
  assert.equal(await page.locator('#stop').isDisabled(),true);
