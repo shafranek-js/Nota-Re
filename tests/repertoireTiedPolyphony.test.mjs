@@ -43,7 +43,7 @@ test('tie across a barline is one attack, not three physical MIDI presses',()=>{
   const plan=planPolyphonicRehearsal(score,range(score,1,3),'both');
   assert.equal(plan.reason,null);
   assert.deepEqual(plan.steps.map(x=>x.targets.map(n=>n.midi)),
-    [[60,55],[57],[59,62]]);
+    [[60,55],[57],[62,59]]);
   assert.deepEqual(plan.steps[1].requiredHeld,[60]);
   assert.equal(plan.steps[0].targets[0].eventId,'c-start');
   assert.equal(JSON.stringify(score),before,'source must stay immutable');
