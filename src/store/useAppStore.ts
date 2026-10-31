@@ -469,7 +469,8 @@ function finishExercise(
   // Optional adaptive evidence is *only* from fully completed self-paced
   // standalone Reflex exercises. This is a separate privacy-local dataset.
   // Graded lessons, assisted, rhythm/flow and imported scores never feed it.
-  if (state.currentAppMode === 'reflex' && state.activeLessonId === null &&
+  if (state.adaptiveReflexEnabled && state.currentAppMode === 'reflex' &&
+      state.activeLessonId === null &&
       !state.isContinuousFlow && !state.isExerciseAssisted &&
       !state.isRepertoirePreviewOpen && !state.isTwoHandPracticeOpen) {
     const observations = addSelfPacedReflexAttempt(
