@@ -3,6 +3,7 @@ import type { OpenSheetMusicDisplay } from 'opensheetmusicdisplay';
 import { midiManager } from '../../../core/midi/MidiManager';
 import { audioEngine } from '../../../core/audio/AudioEngine';
 import { MetronomeToggle } from './MetronomeToggle';
+import { ModuleVCompanionStudy } from './ModuleVCompanionStudy';
 import { MIDI_NOTE_MAP } from '../../../data/notes';
 import { toMusicXml, type SupportedKey } from '../../../core/notation/musicXml';
 import { getVerticalChordGuides } from '../../../core/notation/intervalGuides';
@@ -96,6 +97,8 @@ export const TwoHandPractice: React.FC = () => {
   const [minorForm, setMinorForm] = useState<MinorForm>('natural');
   const [accompanimentHands, setAccompanimentHands] = useState<AccompanimentHands>('left');
   const [bassOctaveShift, setBassOctaveShift] = useState<0 | 12>(0);
+  const [companionRunning, setCompanionRunning] = useState(false);
+  const companionRunningRef = useRef(false);
   const isChordStudy = !courseTrial && studyFamily === 'chords';
   const isAccompaniment = !courseTrial && studyFamily === 'accompaniment';
   const harmonicStudy = isChordStudy || isAccompaniment;
@@ -205,6 +208,7 @@ export const TwoHandPractice: React.FC = () => {
   };
 
   const startTempo = async () => {
+    if (companionRunningRef.current) return; // Isolated companion MIDI session owns input.
     // Closed-position triad introduction is deliberately an ungraded,
     // self-paced overlap check, not a timed/graded two-hand study.
     if (isChordStudy) return;
@@ -292,6 +296,7 @@ export const TwoHandPractice: React.FC = () => {
     // An exercise change or navigating away cancels scheduled clicks and
     // cannot leave a hidden timed session awarding progress.
     const detach = midiManager.onMidiEvent(event => {
+      if (companionRunningRef.current) return;
       if (event.type === 'sustain') return;
       const relevant: PracticeMidiEvent | null =
         event.type === 'note-on' || event.type === 'note-off' ? event :
@@ -701,7 +706,7 @@ export const TwoHandPractice: React.FC = () => {
           )}
           <button type="button" onClick={resetTrial} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">Заново / Стоп</button>
           {!isChordStudy && (
-            <button type="button" data-testid="two-hand-start-tempo" disabled={!!plan && !timed.finished}
+            <button type="button" data-testid="two-hand-start-tempo" disabled={companionRunning || (!!plan && !timed.finished)}
               onClick={() => { void startTempo(); }}
               className="rounded bg-sky-700 disabled:opacity-40 px-3 py-1.5 text-xs text-white">
               {plan ? 'Повторить с метрономом' : `Играть по метроному · ${exercise.score.beats} доли`}
@@ -710,6 +715,14 @@ export const TwoHandPractice: React.FC = () => {
           <button type="button" onClick={exportXml} className="rounded bg-slate-800 px-3 py-1.5 text-xs text-white">MusicXML</button>
         </div>
       </div>
+      {accompaniment && accompanimentHands === 'both' && !plan && loadStatus === 'ready' && (
+        <ModuleVCompanionStudy study={accompaniment} bpm={practiceBpm}
+          midiInputsCount={midiInputsCount}
+          onActiveChange={active => {
+            companionRunningRef.current = active;
+            setCompanionRunning(active);
+          }} />
+      )}
       {accompaniment && (
         <div data-testid="accompaniment-details"
           className="rounded-lg border border-sky-700/50 bg-sky-950/30 px-3 py-2 text-xs text-slate-200">
