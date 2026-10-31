@@ -280,6 +280,11 @@ export const RepertoirePreview: React.FC<Props> = ({ info, theme, onClose, onRep
   useEffect(() => {
     if (pitchTrial.phase !== 'playing' || !pitchTrialPlan) return;
     return midiManager.onMidiEvent(event => {
+      // A disconnected controller must not leave a stale playing session.
+      if (event.type === 'panic' || event.type === 'all-notes-off') {
+        setPitchTrial(initialPitchTrial());
+        return;
+      }
       if (event.type !== 'note-on' || document.hidden) return;
       const app = useAppStore.getState();
       if (app.isSettingsOpen || !app.isRepertoirePreviewOpen ||
