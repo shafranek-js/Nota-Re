@@ -13,7 +13,7 @@ test('streaming tracker observes actual frames once and counts retriggers after 
   detections.push(...tracker.push({time:i*.011,notes}));
  }
  assert.deepEqual(detections.map(n=>n.midi),[60,60]);
- assert.throws(()=>tracker.push({time:1.1,notes:[]}),/Incorrect/);
+ assert.throws(()=>tracker.push({time:100*.011,notes:[]}),/Incorrect/);
 });
 test('same-pitch MIDI truth matches one-to-one without counting duplicates',()=>{
  const midi=[{midi:60,atMs:100},{midi:60,atMs:500},{midi:64,atMs:600}];
