@@ -83,7 +83,7 @@ try {
       });
       await page.waitForFunction(() =>
         document.querySelector('[data-testid="repertoire-trial-status"]')?.textContent?.includes('Группа 2/2'));
-      await page.waitForFunction(min => window.__companionOscCount > min, beforeAudio);
+      await page.waitForFunction(min => window.__companionOscCount > min + 3, beforeAudio);
       await page.evaluate(() => {
         for (const note of [60, 64, 67]) window.__polyMidi.send([0x80, note, 0]);
         window.__polyMidi.send([0x90, 62, 100]);
