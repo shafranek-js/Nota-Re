@@ -34,6 +34,8 @@ export interface PolyphonicTrial {
   readonly correct: number;
   readonly wrong: number;
   readonly held: readonly number[];
+  /** Extra physical keys must be released before a chord can pass. */
+  readonly wrongHeld: readonly number[];
   readonly matched: readonly number[];
   readonly completedStepIndex: number | null;
   readonly last: 'correct' | 'wrong' | null;
@@ -159,7 +161,7 @@ export function planPolyphonicRehearsal(
 
 export const initialPolyphonicTrial = (): PolyphonicTrial => ({
   phase: 'idle', index: 0, correct: 0, wrong: 0,
-  held: [], matched: [], completedStepIndex: null, last: null
+  held: [], wrongHeld: [], matched: [], completedStepIndex: null, last: null
 });
 
 export function startPolyphonicTrial(plan: PolyphonicPlan): PolyphonicTrial {
@@ -181,6 +183,7 @@ export function recordPolyphonicKey(
   if (event.type === 'note-off') {
     if (!state.held.includes(event.note)) return state;
     return { ...state, held: state.held.filter(p => p !== event.note),
+      wrongHeld: state.wrongHeld.filter(p => p !== event.note),
       matched: state.matched.filter(p => p !== event.note) };
   }
   if (state.held.includes(event.note)) return state;
@@ -188,9 +191,15 @@ export function recordPolyphonicKey(
   const step = plan.steps[state.index];
   if (!step) return state;
   if (!step.targets.some(t => t.midi === event.note)) {
-    return { ...state, held, wrong: state.wrong + 1, last: 'wrong' };
+    return { ...state, held, wrongHeld: [...state.wrongHeld, event.note],
+      matched: [], wrong: state.wrong + 1, last: 'wrong' };
   }
   const matched = [...state.matched, event.note];
+  // A wrong key, even when already held from earlier in the same attempt,
+  // must be physically released and all required attacks repeated.
+  if (state.wrongHeld.length) {
+    return { ...state, held, matched: [], last: 'wrong' };
+  }
   if (!step.targets.every(t => matched.includes(t.midi))) {
     return { ...state, held, matched, last: null };
   }
